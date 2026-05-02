@@ -1,0 +1,15 @@
+================================================================================
+elintomapi — CodeIgniter 3 only (Webshop AI)
+================================================================================
+
+Entry:  index.php
+Core:   system/
+App:    application/   (config, controllers, views, libraries, …)
+Static: assets/webshop/
+
+http://localhost/elintomapi/  →  loads index.php → CI3
+
+API keys: copy application/config/elintom_api.local.example.php to
+elintom_api.local.php (gitignored) or edit elintom_api.php.
+
+================================================================================
