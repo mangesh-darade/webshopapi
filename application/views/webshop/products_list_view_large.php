@@ -51,7 +51,7 @@
 
                 
                 //Set Overselling Condition.
-                $item_quantity = (!empty($webshop_settings->overselling)) ? 999 : $item_quantity;
+                $item_quantity = $this->webshop_settings->overselling ? 999 : $item_quantity;
         ?>
             <div class="product list-view-large <?= $i==1 ? 'first': '';?>">
                 <div class="media">
@@ -91,7 +91,7 @@
                         </div>
                         <!-- .product-info -->
                         <div class="product-actions">
-                            <?php if (empty($webshop_settings->overselling)) { ?>
+                            <?php if($this->webshop_settings->overselling == 0) { ?>
                             <div class="availability">
                                 Availability:
                                 <p class="stock <?=$item_quantity ? 'in-stock' : 'text-danger'?>"><span class="availability_<?=$product_hash?>"><?= round($item_quantity)?></span> in stock</p>

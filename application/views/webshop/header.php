@@ -1,7 +1,4 @@
 <?php
-if (!empty($api_warning)) {
-    echo '<div class="alert alert-warning text-center" role="alert" style="margin:0;border-radius:0">' . html_escape($api_warning) . '</div>';
-}
 
 /*
  * Include Top Header Section As Per Settings

@@ -30,7 +30,7 @@
         } 
         
         //Set Overselling Condition.
-        $item_quantity = (!empty($webshop_settings->overselling)) ? 999 : $item_quantity;
+        $item_quantity = $this->webshop_settings->overselling ? 999 : $item_quantity;
         
         $product_price  = product_sale_price($product, $variant_price);
         

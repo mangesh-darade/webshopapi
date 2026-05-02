@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
-    <title>Webshop <?= isset($webshop_settings->home_page) ? htmlspecialchars($webshop_settings->home_page) : '' ?> <?= isset($webshop_settings->theme_color) ? htmlspecialchars($webshop_settings->theme_color) : '' ?> <?= isset($_GET['strip']) ? htmlspecialchars($_GET['strip']) : '' ?></title>
+    <title>Webshop <?=$webshop_settings->home_page?> <?=$webshop_settings->theme_color?> <?=$_GET['strip']?></title>
         
     <!-- <link rel="stylesheet" type="text/css" href="<?=$assets?>css/bootstrap.min.css" media="all" /> -->
     

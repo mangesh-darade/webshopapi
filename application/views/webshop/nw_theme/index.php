@@ -236,30 +236,12 @@ if (!empty($this->data['website_setting'])) {
         </div>
     </div>
     <?php
-    $homePageWelcomeMessageSection = null;
-    $homePageCompanyCertificationSection = null;
-    $homePageBulletPoints = null;
-    $homePageCompanyUpdatesSection = null;
-    $homePageSectionsArr = array();
-    if (!empty($this->data['custom_pages']['header_strip']) && is_array($this->data['custom_pages']['header_strip'])) {
-        $homePageSectionsArr = $this->data['custom_pages']['header_strip'];
-    }
+    $homePageSectionsArr = $this->data['custom_pages']['header_strip'];
     foreach ($homePageSectionsArr as $section) {
-        if (!is_array($section) || empty($section['page_key'])) {
-            continue;
-        }
-        if ($section['page_key'] === 'homepagewelcomemessagesection') {
-            $homePageWelcomeMessageSection = $section;
-        }
-        if ($section['page_key'] === 'homepagecompanycertificationsection') {
-            $homePageCompanyCertificationSection = $section;
-        }
-        if ($section['page_key'] === 'homepagebulletpoints') {
-            $homePageBulletPoints = $section;
-        }
-        if ($section['page_key'] === 'homepagecompanyupdatessection') {
-            $homePageCompanyUpdatesSection = $section;
-        }
+        if ($section['page_key'] == 'homepagewelcomemessagesection') $homePageWelcomeMessageSection = $section;
+        if ($section['page_key'] == 'homepagecompanycertificationsection') $homePageCompanyCertificationSection = $section;
+        if ($section['page_key'] == 'homepagebulletpoints') $homePageBulletPoints = $section;
+        if ($section['page_key'] == 'homepagecompanyupdatessection') $homePageCompanyUpdatesSection = $section;
     }
     ?>
     <div class="container">

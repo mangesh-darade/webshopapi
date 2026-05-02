@@ -597,3 +597,5 @@ ERROR - 2026-05-02 10:54:14 --> Severity: Notice --> Undefined offset: 19 C:\wam
 ERROR - 2026-05-02 10:54:14 --> Severity: Notice --> Undefined offset: 21 C:\wamp\www\elintomapi\application\views\webshop\headers\header_mobile.php 57
 ERROR - 2026-05-02 10:54:14 --> Severity: Notice --> Undefined variable: section_category_exclusive_products C:\wamp\www\elintomapi\application\views\webshop\sections\section_category_exclusive_products.php 3
 ERROR - 2026-05-02 10:54:14 --> Severity: Notice --> Undefined variable: exclusive_products C:\wamp\www\elintomapi\application\views\webshop\sections\section_category_exclusive_products.php 27
+ERROR - 2026-05-02 11:19:54 --> Severity: Warning --> require_once(C:\wamp\www\webshopapi\application\libraries/razorpay/razorpay-php/Razorpay.php): failed to open stream: No such file or directory C:\wamp\www\webshopapi\application\controllers\Webshop.php 3
+ERROR - 2026-05-02 11:19:54 --> Severity: Compile Error --> require_once(): Failed opening required 'C:\wamp\www\webshopapi\application\libraries/razorpay/razorpay-php/Razorpay.php' (include_path='.;C:\php\pear') C:\wamp\www\webshopapi\application\controllers\Webshop.php 3
