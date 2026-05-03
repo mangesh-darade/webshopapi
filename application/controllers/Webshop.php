@@ -93,26 +93,6 @@ class Webshop extends MY_Controller
             $this->data['website_setting'] = $this->webshop_model->get_website_setting();
         }
         // $this->data['custom_pages'] = $this->webshop_model->get_custom_pages();
-        // #region agent log
-        $__ms_total = (microtime(true) - $__w0) * 1000;
-        $p = (defined('FCPATH') ? FCPATH : dirname(BASEPATH) . DIRECTORY_SEPARATOR) . 'debug-1747c8.log';
-        @file_put_contents($p, json_encode(array(
-            'sessionId' => '1747c8',
-            'runId' => 'perf',
-            'hypothesisId' => 'H2_H3_H4',
-            'location' => 'Webshop:__construct',
-            'message' => 'segment_ms',
-            'data' => array(
-                'construct_total_ms' => round($__ms_total, 2),
-                'get_media_uploads_base_ms' => round($__ms_media, 2),
-                'get_categories_ms' => round($__ms_cat, 2),
-                'brands_block_ms' => round($__ms_brands, 2),
-                'get_cart_data_ms' => round(isset($__ms_cart) ? $__ms_cart : 0, 2),
-                'uri' => $this->uri->uri_string(),
-            ),
-            'timestamp' => (int) round(microtime(true) * 1000),
-        )) . "\n", FILE_APPEND | LOCK_EX);
-        // #endregion
     }
 
     public function service_off()

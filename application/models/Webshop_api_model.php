@@ -67,22 +67,6 @@ class Webshop_api_model extends CI_Model {
         return $n >= 0 ? $n : $default_seconds;
     }
 
-    /** @internal perf NDJSON */
-    protected function _perf_cache_debug_line($location_suffix, array $data) {
-        // #region agent log
-        $p = (defined('FCPATH') ? FCPATH : dirname(BASEPATH) . DIRECTORY_SEPARATOR) . 'debug-1747c8.log';
-        @file_put_contents($p, json_encode(array(
-            'sessionId'    => '1747c8',
-            'runId'        => 'post-fix',
-            'hypothesisId' => 'H_cache',
-            'location'     => 'Webshop_api_model:' . $location_suffix,
-            'message'      => $location_suffix,
-            'data'         => $data,
-            'timestamp'    => (int) round(microtime(true) * 1000),
-        )) . "\n", FILE_APPEND | LOCK_EX);
-        // #endregion
-    }
-
     protected function _store_settings_session_cache($res, $ttl_seconds) {
         if ($ttl_seconds <= 0 || !$res || !is_object($res)) {
             return;
@@ -132,9 +116,6 @@ class Webshop_api_model extends CI_Model {
                 if (is_array($row) && isset($row['exp'], $row['blob']) && (int) $row['exp'] > time()) {
                     $cached = json_decode($row['blob']);
                     if ($cached !== null && is_object($cached)) {
-                        // #region agent log
-                        $this->_perf_cache_debug_line('get_settings_cache_hit', array('ttl_left_sec' => max(0, (int) $row['exp'] - time())));
-                        // #endregion
                         return $cached;
                     }
                 }
@@ -391,11 +372,6 @@ class Webshop_api_model extends CI_Model {
                     && (string) $row['sig'] === $cart_sig && (int) $row['exp'] > time()) {
                     $cached = @unserialize($row['ser']);
                     if (is_array($cached) && isset($cached['products']) && is_array($cached['products'])) {
-                        // #region agent log
-                        $this->_perf_cache_debug_line('get_cart_data_cache_hit', array(
-                            'ttl_left_sec' => max(0, (int) $row['exp'] - time()),
-                        ));
-                        // #endregion
                         return $cached;
                     }
                 }
@@ -628,11 +604,6 @@ class Webshop_api_model extends CI_Model {
                     $tree = @unserialize($row['ser']);
                     if (is_array($tree)) {
                         $this->_categories_cache = $tree;
-                        // #region agent log
-                        $this->_perf_cache_debug_line('get_categories_cache_hit', array(
-                            'ttl_left_sec' => max(0, (int) $row['exp'] - time()),
-                        ));
-                        // #endregion
                         return $tree;
                     }
                 }
