@@ -179,7 +179,6 @@ if (!empty($this->data['website_setting'])) {
             }
         }
     </style>
-    </script>
 
 </head>
 
@@ -607,7 +606,7 @@ if (!empty($this->data['website_setting'])) {
         <script defer type="module/javascript" src="<?= $assets ?>nw_theme/js/common.js"></script>
 
         <script>
-            const baseUrl = "<?= baseUrl('webshop') ?>"
+            const baseUrl = "<?= base_url('webshop') ?>"
             const message = "<?= $this->session->flashdata('message') ?>";
             const assets = "<?= $assets ?>";
             const websitePhoneNumber = "<?= $phone_number ?>";

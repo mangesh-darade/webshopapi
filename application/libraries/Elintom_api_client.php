@@ -2,8 +2,11 @@
 defined('BASEPATH') OR exit('No direct script access allowed');
 
 /**
- * ElintOm POS API client — POST api3/eshop (webshop catalogue & settings).
+ * ElintOm POS API client — POST {ElintOm}/api3/eshop (webshop catalogue & settings).
  * Same protocol as POS offline sync (privatekey + action).
+ *
+ * Server: ElintOm Api3::eshop() — validates key vs sma_settings.api_privatekey,
+ * requires POS ≥ 3 and api_access enabled.
  */
 class Elintom_api_client {
 

@@ -342,7 +342,7 @@
                                         } else {
                                             cart_contents += '<p><strong>Qty:</strong> ' + quantity + ' &nbsp;&nbsp;</p>';
                                         }
-                                        cart_contents += '<p><a href="<?= baseUrl("webshop/cart") ?>" class="btn add-to-cart" style="margin-bottom:5px; font-size:130%; padding-left:30px; padding-right:30px">View Cart &amp; Checkout</a> <a class="btn btn-grey btn-sm continue-shopping" style="border-radius:60px">Continue Shopping</a></p>';
+                                        cart_contents += '<p><a href="<?= base_url("webshop/cart") ?>" class="btn add-to-cart" style="margin-bottom:5px; font-size:130%; padding-left:30px; padding-right:30px">View Cart &amp; Checkout</a> <a class="btn btn-grey btn-sm continue-shopping" style="border-radius:60px">Continue Shopping</a></p>';
                                         cart_contents += '</div></div>';
 
                                         cart_contents += '</div></div>';

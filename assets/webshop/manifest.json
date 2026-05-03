@@ -1,0 +1,8 @@
+{
+  "name": "Webshop",
+  "short_name": "Webshop",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff"
+}

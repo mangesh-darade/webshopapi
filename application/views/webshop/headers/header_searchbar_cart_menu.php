@@ -87,10 +87,5 @@
         <!-- .dropdown-menu-mini-cart -->
     </li>
 </ul>
-<label>Themes</label>
-<select id="themes" onchange="reloadPage()">
-        <option  value="default">Default</a>
-        <option  value="restaurant">Restaurant</option>
-</select>
 <!-- .site-header-cart -->
  

@@ -160,41 +160,36 @@ class webshop_settings extends MY_Controller {
 
     public function sliders_images() {
 
-        if ($_POST['upload_images'] == "Upload Images") {
-
+        if ($this->input->post('upload_images') == "Upload Images") {
 
             if ($_FILES["background_images"]["error"] && $_FILES["slider_images"]["error"]) {
-
                 $this->session->set_flashdata('error', lang('Please Select Images'));
                 redirect('webshop_settings/sliders');
             }
 
             $statusBg = $statusImg = TRUE;
+            $allowed_exts = ['jpg', 'jpeg', 'png'];
+            $allowed_mimes = ['image/jpeg', 'image/png'];
+
             // Check if file was uploaded without errors
             if (isset($_FILES["background_images"]) && $_FILES["background_images"]["error"] == 0) {
-                $allowed = array("jpg" => "image/jpg", "jpeg" => "image/jpeg", "png" => "image/png");
-                $filename = $_FILES["background_images"]["name"];
-                $filetype = $_FILES["background_images"]["type"];
+                $filename = preg_replace('/[^a-zA-Z0-9\.\-_]/', '', basename($_FILES["background_images"]["name"]));
                 $filesize = $_FILES["background_images"]["size"];
+                $tmp_name = $_FILES["background_images"]["tmp_name"];
 
-                // Verify file extension
-                $ext = pathinfo($filename, PATHINFO_EXTENSION);
-                if (!array_key_exists($ext, $allowed))
-                    die("Error: Please select a valid file format.");
+                $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+                $realMime = function_exists('mime_content_type') ? mime_content_type($tmp_name) : getimagesize($tmp_name)['mime'];
 
-                // Verify file size - 512MB maximum
+                if (!in_array($ext, $allowed_exts)) die("Error: Please select a valid file format.");
+
                 $maxsize = 0.5 * 1024 * 1024;
-                if ($filesize > $maxsize)
-                    die("Error: File size is larger than the allowed limit.");
+                if ($filesize > $maxsize) die("Error: File size is larger than the allowed limit.");
 
-                // Verify MYME type of the file
-                if (in_array($filetype, $allowed)) {
-                    // Check whether file exists before uploading it
-                    if (file_exists("assets/mdata/$this->Customer_assets/uploads/webshop/slider/bg/" . $filename)) {
+                if (in_array($realMime, $allowed_mimes)) {
+                    if (file_exists("assets/mdata/{$this->Customer_assets}/uploads/webshop/slider/bg/" . $filename)) {
                         $statusBg = FALSE;
-                        $statusBgMsg = $filename . " is already exists.";
                     } else {
-                        move_uploaded_file($_FILES["background_images"]["tmp_name"], "assets/mdata/$this->Customer_assets/uploads/webshop/slider/bg/" . $filename);
+                        move_uploaded_file($tmp_name, "assets/mdata/{$this->Customer_assets}/uploads/webshop/slider/bg/" . $filename);
                         $statusBg = TRUE;
                     }
                 } else {
@@ -202,34 +197,23 @@ class webshop_settings extends MY_Controller {
                 }
             } else {
                 $statusBg = FALSE;
-                $statusBgMsg = $_FILES["background_images"]["error"];
             }
 
             // Check if file was uploaded without errors
             if (isset($_FILES["slider_images"]) && $_FILES["slider_images"]["error"] == 0) {
-                $allowed = array("jpg" => "image/jpg", "jpeg" => "image/jpeg", "png" => "image/png");
-                $filename = $_FILES["slider_images"]["name"];
-                $filetype = $_FILES["slider_images"]["type"];
-                $filesize = $_FILES["slider_images"]["size"];
+                $filename = preg_replace('/[^a-zA-Z0-9\.\-_]/', '', basename($_FILES["slider_images"]["name"]));
+                $tmp_name = $_FILES["slider_images"]["tmp_name"];
 
-                // Verify file extension
-                $ext = pathinfo($filename, PATHINFO_EXTENSION);
-                if (!array_key_exists($ext, $allowed))
-                    die("Error: Please select a valid file format.");
+                $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+                $realMime = function_exists('mime_content_type') ? mime_content_type($tmp_name) : getimagesize($tmp_name)['mime'];
 
-                // Verify file size - 512MB maximum
-               /* $maxsize = 0.5 * 1024 * 1024;
-                if ($filesize > $maxsize)
-                    die("Error: File size is larger than the allowed limit.");*/
+                if (!in_array($ext, $allowed_exts)) die("Error: Please select a valid file format.");
 
-                // Verify MYME type of the file
-                if (in_array($filetype, $allowed)) {
-                    // Check whether file exists before uploading it
-                    if (file_exists("assets/mdata/$this->Customer_assets/uploads/webshop/slider/slide/" . $filename)) {
+                if (in_array($realMime, $allowed_mimes)) {
+                    if (file_exists("assets/mdata/{$this->Customer_assets}/uploads/webshop/slider/slide/" . $filename)) {
                         $statusImg = false;
-                        $statusImgMsg = $filename . " is already exists.";
                     } else {
-                        move_uploaded_file($_FILES["slider_images"]["tmp_name"], "assets/mdata/$this->Customer_assets/uploads/webshop/slider/slide/" . $filename);
+                        move_uploaded_file($tmp_name, "assets/mdata/{$this->Customer_assets}/uploads/webshop/slider/slide/" . $filename);
                         $statusImg = true;
                     }
                 } else {
@@ -237,16 +221,16 @@ class webshop_settings extends MY_Controller {
                 }
             } else {
                 $statusImg = false;
-                $statusImgMsg = "Error: " . $_FILES["slider_images"]["error"];
             }
 
             if ($statusImg || $statusBg) {
-
                 $this->session->set_flashdata('message', lang('Images Uploaded Successfully'));
+                redirect('webshop_settings/sliders');
+            } else {
+                $this->session->set_flashdata('error', 'Error occurred during file upload. Check file formats.');
                 redirect('webshop_settings/sliders');
             }
         } else {
-
             echo "Invalid Action";
         }
     }

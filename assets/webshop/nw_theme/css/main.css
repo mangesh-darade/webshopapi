@@ -3343,7 +3343,7 @@ select[multiple].input-lg,
   border: 1px solid transparent;
   white-space: nowrap;
   padding: 6px 12px;
-  font-size: 20px;
+  font-size: 14px;
   line-height: 1.42857;
   border-radius: 20px !important;
   -webkit-user-select: none;
@@ -7560,13 +7560,6 @@ body.noscroll header {
 .main {
   clear: both;
   padding-top: 30px;
-}
-@media (max-width: 780px) {
-  .main {
-    padding-top: 30px;
-    margin-left: 20px;
-    margin-right: 20px;
-  }
 }
 @media (min-width: 992px) {
   .main {

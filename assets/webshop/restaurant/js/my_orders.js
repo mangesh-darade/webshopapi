@@ -90,7 +90,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // console.log("viewOrderDetailsButton", viewOrderDetailsButton);
 
       Array.from(viewOrderDetailsButtons).map((button) => {
-        console.group("woooooo", button);
+        // console.group("woooooo", button);
 
         button.addEventListener("click", (event) => {
           // console.log("clicked");
@@ -145,7 +145,7 @@ document.addEventListener("DOMContentLoaded", () => {
             (order) => order.order_id == order_id
           )[0];
 
-          console.log("clickedOrder", clickedOrder);
+          // console.log("clickedOrder", clickedOrder);
           renderTrackingBar(
             clickedOrder["sale_status"],
             clickedOrder["date"],

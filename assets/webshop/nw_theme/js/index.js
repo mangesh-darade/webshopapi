@@ -34,46 +34,4 @@ document.addEventListener("DOMContentLoaded", function () {
       link.href = `${baseUrl}`;
       // console.log("sealseal", seal.src);
     });
-
-  //-------------render certification pdf (herbinn)-------
-  if (document.getElementById("pdf-canvas")) {
-    // Asynchronously download the PDF
-    pdfjsLib.getDocument(certificateUrl).promise.then(
-      function (pdf) {
-        console.log("PDF loaded");
-
-        // Fetch the first page
-        pdf.getPage(1).then(function (page) {
-          console.log("Page loaded");
-
-          var scale = 1.5; // Adjust scale for zoom
-          var viewport = page.getViewport({
-            scale: scale,
-          });
-
-          // Prepare canvas to render PDF
-          var canvas = document.getElementById("pdf-canvas");
-          var context = canvas.getContext("2d");
-
-          // Set canvas size to match PDF page
-          canvas.height = viewport.height;
-          canvas.width = viewport.width;
-
-          // Render PDF page into the canvas context
-          var renderContext = {
-            canvasContext: context,
-            viewport: viewport,
-          };
-          page.render(renderContext);
-        });
-      },
-      function (error) {
-        console.log("Error loading PDF: " + error);
-      },
-    );
-  }
-
-  if (document.querySelector("#home-nav")) {
-    document.querySelector("#home-nav").classList.add("highlight-nav-option");
-  }
 });

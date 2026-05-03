@@ -3,11 +3,12 @@
         <div class="techmarket-sticky-wrap">
             <div class="row mb-1">
                 <div class="site-branding col-4">
-                    <?php if($webshop_settings->logo){ ?>
+                    <?php
+                    $logo_file = (!empty($webshop_settings->logo)) ? basename((string) $webshop_settings->logo) : 'logo.png';
+                    ?>
                     <a href="<?= base_url('webshop/index')?>" class="custom-logo-link" rel="home">
-                        <img src="<?= $uploads . "logos/".$webshop_settings->logo ?>" class="img" />
+                        <img src="<?= $uploads ?>logos/<?= htmlspecialchars($logo_file, ENT_QUOTES, 'UTF-8') ?>" class="img" alt="<?= isset($store_display_name) ? htmlspecialchars($store_display_name, ENT_QUOTES, 'UTF-8') : 'Store' ?>" />
                     </a>
-                    <?php } ?>
                     <!-- /.custom-logo-link -->
                 </div>
                 <!-- /.site-branding -->

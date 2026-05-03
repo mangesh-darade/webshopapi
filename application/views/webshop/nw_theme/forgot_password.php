@@ -67,7 +67,7 @@
                             <p id="mob-error" class="error-text error-msg">Please enter correct mobile number format</p>
                         </div>
                         <p id="ErrOTP" class="error-msg"></p>
-                        <p id="registerWithUs">Looks like you are not registered. <a href="<?= baseUrl('webshop/register') ?>"><strong>Register</strong></a> with us ?</p>
+                        <p id="registerWithUs">Looks like you are not registered. <a href="<?= base_url('webshop/register') ?>"><strong>Register</strong></a> with us ?</p>
                         <div class="form-group">
                             <div class="col-lg-offset-1 col-lg-3">
                                 <button type="submit" id="send-otp-btn" class="btn btn-primary btn-morris">Send OTP</button>

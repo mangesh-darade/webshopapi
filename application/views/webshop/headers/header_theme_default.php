@@ -62,8 +62,9 @@
                 </nav>
                 <!-- .primary-navigation -->
                 <div class="site-branding">
+                    <?php $hdr_logo = (!empty($webshop_settings->logo)) ? basename((string) $webshop_settings->logo) : 'logo.png'; ?>
                     <a href="<?= base_url('webshop/index')?>" class="custom-logo-link" rel="home">
-                        <img src="<?= $uploads . "logos/logo.png" ?>" class="img" />
+                        <img src="<?= $uploads ?>logos/<?= htmlspecialchars($hdr_logo, ENT_QUOTES, 'UTF-8') ?>" class="img" alt="<?= isset($store_display_name) ? htmlspecialchars($store_display_name, ENT_QUOTES, 'UTF-8') : 'Store' ?>" />
                     </a>
                     <!-- /.custom-logo-link -->
                 </div>

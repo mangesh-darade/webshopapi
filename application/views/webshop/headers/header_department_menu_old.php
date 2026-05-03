@@ -6,12 +6,15 @@
 
     <ul id="menu-departments-menu" class="dropdown-menu yamm departments-menu-dropdown">
         <li class="highlight menu-item animate-dropdown">
-            <a title="Top Products" href="#">Top Products</a>
+            <a title="Shop home" href="<?= base_url('webshop') ?>">Shop home</a>
         </li>
         <?php
         if (is_array($main_categories)) {
             foreach ($main_categories as $category) {
-                if (is_array($categories[$category->id])) {
+                $subs = (isset($categories[$category->id]) && is_array($categories[$category->id]))
+                    ? $categories[$category->id]
+                    : array();
+                if (!empty($subs)) {
                     ?>      
                     <li class="yamm-tfw menu-item menu-item-has-children animate-dropdown dropdown-submenu">
                         <a title="<?= $category->name ?>" data-toggle="dropdown" class="dropdown-toggle" aria-haspopup="true" href="<?= base_url("webshop/category_products/".$category->id)?>"><?= $category->name ?> <span class="caret"></span></a>
@@ -35,7 +38,7 @@
                                                     <ul>
                                                         <li class="nav-title"><?= $category->name ?></li>
                                                         <?php
-                                                        foreach ($categories[$category->id] as $subcategory) {
+                                                        foreach ($subs as $subcategory) {
                                                             ?>
                                                         <li><a href="<?= base_url("webshop/category_products/".$category->id."/".$subcategory->id)?>"><?= $subcategory->name ?></a></li>
                                                         <?php }
@@ -60,7 +63,7 @@
                                                     <ul>
                                                         <li class="nav-title"><?= $category->name ?> Brands</li>
                                                         <?php
-                                                        if (isset($category_brands[$category->id])) {
+                                                        if (!empty($category_brands[$category->id]) && is_array($category_brands[$category->id])) {
                                                             foreach ($category_brands[$category->id] as $brands) {
                                                         ?>
                                                                 <li style="display: inline-table; width: 49%;"><a href="<?= base_url("webshop/products/?q=brand&catid=".$category->id."&key=".str_replace([' & ', '&',' ','-'], '_', $brands->brand_name)."&id=".md5($brands->brand_id))?>"><?= $brands->brand_name ?></a></li>                                                                                    

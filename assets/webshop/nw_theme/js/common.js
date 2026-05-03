@@ -15,7 +15,7 @@ function validateInput(
   eventName,
   errorElement,
   onlyValidate = false,
-  pattern,
+  pattern
 ) {
   let isValidated = true;
   if (onlyValidate) {
@@ -111,7 +111,7 @@ if (path == "register") {
     registerPageValidDigits = Number(
       countryElementRegister.options[
         countryElementRegister.selectedIndex
-      ].getAttribute("phonedigits"),
+      ].getAttribute("phonedigits")
     );
 
     phonePattern = new RegExp(`^[1-9][0-9]{${registerPageValidDigits - 1}}$`);
@@ -194,28 +194,28 @@ if (path == "register") {
       null,
       fNameError,
       true,
-      namePattern,
+      namePattern
     );
     const validLName = validateInput(
       lName,
       null,
       lNameError,
       true,
-      namePattern,
+      namePattern
     );
     const validPhone = validateInput(
       phoneInput,
       null,
       phoneError,
       true,
-      new RegExp(`^[1-9][0-9]{${registerPageValidDigits - 1}}$`),
+      new RegExp(`^[1-9][0-9]{${registerPageValidDigits - 1}}$`)
     );
     const validPassword = validateInput(
       passwordEle,
       null,
       passwordErrorEle,
       true,
-      passPattern,
+      passPattern
     );
 
     let validEmail = true;
@@ -227,7 +227,7 @@ if (path == "register") {
         null,
         emailErrorReg,
         true,
-        emailPattern,
+        emailPattern
       );
     }
 
@@ -270,14 +270,14 @@ else if (path == "login") {
     "input",
     phoneErrorLogin,
     false,
-    commonPhonePattern,
+    commonPhonePattern
   );
   validateInput(
     phoneInputLogin,
     "blur",
     phoneErrorLogin,
     false,
-    commonPhonePattern,
+    commonPhonePattern
   );
 
   const loginForm = document.getElementById("loginform");
@@ -287,7 +287,7 @@ else if (path == "login") {
       null,
       phoneErrorLogin,
       true,
-      commonPhonePattern,
+      commonPhonePattern
     );
 
     const validatePass = validateInput(
@@ -295,7 +295,7 @@ else if (path == "login") {
       null,
       passErrorLogin,
       true,
-      nonEmptyPattern,
+      nonEmptyPattern
     );
 
     if (!validPhoneInputLogin || !validatePass) {
@@ -363,16 +363,6 @@ else if (path == "checkout") {
 
   let checkBillInputHandler = null;
   let checkBillKeyPressHandler = null;
-
-  stateElement.addEventListener("change", function (event) {
-    if (!event.target.value) {
-      console.log("not");
-      stateElementError.classList.add("error-validation");
-    } else {
-      stateElementError.classList.remove("error-validation");
-      console.log("yes");
-    }
-  });
 
   function changeValidDigitsBill() {
     phonePattern = new RegExp(`^[1-9][0-9]{${billDigits - 1}}$`);
@@ -545,7 +535,7 @@ else if (path == "checkout") {
       phoneS,
       phoneErrorS,
       false,
-      "ship",
+      "ship"
     );
     // if (phoneS.value) {
     //   validateInput(
@@ -571,7 +561,7 @@ else if (path == "checkout") {
           phoneS,
           phoneErrorS,
           false,
-          "ship",
+          "ship"
         );
         // if (phoneS.value) {
         //   validateInput(
@@ -607,14 +597,14 @@ else if (path == "checkout") {
       null,
       fNameError,
       true,
-      namePattern,
+      namePattern
     );
     const validLName = validateInput(
       lName,
       null,
       lNameError,
       true,
-      namePattern,
+      namePattern
     );
     const validCity = validateInput(city, null, cityError, true, namePattern);
     const validPhone = validateInput(
@@ -622,7 +612,7 @@ else if (path == "checkout") {
       null,
       phoneError,
       true,
-      phoneDigitValidBillPattern,
+      phoneDigitValidBillPattern
     );
 
     const validEmail = validateInput(
@@ -630,7 +620,7 @@ else if (path == "checkout") {
       null,
       emailError,
       true,
-      emailPattern,
+      emailPattern
     );
 
     const validateAddress1 = validateInput(
@@ -638,7 +628,7 @@ else if (path == "checkout") {
       null,
       address1Error,
       true,
-      nonEmptyPattern,
+      nonEmptyPattern
     );
 
     const validateAddress2 = validateInput(
@@ -646,7 +636,7 @@ else if (path == "checkout") {
       null,
       address2Error,
       true,
-      nonEmptyPattern,
+      nonEmptyPattern
     );
 
     const validState = validateInput(
@@ -654,14 +644,14 @@ else if (path == "checkout") {
       null,
       stateElementError,
       true,
-      nonEmptyPattern,
+      nonEmptyPattern
     );
     const validCountry = validateInput(
       countryElement,
       null,
       countryElementError,
       true,
-      nonEmptyPattern,
+      nonEmptyPattern
     );
 
     if (
@@ -693,28 +683,28 @@ else if (path == "checkout") {
         null,
         fNameErrorS,
         true,
-        namePattern,
+        namePattern
       );
       const validLName = validateInput(
         lNameS,
         null,
         lNameErrorS,
         true,
-        namePattern,
+        namePattern
       );
       const validCity = validateInput(
         cityS,
         null,
         cityErrorS,
         true,
-        namePattern,
+        namePattern
       );
       const validPhone = validateInput(
         phoneS,
         null,
         phoneErrorS,
         true,
-        phoneDigitValidShipPattern,
+        phoneDigitValidShipPattern
       );
 
       const validEmail = validateInput(
@@ -722,7 +712,7 @@ else if (path == "checkout") {
         null,
         emailErrorS,
         true,
-        emailPattern,
+        emailPattern
       );
 
       const validateAddress1 = validateInput(
@@ -730,7 +720,7 @@ else if (path == "checkout") {
         null,
         address1ErrorS,
         true,
-        nonEmptyPattern,
+        nonEmptyPattern
       );
 
       const validateAddress2 = validateInput(
@@ -738,7 +728,7 @@ else if (path == "checkout") {
         null,
         address2ErrorS,
         true,
-        nonEmptyPattern,
+        nonEmptyPattern
       );
 
       const validCountryS = validateInput(
@@ -746,14 +736,14 @@ else if (path == "checkout") {
         null,
         countryElementErrorS,
         true,
-        nonEmptyPattern,
+        nonEmptyPattern
       );
       const validStateS = validateInput(
         stateElementS,
         null,
         stateElementErrosS,
         true,
-        nonEmptyPattern,
+        nonEmptyPattern
       );
 
       if (
@@ -826,14 +816,14 @@ function filterStates(
   phoneElement,
   phoneErrorElement,
   onlyChange = false,
-  toChangePhoneValid,
+  toChangePhoneValid
 ) {
   // console.log("toChangePhoneValidtoChangePhoneValid", toChangePhoneValid);
   let countryId = $(`#${countryElementId}`)
     .find(":selected")
     .data("country-id");
   let validPhoneDigit = Number(
-    $(`#${countryElementId}`).find(":selected").attr("phonedigits"),
+    $(`#${countryElementId}`).find(":selected").attr("phonedigits")
   );
   // console.log("phoneDigitValidphoneDigitValid", phoneDigitValid);
   phonePattern = new RegExp(`^[1-9][0-9]{${validPhoneDigit - 1}}$`);
@@ -867,19 +857,3 @@ function filterStates(
   //   return;
   // }
 }
-
-// var mybutton = document.getElementById("back-to-top-btn");
-// function topFunction() {
-//   window.scrollTo({ top: 0, behavior: 'smooth' });
-// }
-
-document.addEventListener("DOMContentLoaded", () => {
-  let navName =
-    window.location.pathname.split("/")[
-      window.location.pathname.split("/").length - 2
-    ] + "_nav";
-
-  if (document.querySelector(`.${navName}`)) {
-    document.querySelector(`.${navName}`).classList.add("highlight-nav-option");
-  }
-});

@@ -46,7 +46,7 @@
                     <p>By registering, your billing and shipping addresses will be saved for future orders. Also, after placing an order you can access your account here to track your packages.</p>
 
                     <!-- <form name="registerform" class="form form-horizontal" id="registerform" method="post" action="FirstTimeRegistration.asp?dest=" novalidate="novalidate"> -->
-                    <form name="register" class="form form-horizontal" id="registerform" method="post" action="<?= baseUrl('webshop/register') ?>" validate="novalidate">
+                    <form name="register" class="form form-horizontal" id="registerform" method="post" action="<?= base_url('webshop/register') ?>" validate="novalidate">
                         <input type="hidden" name="submit_register" value="Register">
                         <input type="hidden" name="<?= $this->security->get_csrf_token_name(); ?>" value="<?= $this->security->get_csrf_hash(); ?>" />
                         <div class="form-group">
@@ -149,7 +149,7 @@
                         <div class="form-group">
                             <div class="col-lg-offset-3 col-lg-6" style="display:flex">
                                 <p>Already have an account ?</p>
-                                <a style="padding: 0% 0% 0% 2%" type="button" href="<?= baseUrl('webshop/login') ?>" class="btn btn-morris btn-lg">Go to login</a>
+                                <a style="padding: 0% 0% 0% 2%" type="button" href="<?= base_url('webshop/login') ?>" class="btn btn-morris btn-lg">Go to login</a>
                             </div>
                         </div>
                     </form>

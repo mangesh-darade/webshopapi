@@ -1,5 +1,5 @@
 ================================================================================
-elintomapi — CodeIgniter 3 only (Webshop AI)
+webshopapi — CodeIgniter 3 storefront (“Webshop AI”)
 ================================================================================
 
 Entry:  index.php
@@ -7,9 +7,11 @@ Core:   system/
 App:    application/   (config, controllers, views, libraries, …)
 Static: assets/webshop/
 
-http://localhost/elintomapi/  →  loads index.php → CI3
+ElintOm POS runs as a second app (e.g. C:\wamp\www\ElintOm). This project does
+not use ElintOm’s database; it calls HTTP POST …/api3/eshop only (see
+application/config/elintom_api.php and libraries/Elintom_api_client.php).
 
 API keys: copy application/config/elintom_api.local.example.php to
-elintom_api.local.php (gitignored) or edit elintom_api.php.
+elintom_api.local.php (optional gitignore) or edit elintom_api.php.
 
 ================================================================================

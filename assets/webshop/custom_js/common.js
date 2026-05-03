@@ -387,7 +387,7 @@ function formatSA(x) {
   return res;
 }
 
-function apply_coupon(coupon_code, cart_amount) {
+function apply_coupon(coupon_code, cart_amount, currencySymbol) {
   if ($("#coupon_code_id").val()) {
   $("#coupon_code_response").html(
     "<i class='fa fa-info-circle'></i> Coupon already applied."
@@ -442,12 +442,14 @@ function apply_coupon(coupon_code, cart_amount) {
 
         //  Update all relevant elements
         // $("#cart_total").val(cart_total);
-        $("#orderTotal").html(cart_total);
+        // $("#orderTotal").html(cart_total);
         $("#cart_subtotal_amt").val(cart_total); // important
         $("#cart_total_amount_show").html(cart_total);
-        $("#couponDiscountAmountShow").html(
-          parseFloat(objData.coupon_data.aplied_discount_amount).toFixed(2)
-        );
+        // $("#couponDiscountAmountShow").html(
+        //   parseFloat(objData.coupon_data.aplied_discount_amount).toFixed(2)
+        // );
+        $('#orderTotal').text(currencySymbol + ' ' + parseFloat(cart_total).toFixed(2));
+        $('#couponDiscountAmountShow').text(currencySymbol + ' ' + parseFloat(objData.coupon_data.aplied_discount_amount).toFixed(2));
         $(".tr-coupon-discount").show(); // Show the discount row
       } else if (objData.status == "failed") {
         // var msg = '<i class="fa fa-check"></i> ' + objData.msg;

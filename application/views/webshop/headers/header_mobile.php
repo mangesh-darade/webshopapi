@@ -3,11 +3,10 @@
         <div class="handheld-header">
             <div class="row">
                 <div class="site-branding">
-                   <?php if($webshop_settings->logo){ ?>
-                    <a href="<?= base_url('index') ?>" class="custom-logo-link" rel="home">
-                        <img src="<?= $uploads . "logos/".$webshop_settings->logo  ?>" alt="logo" class="img" />
+                    <?php $mob_logo = (!empty($webshop_settings->logo)) ? basename((string) $webshop_settings->logo) : 'logo.png'; ?>
+                    <a href="<?= base_url('webshop') ?>" class="custom-logo-link" rel="home">
+                        <img src="<?= $uploads ?>logos/<?= htmlspecialchars($mob_logo, ENT_QUOTES, 'UTF-8') ?>" alt="<?= isset($store_display_name) ? htmlspecialchars($store_display_name, ENT_QUOTES, 'UTF-8') : 'Store' ?>" class="img" />
                     </a>
-                    <?php } ?>
                     <!-- /.custom-logo-link -->
                 </div>
                 <!-- /.site-branding -->
@@ -20,7 +19,7 @@
                             </a>
                         </li>
                         <li class="wishlist">
-                            <a href="<?= base_url('#wishlist') ?>" class="has-icon">
+                            <a href="<?= base_url('webshop/wishlist') ?>" class="has-icon">
                                 <i class="tm tm-favorites"></i>
                                 <span class="count"><?=$wishlist_count?></span>
                             </a>
@@ -48,13 +47,15 @@
                             <span class="tmhm-close">Close</span>
                             <ul id="menu-departments-menu-1" class="nav">
                                 <li class="highlight menu-item animate-dropdown">
-                                    <a title="Top Products" href="#">Top Products</a>
+                                    <a title="Shop home" href="<?= base_url('webshop') ?>">Shop home</a>
                                 </li>
                                 <?php
                                 if (is_array($main_categories)) {
                                     foreach ($main_categories as $category) {
-                                        
-                                        if (is_array($categories[$category->id])) {
+                                        $subs = (isset($categories[$category->id]) && is_array($categories[$category->id]))
+                                            ? $categories[$category->id]
+                                            : array();
+                                        if (!empty($subs)) {
                                         ?>                                                
                                         <li class="yamm-tfw menu-item menu-item-has-children animate-dropdown dropdown-submenu">
                                             <a title="<?= $category->name ?>" data-toggle="dropdown" class="dropdown-toggle" aria-haspopup="true" href="#"> <?= $category->name ?> <span class="caret"></span></a>
@@ -64,7 +65,9 @@
                                                         <div class="bg-yamm-content bg-yamm-content-bottom bg-yamm-content-right">
                                                             <div class="kc-col-container">
                                                                 <div class="kc_single_image">
-                                                                    <img src="<?= $images ?>megamenu.jpg" class="" alt="" />
+                                                                    <?php if (!empty($category->image)) { ?>
+                                                                    <img src="<?= $uploads . htmlspecialchars($category->image) ?>" class="" alt="<?= htmlspecialchars($category->name) ?>" />
+                                                                    <?php } ?>
                                                                 </div>
                                                                 <!-- .kc_single_image -->
                                                             </div>
@@ -78,7 +81,7 @@
                                                                         <ul>
                                                                             <li class="nav-title"><?= $category->name ?></li>
                                                                             <?php                                                                            
-                                                                                foreach ($categories[$category->id] as $subcategory) {
+                                                                                foreach ($subs as $subcategory) {
                                                                                     ?>
                                                                                     <li><a href="<?= base_url("webshop/category_products/".$category->id."/".$subcategory->id)?>"><?= $subcategory->name ?></a></li>
                                                                                 <?php
@@ -98,7 +101,7 @@
                                                                         <ul>
                                                                             <li class="nav-title"><?= $category->name ?> Brands</li>
                                                                             <?php
-                                                                            if (is_array($category_brands[$category->id])) {
+                                                                            if (!empty($category_brands[$category->id]) && is_array($category_brands[$category->id])) {
                                                                                 foreach ($category_brands[$category->id] as $brands) {
                                                                                     ?>
                                                                                     <li><a href="<?= base_url("webshop/products/?q=brand&catid=".$category->id."&key=".str_replace([' & ', '&',' ','-'], '_', $brands->brand_name)."&id=".md5($brands->brand_id))?>"><?= $brands->brand_name ?></a></li>                                                                                    

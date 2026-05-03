@@ -52,8 +52,8 @@
                         <div class="col-md-6 returning-customers" style="margin-bottom:30px;">
                             <h3 class="title">Returning Customers</h3>
 
-                            <!-- <form name="registeredshopper" method="POST" action="<?= baseUrl('webshop/login') ?>" > -->
-                            <form name="loginform" method="POST" action="<?= baseUrl('webshop/login') ?>" id="loginform">
+                            <!-- <form name="registeredshopper" method="POST" action="<?= base_url('webshop/login') ?>" > -->
+                            <form name="loginform" method="POST" action="<?= base_url('webshop/login') ?>" id="loginform">
                                 <input type="hidden" name="return_page" value="<?= $return_page ? $return_page : 'webshop/index' ?>" />
                                 <!-- <input type="hidden" name="return_page"  value="webshop/register"/> -->
                                 <input type="hidden" name="submit_login" value="Login" />
@@ -79,8 +79,8 @@
                                     </div>
                                     <small id="passError" class="text-danger error-text" style="margin : 0.5% 0% 2% 0%">Please enter your password</small>
 
-                                    <!-- <p><small><a href="<?= baseUrl("webshop/forgot_password") ?>"><i class="icon-question-mark"></i> Forgot password?</a></small></p> -->
-                                    <p><small><a href="<?= baseUrl("webshop/forgot_password") ?>"><i class="icon-question-mark"></i> Forgot password?</a></small></p>
+                                    <!-- <p><small><a href="<?= base_url("webshop/forgot_password") ?>"><i class="icon-question-mark"></i> Forgot password?</a></small></p> -->
+                                    <p><small><a href="<?= base_url("webshop/forgot_password") ?>"><i class="icon-question-mark"></i> Forgot password?</a></small></p>
                                 </div>
                                 <!-- <p class="error-msg-login <?php if ($this->data['validated'] !== null) {
                                                                     if ($this->data['validated']) { ?>
@@ -104,7 +104,7 @@
 
                         <div class="col-md-5 col-md-offset-1 new-customers">
                             <h3 class="title">New Customers</h3>
-                            <p><a href="<?= baseUrl("webshop/register") ?>" class="btn btn-primary">Create an account</a></p>
+                            <p><a href="<?= base_url("webshop/register") ?>" class="btn btn-primary">Create an account</a></p>
                             <p style="margin-bottom:0.5em;">Creating an account lets you:</p>
                             <ul>
                                 <li>Track your packages</li>

@@ -56,7 +56,7 @@
                     <input type="hidden" name="signup_id" value="nw_newsletter_footer">
                     <input type="hidden" name="sc_req" value="0">
                 </div>
-                <p style="color:#CCC; font-size: 90%">This site is protected by reCAPTCHA and the Google <a href="<?= baseUrl('webshop/privacy_policy') ?>" target="_blank">Privacy Policy</a> and <a href="<?= baseUrl('webshop/terms_and_conditions') ?>" target="_blank">Terms of Service</a> apply.</p>
+                <p style="color:#CCC; font-size: 90%">This site is protected by reCAPTCHA and the Google <a href="<?= base_url('webshop/privacy_policy') ?>" target="_blank">Privacy Policy</a> and <a href="<?= base_url('webshop/terms_and_conditions') ?>" target="_blank">Terms of Service</a> apply.</p>
             </div> -->
                 <!-- <div class="col-md-6">
                 <h5>We Accept:</h5>

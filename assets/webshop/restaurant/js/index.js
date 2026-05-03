@@ -72,8 +72,8 @@ function populateSpecialItems(products, element) {
                                                   <div class="food-content d-flex flex-column ">
                                                   <div>
                                                   <span class="text-black">${
-                                                    products.Settings.symbol
-                                                  }${prod.formatedPrice}</span> 
+                                                    prod.formatedPrice && prod.formatedPrice.includes(products.Settings.symbol) ? prod.formatedPrice : (products.Settings.symbol + prod.formatedPrice)
+                                                  }</span> 
                                                   <button class="fal fa-shopping-cart addToCartBtn ${
                                                     products
                                                       .restaurant_is_active
