@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="robots" content="noindex">
-    <title>New Customer Registration - Herbinn Micro Medicines</title>
+    <title>New Customer Registration - <?= !empty($this->data['title']) ? $this->data['title'] : "Default Website Title" ?></title>
     <meta name="description" content="Established in the year 1994 we Herbinn Micro Medicines">
     <link href="//fonts.googleapis.com/css?family=Lato:400,400italic,700,700italic|Raleway:600" rel="stylesheet" type="text/css">
     <link href="<?= $assets ?>nw_theme/css/main.css?ver=20090901" rel="stylesheet">
@@ -46,7 +46,7 @@
                     <p>By registering, your billing and shipping addresses will be saved for future orders. Also, after placing an order you can access your account here to track your packages.</p>
 
                     <!-- <form name="registerform" class="form form-horizontal" id="registerform" method="post" action="FirstTimeRegistration.asp?dest=" novalidate="novalidate"> -->
-                    <form name="register" class="form form-horizontal" id="registerform" method="post" action="<?= base_url('webshop/register') ?>" validate="novalidate">
+                    <form name="register" class="form form-horizontal" id="registerform" method="post" action="<?= baseUrl('webshop/register') ?>" validate="novalidate">
                         <input type="hidden" name="submit_register" value="Register">
                         <input type="hidden" name="<?= $this->security->get_csrf_token_name(); ?>" value="<?= $this->security->get_csrf_hash(); ?>" />
                         <div class="form-group">
@@ -149,7 +149,7 @@
                         <div class="form-group">
                             <div class="col-lg-offset-3 col-lg-6" style="display:flex">
                                 <p>Already have an account ?</p>
-                                <a style="padding: 0% 0% 0% 2%" type="button" href="<?= base_url('webshop/login') ?>" class="btn btn-morris btn-lg">Go to login</a>
+                                <a style="padding: 0% 0% 0% 2%" type="button" href="<?= baseUrl('webshop/login') ?>" class="btn btn-morris btn-lg">Go to login</a>
                             </div>
                         </div>
                     </form>

@@ -51,7 +51,7 @@
                 }
                 
                 //Set Overselling Condition.
-                $item_quantity = (!empty($webshop_settings->overselling)) ? 999 : $item_quantity;
+                $item_quantity = $this->webshop_settings->overselling ? 999 : $item_quantity;
         ?>    
             <div class="product list-view-small ">
                 <div class="media">

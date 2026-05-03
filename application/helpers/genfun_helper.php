@@ -155,6 +155,7 @@ function salesRounding($sale_id) {
 // #Format: F j					=> 	#output: March 24 
 // #Format: F Y					=> 	#output: March 2012
 /////////////////////////////////////////////////////////////////////////////////////
+if(!function_exists('DateTimeFormat')){
 function DateTimeFormat($dateTime , $dateFormat = 'jS M Y' )
     {
 	$date = date_create($dateTime);
@@ -168,16 +169,21 @@ function DateTimeFormat($dateTime , $dateFormat = 'jS M Y' )
 	
 	return $newDateFormat;
     }
+}
 
+if(!function_exists('rupeeFormat')){
     function rupeeFormat($number, $decimal=2, $prefix='&#x20B9;') {
         
        return $prefix.'&nbsp;'.number_format($number, $decimal, ".", ",");    
     }
+}
     
+if(!function_exists('numberFormat')){
     function numberFormat($number, $decimal=0) {
         
        return number_format($number, $decimal, ".", ",");    
     }
+}
     
 
 

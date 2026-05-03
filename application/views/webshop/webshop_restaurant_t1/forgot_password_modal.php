@@ -24,7 +24,7 @@
             <div class="modal-content rounded-4 p-2" id="loginModalContentNew" style="height: 600px; overflow: hidden;">
 
                 <div class="modal-header border-0 justify-content-center">
-                    <img src="<?= $uploads ?>webshop/Minatshi Logo.png" alt="Loader Image" class="img-fluid"
+                    <img src="<?= $uploads ?>webshop/elintom_logo.jpg" alt="Loader Image" class="img-fluid"
                         style="height: 80px;">
                 </div>
 
@@ -119,7 +119,7 @@
             if (modalContentOnStart) {
                 modalContentOnStart.innerHTML = `
                     <div class="modal-header border-0 justify-content-center">
-                        <img src="<?= $uploads ?>webshop/Minatshi Logo.png" alt="Loader Image" class="img-fluid"
+                        <img src="<?= $uploads ?>webshop/elintom_logo.jpg" alt="Loader Image" class="img-fluid"
                             style="height: 80px;">
                     </div>
 
@@ -399,7 +399,7 @@
                 if (modalContent) {
                     modalContent.innerHTML = `
                         <div class="modal-header border-0 justify-content-center">
-                            <img src="<?= $uploads ?>webshop/Minatshi Logo.png" alt="Loader Image" class="img-fluid" style="height: 80px;">
+                            <img src="<?= $uploads ?>webshop/elintom_logo.jpg" alt="Loader Image" class="img-fluid" style="height: 80px;">
                         </div>
                         <div id="otpSectionNew">
                             <div class="modal-body">

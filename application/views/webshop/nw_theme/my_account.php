@@ -10,7 +10,7 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>About Us - Herbinn Micro Medicines</title>
+    <title>About Us - <?= !empty($this->data['title']) ? $this->data['title'] : "Default Website Title" ?></title>
     <meta name="description"
         content="Established in the year 1994 we Herbinn Micro Medicines">
     <link rel="canonical" href="https://herbinnmicromedicines.elintpos.in/webshop">

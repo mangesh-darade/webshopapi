@@ -23,8 +23,11 @@ foreach ($website_setting as $item) {
     ============================== -->
 <div class="popup-search-box d-none d-lg-block  ">
     <button class="searchClose border-theme text-theme"><i class="fal fa-times"></i></button>
-    <form action="#">
-        <input type="text" class="border-theme" placeholder="What are you looking for">
+    <form action="<?= base_url('webshop/search_products') ?>" method="get">
+        <div class="search-suggestions-wrapper">
+            <input type="text" name="search" class="border-theme search-input" placeholder="What are you looking for" autocomplete="off">
+            <div class="search-suggestions" id="searchSuggestions"></div>
+        </div>
         <button type="submit"><i class="fal fa-search"></i></button>
     </form>
 </div>
@@ -63,12 +66,22 @@ foreach ($website_setting as $item) {
                                 <a href="<?= base_url('webshop/about_us') ?>">About Us</a>
                             </li>
                         <?php endif; ?>
+                        <?php if (!empty($has_active_blogs)): ?>
+                            <li>
+                                <a href="<?= base_url('blogs') ?>">Blogs</a>
+                            </li>
+                        <?php endif; ?>
+                        <?php if (!empty($header_theme_pages) && is_array($header_theme_pages)): ?>
+                            <?php foreach ($header_theme_pages as $themePage): ?>
+                                <li><a href="<?= base_url('webshop/' . $themePage['slug']) ?>"><?= htmlspecialchars($themePage['title']) ?></a></li>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
                         <li>
                             <a href="<?= base_url('webshop/cart') ?>">Cart</a>
                         </li>
                         <?php if (!empty($custom_pages_webshop->contactus) && (int) $custom_pages_webshop->contactus->is_active == 1): ?>
                             <li>
-                                <a href="<?= base_url('webshop/contactus') ?>"><?= $custom_pages_webshop->contactus->page_title ?></a>
+                                <a href="<?= base_url('webshop/contact_us') ?>"><?= $custom_pages_webshop->contactus->page_title ?></a>
                             </li>
                         <?php endif; ?>
                     </ul>
@@ -137,6 +150,9 @@ foreach ($website_setting as $item) {
                     <ul class="d-flex gap-3 mb-0 list-unstyled">
                         <li><a href="<?= base_url('webshop') ?>">Home</a></li>
                         <li><a href="<?= base_url('webshop/about_us') ?>">About Us</a></li>
+                        <?php if (!empty($has_active_blogs)): ?>
+                            <li><a href="<?= base_url('blogs') ?>">Blogs</a></li>
+                        <?php endif; ?>
                         <li><a href="<?= base_url('webshop/cart') ?>">Cart</a></li>
                         <li><a href="<?= base_url('webshop/contact_us') ?>">Contact Us</a></li>
                     </ul>
@@ -204,6 +220,16 @@ foreach ($website_setting as $item) {
                                 <a href="<?= base_url('webshop/about_us') ?>">About Us</a>
                             </li>
                         <?php endif; ?>
+                        <?php if (!empty($has_active_blogs)): ?>
+                            <li>
+                                <a href="<?= base_url('blogs') ?>">Blogs</a>
+                            </li>
+                        <?php endif; ?>
+                        <?php if (!empty($header_theme_pages) && is_array($header_theme_pages)): ?>
+                            <?php foreach ($header_theme_pages as $themePage): ?>
+                                <li><a href="<?= base_url('webshop/' . $themePage['slug']) ?>"><?= htmlspecialchars($themePage['title']) ?></a></li>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
                         <li>
                             <a href="<?= base_url('webshop/cart') ?>">Cart</a>
                         </li>
@@ -212,7 +238,7 @@ foreach ($website_setting as $item) {
                         </li>
                         <?php if (!empty($custom_pages_webshop_webshop->contactus) && (int) $custom_pages_webshop->contactus->is_active == 1): ?>
                             <li>
-                                <a href="<?= base_url('webshop/contactus') ?>"><?= $custom_pages_webshop->contactus->page_title ?></a>
+                                <a href="<?= base_url('webshop/contact_us') ?>"><?= $custom_pages_webshop->contactus->page_title ?></a>
                             </li>
                         <?php endif; ?>
                         <?php if (!empty($custom_pages_webshop_webshop->contactus) && (int) $custom_pages_webshop->contactus->is_active == 1): ?>
@@ -319,6 +345,155 @@ foreach ($website_setting as $item) {
             display: block !important;
         }
     }
+    /* ===== Enhanced Search Suggestions ===== */
+    .search-suggestions {
+        background: #ffffff;
+        border-radius: 12px 12px 12px 12px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+        overflow: hidden;
+        animation: fadeSlideDown 0.25s ease;
+    }
+
+    /* Smooth entrance animation */
+    @keyframes fadeSlideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-6px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Suggestion item */
+    .search-suggestion-item {
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        transition: all 0.2s ease;
+        position: relative;
+        cursor: pointer;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .search-suggestion-item:last-child {
+        border-bottom: none;
+    }
+
+    /* Search icon */
+    .search-suggestion-icon {
+        color: #fa8507;
+        font-size: 14px;
+        opacity: 0.7;
+        min-width: 16px;
+    }
+
+    .search-suggestion-item:hover .search-suggestion-icon {
+        opacity: 1;
+    }
+
+    /* Hover effect */
+    .search-suggestion-item:hover {
+        background: linear-gradient(90deg, #fff5eb, #ffffff);
+        transform: translateX(2px);
+    }
+
+    /* Active highlight bar */
+    .search-suggestion-item::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        height: 100%;
+        width: 3px;
+        background: #fa8507;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+    }
+
+    .search-suggestion-item:hover::before {
+        opacity: 1;
+    }
+
+    /* Product image */
+    .search-suggestion-image {
+        width: 44px;
+        height: 44px;
+        border-radius: 8px;
+        border: 1px solid #eee;
+        background: #f9f9f9;
+    }
+
+    /* Product name */
+    .search-suggestion-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: #222;
+        line-height: 1.3;
+    }
+
+    /* Price */
+    .search-suggestion-price {
+        font-size: 13px;
+        font-weight: 600;
+        color: #fa8507;
+    }
+
+    /* Optional small badge (if you add later) */
+    .search-suggestion-badge {
+        font-size: 11px;
+        background: #fa8507;
+        color: #fff;
+        padding: 2px 6px;
+        border-radius: 6px;
+        margin-left: auto;
+    }
+
+    /* No result message */
+    .no-suggestions {
+        padding: 18px;
+        font-size: 14px;
+        color: #777;
+        background: #fafafa;
+    }
+
+    /* Scrollbar styling */
+    .search-suggestions::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .search-suggestions::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .search-suggestions::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 10px;
+    }
+
+    .search-suggestions::-webkit-scrollbar-thumb:hover {
+        background: rgba(0, 0, 0, 0.35);
+    }
+    .search-suggestions-wrapper {
+        position: relative;
+        width: 100%;
+        max-height: 450px;          /* overall dropdown height */
+        overflow-y: auto;           /* enable vertical scroll */
+        overflow-x: hidden;
+    }
+
+    /* Smooth scrolling */
+    .search-suggestions-wrapper {
+        scroll-behavior: smooth;
+    }
+
+    /* Optional – prevent page scroll when mouse is inside */
+    .search-suggestions-wrapper:hover {
+        overscroll-behavior: contain;
+    }
+    
 </style>
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-GJSMJEERR0"></script>
@@ -369,4 +544,94 @@ foreach ($website_setting as $item) {
 <noscript>
     <img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=1008018358182481&ev=PageView&noscript=1" />
 </noscript>
-<!-- End Meta Pixel Code -->
+<!-- End Meta Pixel Code -->
+
+<script>
+// Search Suggestions Functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.querySelector('.search-input');
+    const suggestionsContainer = document.getElementById('searchSuggestions');
+    let searchTimeout;
+
+    if (searchInput && suggestionsContainer) {
+        searchInput.addEventListener('input', function() {
+            const keyword = this.value.trim();
+            
+            // Clear previous timeout
+            clearTimeout(searchTimeout);
+            
+            if (keyword.length < 2) {
+                suggestionsContainer.classList.remove('show');
+                suggestionsContainer.innerHTML = '';
+                return;
+            }
+            
+            // Debounce search requests
+            searchTimeout = setTimeout(() => {
+                fetchSuggestions(keyword);
+            }, 200);
+        });
+
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!searchInput.contains(e.target) && !suggestionsContainer.contains(e.target)) {
+                suggestionsContainer.classList.remove('show');
+            }
+        });
+
+        // Show suggestions when focusing on input if there's text
+        searchInput.addEventListener('focus', function() {
+            if (this.value.trim().length >= 2) {
+                fetchSuggestions(this.value.trim());
+            }
+        });
+    }
+
+    function fetchSuggestions(keyword) {
+        const formData = new FormData();
+        formData.append('action', 'get_product_suggestions');
+        formData.append('keyword', keyword);
+
+        fetch('<?= base_url('webshop/webshop_request') ?>', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            displaySuggestions(data);
+        })
+        .catch(error => {
+            console.error('Error fetching suggestions:', error);
+            suggestionsContainer.classList.remove('show');
+        });
+    }
+
+    function displaySuggestions(suggestions) {
+        if (!suggestions || suggestions.length === 0) {
+            suggestionsContainer.innerHTML = '<div class="no-suggestions">No products found</div>';
+            suggestionsContainer.classList.add('show');
+            return;
+        }
+
+        let html = '';
+        suggestions.forEach(product => {
+            html += `
+                <div class="search-suggestion-item" onclick="selectSuggestion('${product.url}', '${product.name}')">
+                    <i class="fal fa-search search-suggestion-icon"></i>
+                    <div class="search-suggestion-details">
+                        <div class="search-suggestion-name">${product.name}</div>
+                    </div>
+                </div>
+            `;
+        });
+
+        suggestionsContainer.innerHTML = html;
+        suggestionsContainer.classList.add('show');
+    }
+});
+
+function selectSuggestion(url, productName) {
+    // Redirect to product page
+    window.location.href = url;
+}
+</script>

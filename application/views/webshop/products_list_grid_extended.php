@@ -50,7 +50,7 @@
                 }
 
                 //Set Overselling Condition.
-                $item_quantity = (!empty($webshop_settings->overselling)) ? 999 : $item_quantity;
+                $item_quantity = $this->webshop_settings->overselling ? 999 : $item_quantity;
         ?>     
             
             <div class="product <?php if($i%4 == 1){ echo 'first'; } ?>">

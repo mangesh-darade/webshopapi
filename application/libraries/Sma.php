@@ -33,20 +33,27 @@ class Sma {
         $this->safeLoadModel('transfers_model');
 
         $this->load->helper('sms');
+        $this->load->helper('sms');
         //////////////////////////////// whatsapp integration ///////////////////////////////////////////////
-        $this->system_Settings = $this->site->get_setting();
-        $this->api_key = $this->system_Settings->whatsapp_api_key;
+        if (isset($this->site)) {
+            $this->system_Settings = $this->site->get_setting();
+            $this->api_key = ($this->system_Settings && isset($this->system_Settings->whatsapp_api_key))
+                ? $this->system_Settings->whatsapp_api_key
+                : '';
+        } else {
+            $this->system_Settings = new stdClass();
+            $this->api_key = '';
+        }
     }
     
     public function merchant_mobile() {
-
+        if (!isset($this->db)) return '';
         $q = $this->db->get_where('users', array('id' =>'1'), 1);
-        if ($q->num_rows() > 0) {
+        if ($q && $q->num_rows() > 0) {
             $data =  $q->row();
             return  $data->phone ;
         }
         return FALSE;
-
     }
     public function setSettings($Settings) {
 

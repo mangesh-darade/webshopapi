@@ -2,7 +2,7 @@
                     <div class="container-fluid">
                         <ul id="menu-primary-menu" class="nav yamm navbar-nav">
                                 
-                                <li class="yamm-fw menu-item animate-dropdown nav-item">
+                                <li class="sale-clr yamm-fw menu-item animate-dropdown nav-item">
                                     <a title="My Account" href="<?=base_url('webshop/your_account')?>" class="nav-link">My Account</a>
                                 </li>
                                 <li class="yamm-fw menu-item menu-item-has-children nav-item">

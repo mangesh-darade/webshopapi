@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="robots" content="noindex">
-    <title>Privacy Policy - Terms and Conditions | Herbinn Micro Medicines</title>
+    <title>Privacy Policy - Terms and Conditions | <?= !empty($this->data['title']) ? $this->data['title'] : "Default Website Title" ?></title>
     <meta name="description" content="Established in the year 1994 we Herbinn Micro Medicines">
     <link href="//fonts.googleapis.com/css?family=Lato:400,400italic,700,700italic|Raleway:600" rel="stylesheet" type="text/css">
     <link href="<?= $assets ?>nw_theme/css/main.css?ver=20090901" rel="stylesheet">

@@ -101,7 +101,7 @@ if (isset($cart_items) && is_array($cart_items) && count($cart_items)) {
             <div class="modal-content rounded-4 p-2" id="loginModalContent" style="height: 600px; overflow: hidden;">
 
                 <div class="modal-header border-0 justify-content-center">
-                    <img src="<?= $uploads ?>webshop/Minatshi Logo.png" alt="Loader Image" class="img-fluid"
+                    <img src="<?= $uploads ?>webshop/elintom_logo.jpg" alt="Loader Image" class="img-fluid"
                         style="height: 80px;">
                 </div>
 
@@ -481,7 +481,7 @@ if (isset($cart_items) && is_array($cart_items) && count($cart_items)) {
             if (modalContent) {
                 modalContent.innerHTML = `
             <div class="modal-header border-0 justify-content-center">
-                <img src="<?= $uploads ?>webshop/Minatshi Logo.png" alt="Loader Image" class="img-fluid" style="height: 80px;">
+                <img src="<?= $uploads ?>webshop/elintom_logo.jpg" alt="Loader Image" class="img-fluid" style="height: 80px;">
             </div>
             <div id="otpSection">
                 <div class="modal-body">
@@ -690,7 +690,7 @@ if (isset($cart_items) && is_array($cart_items) && count($cart_items)) {
             if (modalContentOnStartOld) {
                 modalContentOnStartOld.innerHTML = `
                     <div class="modal-header border-0 justify-content-center">
-                        <img src="<?= $uploads ?>webshop/Minatshi Logo.png" alt="Loader Image" class="img-fluid"
+                        <img src="<?= $uploads ?>webshop/elintom_logo.jpg" alt="Loader Image" class="img-fluid"
                             style="height: 80px;">
                     </div>
 
@@ -1043,7 +1043,7 @@ if (isset($cart_items) && is_array($cart_items) && count($cart_items)) {
                 if (modalContent) {
                     modalContent.innerHTML = `
                 <div class="modal-header border-0 justify-content-center">
-                    <img src="<?= $uploads ?>webshop/Minatshi Logo.png" alt="Loader Image" class="img-fluid" style="height: 80px;">
+                    <img src="<?= $uploads ?>webshop/elintom_logo.jpg" alt="Loader Image" class="img-fluid" style="height: 80px;">
                 </div>
                 <div id="otpSection">
                     <div class="modal-body">

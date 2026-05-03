@@ -2,6 +2,19 @@
 
 defined('BASEPATH') OR exit('No direct script access allowed');
 
+/**
+ * Legacy storefront model — reads/writes the local MySQL schema (sma_* tables).
+ *
+ * **API storefront flow (this repository):**
+ * - `application/controllers/Webshop.php` assigns `$this->webshop_model = $this->webshop_api_model`.
+ * - Catalogue, settings, customer API calls are implemented in `Webshop_api_model` (ElintOm HTTP API).
+ * - `Webshop_api_model::__call()` forwards unknown methods to `webshop_model_db` only when the database
+ *   library is loaded (`$this->db`). With default `application/config/autoload.php`, **database is not
+ *   autoloaded**, so all behaviour must be implemented on `Webshop_api_model` for DB-less installs.
+ * - Load `webshop_model` directly only for admin/tools that still need SQL (e.g. `Admin` controller).
+ *
+ * Do not add ElintOm HTTP calls here — keep API logic in `Webshop_api_model` / `Elintom_api_client`.
+ */
 class Webshop_model extends CI_Model {
 
     public function __construct() {

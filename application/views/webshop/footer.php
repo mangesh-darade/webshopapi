@@ -265,5 +265,5 @@
 <!-- .site-footer -->
 <script>
 //Define JS global variables
-let webshop_settings_overselling = '<?= isset($webshop_settings->overselling) ? (int) $webshop_settings->overselling : 0; ?>';
+let webshop_settings_overselling = '<?= $this->webshop_settings->overselling;?>';
 </script>

@@ -18,33 +18,32 @@ class Webshop extends MY_Controller
 
     public function __construct()
     {
-
         parent::__construct();
 
         $this->load->library('sma');
 
-        $this->load->model('site');
+        // $this->load->model('site'); // Disabled in DB-less mode
 
-        $this->load->model('webshop_model');
+        $this->load->model('webshop_api_model');
+        $this->webshop_model = $this->webshop_api_model;
 
         $this->load->helper('webshop_helper');
 
-        $this->data['assets'] = base_url("themes/default/assets/webshop/");
+        $mediaBase = $this->webshop_api_model->get_media_uploads_base();
+        $this->data['uploads'] = $mediaBase;
+        $this->data['thumbs'] = $mediaBase . 'thumbs/';
+        $this->data['images'] = $mediaBase . 'images/';
 
-        $this->data['uploads'] = base_url("assets/mdata/$this->Customer_assets/uploads/");
-
-        $this->data['thumbs'] = base_url("assets/mdata/$this->Customer_assets/uploads/thumbs/");
-
-        $this->data['images'] = base_url("assets/mdata/$this->Customer_assets/uploads/images/");
+        $this->data['assets'] = base_url('assets/webshop/');
 
         $this->data['is_admin_login'] = $this->is_admin_login = ($this->loggedIn && ($this->Owner || $this->Admin)) ? true : false;
 
-        $this->active_webshop = (bool) $this->Settings->active_webshop ? $this->Settings->active_webshop : 0;
-
+        $this->active_webshop = $this->webshop_api_model->get_active_webshop_flag();
+       
         if (!$this->active_webshop && $this->uri->segment(2) != 'service_off') {
             redirect('webshop/service_off');
         }
-
+       
         $this->data['webshop_settings'] = $this->webshop_settings = $this->webshop_model->get_webshop_settings();
 
         $this->data['home_page'] = $this->webshop_settings->home_page;
@@ -71,7 +70,6 @@ class Webshop extends MY_Controller
 
         $this->data['all_brands'] = $this->webshop_model->get_all_brands();
 
-
         $this->data['cart_items'] = [];
         $this->data['cart_data'] = [];
         if (isset($_SESSION['cart']) && !empty($_SESSION['cart'])) {
@@ -95,6 +93,26 @@ class Webshop extends MY_Controller
             $this->data['website_setting'] = $this->webshop_model->get_website_setting();
         }
         // $this->data['custom_pages'] = $this->webshop_model->get_custom_pages();
+        // #region agent log
+        $__ms_total = (microtime(true) - $__w0) * 1000;
+        $p = (defined('FCPATH') ? FCPATH : dirname(BASEPATH) . DIRECTORY_SEPARATOR) . 'debug-1747c8.log';
+        @file_put_contents($p, json_encode(array(
+            'sessionId' => '1747c8',
+            'runId' => 'perf',
+            'hypothesisId' => 'H2_H3_H4',
+            'location' => 'Webshop:__construct',
+            'message' => 'segment_ms',
+            'data' => array(
+                'construct_total_ms' => round($__ms_total, 2),
+                'get_media_uploads_base_ms' => round($__ms_media, 2),
+                'get_categories_ms' => round($__ms_cat, 2),
+                'brands_block_ms' => round($__ms_brands, 2),
+                'get_cart_data_ms' => round(isset($__ms_cart) ? $__ms_cart : 0, 2),
+                'uri' => $this->uri->uri_string(),
+            ),
+            'timestamp' => (int) round(microtime(true) * 1000),
+        )) . "\n", FILE_APPEND | LOCK_EX);
+        // #endregion
     }
 
     public function service_off()
@@ -293,6 +311,31 @@ XSL;
         exit;
     }
 
+    /**
+     * Resolve storefront view: try, in order,
+     *   webshop/                    (application/views/webshop/ — primary)
+     *   views/webshop/            (application/views/views/webshop/ — older duplicate tree)
+     *   default/views/webshop/     (legacy bundle)
+     */
+    private function resolve_webshop_view_path($method)
+    {
+        $method = trim((string) $method);
+        if ($method === '') {
+            return 'webshop/';
+        }
+        $candidates = array(
+            array(VIEWPATH . 'webshop/' . $method . '.php', 'webshop/' . $method),
+            array(VIEWPATH . 'views/webshop/' . $method . '.php', 'views/webshop/' . $method),
+            array(VIEWPATH . 'default/views/webshop/' . $method . '.php', 'default/views/webshop/' . $method),
+        );
+        foreach ($candidates as $pair) {
+            if (is_file($pair[0])) {
+                return $pair[1];
+            }
+        }
+        return 'webshop/' . $method;
+    }
+
     public function load_view($method = '', $data = array())
     {
         $seoKey = $this->get_theme_page_seo_key($method);
@@ -301,7 +344,7 @@ XSL;
             show_404();
             return;
         }
-        $html = $this->load->view('default/views/webshop/' . $method, $data, true);
+        $html = $this->load->view($this->resolve_webshop_view_path($method), $data, true);
         $html = $this->inject_page_seo($html, $data['page_seo'], $data, $method);
         $this->output->set_output($html);
     }
@@ -328,10 +371,21 @@ XSL;
 
         $themeFolder = $this->resolve_theme_folder();
         $candidate = ($themeFolder ? $themeFolder . '/' : '') . $slug;
-        $fullPath = VIEWPATH . 'default/views/webshop/' . $candidate . '.php';
+        $flatPath = VIEWPATH . 'webshop/' . $candidate . '.php';
+        $dupPath = VIEWPATH . 'views/webshop/' . $candidate . '.php';
+        $legacyPath = VIEWPATH . 'default/views/webshop/' . $candidate . '.php';
+        if (is_file($flatPath)) {
+            $fullPath = $flatPath;
+        } elseif (is_file($dupPath)) {
+            $fullPath = $dupPath;
+        } elseif (is_file($legacyPath)) {
+            $fullPath = $legacyPath;
+        } else {
+            $fullPath = null;
+        }
         $seoData = $this->get_theme_page_seo($candidate . '.php');
 
-        if (!is_file($fullPath)) {
+        if ($fullPath === null || !is_file($fullPath)) {
             return false;
         }
         if (isset($seoData['is_active']) && (int)$seoData['is_active'] === 0) {
@@ -877,8 +931,9 @@ XSL;
         $this->load->helper('url');
         $uri = trim((string)$this->uri->uri_string(), '/');
         $qs = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
-        if (is_object($ws) && trim((string)$ws->canonical_url) !== '') {
-            $base = rtrim((string)$ws->canonical_url, '/');
+        $canonicalBase = (is_object($ws) && isset($ws->canonical_url)) ? trim((string)$ws->canonical_url) : '';
+        if ($canonicalBase !== '') {
+            $base = rtrim($canonicalBase, '/');
             return $base . ($uri === '' ? '' : '/' . $uri) . $qs;
         }
         return current_url();
@@ -956,10 +1011,18 @@ XSL;
     private function get_default_currency_code_for_schema()
     {
         $fallback = 'INR';
-        if (!$this->db->table_exists('settings')) {
-            return $fallback;
+        $CI = get_instance();
+        if (!isset($CI->db) || !is_object($CI->db)) {
+            return (isset($this->Settings->default_currency) && trim((string) $this->Settings->default_currency) !== '')
+                ? trim((string) $this->Settings->default_currency)
+                : $fallback;
         }
-        $row = $this->db->select('default_currency')
+        if (!$CI->db->table_exists('settings')) {
+            return (isset($this->Settings->default_currency) && trim((string) $this->Settings->default_currency) !== '')
+                ? trim((string) $this->Settings->default_currency)
+                : $fallback;
+        }
+        $row = $CI->db->select('default_currency')
             ->where('setting_id', '1')
             ->get('settings', 1)
             ->row();
@@ -1076,10 +1139,8 @@ XSL;
     public function index()
     {
         if (!$this->active_webshop) {
-
             $this->load_view("service_off", $this->data);
         } else {
-
             $this->data['themeSections'] = $themeSections = $this->webshop_model->get_theme_sections($this->webshop_settings->home_page);
 
             $this->set_theme_sections_data($themeSections);
@@ -1092,8 +1153,9 @@ XSL;
             $this->data['website_setting'] = $this->webshop_model->get_website_setting();
             $theme = $this->input->get('theme');
             if ($theme) {
-                $isSetCurrentTheme = $this->webshop_model->setTheme($theme);
+                $this->webshop_model->setTheme($theme);
             }
+
             if ($this->webshop_settings->webshop_theme == 'restaurant') {
                 $this->load_view("webshop_restaurant_t1/index", $this->data);
             } else if ($this->webshop_settings->webshop_theme == 'nw') {
@@ -1154,7 +1216,16 @@ XSL;
         $product_hash = $this->uri->segment(3);
 
         $this->data['product_details'] = $productDetails = $this->webshop_model->get_product_by_hash($product_hash);
+        if ($productDetails === false || !is_array($productDetails) || !isset($productDetails['item'])) {
+            show_404();
+            return;
+        }
         $product = $productDetails['item'];
+        if (method_exists($this->webshop_model, 'normalize_product_detail_item_for_view')) {
+            $product = $this->webshop_model->normalize_product_detail_item_for_view($product);
+        } elseif (is_object($product)) {
+            $product = (array) $product;
+        }
         $this->data['product'] = $product;
         $this->data['product_variants'] = $productDetails['variants'];
         $this->data['gallary_images'] = $productDetails['images'];
@@ -1268,9 +1339,12 @@ XSL;
         }
         $this->data['special_items'] = $specialItemsList;
 
-        $this->data['items_total'] = $data['items_total'];
+        $this->data['items_total'] = isset($data['items_total']) ? $data['items_total'] : 0;
 
-        $this->data['subcategories'] = $this->data['categories'][$this->data['get_category_id']];
+        $gid = $this->data['get_category_id'];
+        $this->data['subcategories'] = (isset($this->data['categories'][$gid]) && is_array($this->data['categories'][$gid]))
+            ? $this->data['categories'][$gid]
+            : array();
 
         $this->data['recent_viewed'] = $this->webshop_model->get_recent_viewed_product();
 
@@ -1430,64 +1504,13 @@ XSL;
 
     public function checkout()
     {
-
-        if (!isset($_SESSION['cart'])) {
-            redirect('webshop/index');
-        }
-
-        $this->data['postdata'] = (!empty($_SESSION['postdata'])) ? $_SESSION['postdata'] : NULL;
-        $this->data['state_list'] = $this->webshop_model->get_state();
-        $this->data['country'] = $this->webshop_model->getCountry();
-        if (isset($this->session->webshop) && $this->session->webshop->user_id) {
-            $customer_id = (int) $this->session->webshop->user_id;
-            $this->data['customer_id'] = $customer_id;
-            $this->data['addresses'] = $this->webshop_model->get_customer_address($customer_id);
-        }
-        $theme = $this->webshop_settings->webshop_theme;
-
-        if ($theme == 'restaurant') {
-            if (!isset($_SESSION['cart'])) {
-                redirect('webshop/index');
-            }
-            // $this->data['state_list'] = $this->webshop_model->get_state();
-            // $this->data['postdata'] = (!empty($_SESSION['postdata'])) ? $_SESSION['postdata'] : NULL;
-            $this->data['country'] = $this->webshop_model->getCountry();
-            $this->data['areacharges'] = $this->webshop_model->getAreaCharges();
-            if (isset($this->session->webshop) && $this->session->webshop->user_id) {
-                $customer_id = (int) $this->session->webshop->user_id;
-                $this->data['customer_id'] = $customer_id;
-                $this->data['addresses'] = $this->webshop_model->get_customer_address($customer_id);
-            }
-            if ($this->input->get('guest') == '1') {
-                unset($_SESSION['customer_register']);
-            }
-            $this->data['website_setting'] = $this->webshop_model->get_website_setting();
-            $setting_map = [];
-            foreach ($raw_settings as $row) {
-                $setting_map[$row->fields] = $row->value;
-            }
-            $this->load_view("webshop_restaurant_t1/checkout", $this->data);
-        } else if ($theme == "nw") {
-            $this->load_view("nw_theme/checkout", $this->data);
-        } else if ($theme == "gulfpharmacy") {
-            $this->load_view("gulfpharmacy_theme/checkout", $this->data);
-        } else {
-            if (!isset($_SESSION['cart'])) {
-                redirect('webshop/index');
-            }
-            // $this->data['state_list'] = $this->webshop_model->get_state();
-            // $this->data['postdata'] = (!empty($_SESSION['postdata'])) ? $_SESSION['postdata'] : NULL;    
-            if (isset($this->session->webshop) && $this->session->webshop->user_id) {
-                $customer_id = (int) $this->session->webshop->user_id;
-                $this->data['customer_id'] = $customer_id;
-                $this->data['addresses'] = $this->webshop_model->get_customer_address($customer_id);
-            }
-            $this->load_view("checkout", $this->data);
-        }
+        $this->load->library('webshop_checkout');
+        $this->webshop_checkout->present($this);
     }
 
     public function submit_order()
     {
+        $this->load->model('webshop_api_model');
 
         if ($this->input->post('submit_order')) {
 
@@ -1542,7 +1565,7 @@ XSL;
                                 "password" => $account_password,
                             );
 
-                            $customer = $this->webshop_model->add_customer($customerData);
+                            $customer = $this->webshop_api_model->add_customer($customerData);
 
                             $this->send_welcome_mail($customerData);
                         }
@@ -1579,7 +1602,7 @@ XSL;
                                 "email_id" => $this->input->post('billing_email'),
                             );
 
-                            $billing_address_id = $this->webshop_model->add_address($billing_address);
+                            $billing_address_id = $this->webshop_api_model->add_address($billing_address);
                         } else {
                             $billing_address_id =   $this->webshop_model->getAddressDefault($customer['id'], 'default');
                         }
@@ -1620,7 +1643,7 @@ XSL;
                                     "email_id" => $this->input->post('shipping_email'),
                                 );
 
-                                $shipping_address_id = $this->webshop_model->add_address($shipping_address);
+                                $shipping_address_id = $this->webshop_api_model->add_address($shipping_address);
                             } else {
                                 $shipping_address_id =   $this->webshop_model->getAddressDefault($customer['id'], 'shipping');
                             }
@@ -1835,7 +1858,7 @@ XSL;
 
                 if (count($products) && !empty($order)) {
 
-                    $order_id = $this->webshop_model->add_order($order, $products);
+                    $order_id = $this->webshop_api_model->add_order($order, $products);
                     $this->session->set_userdata('order_id', $order_id);
 
 
@@ -4162,10 +4185,14 @@ XSL;
 
     private function resolve_blog_table()
     {
-        if ($this->db->table_exists('webshop_blogs')) {
+        $CI = get_instance();
+        if (!isset($CI->db) || !is_object($CI->db)) {
+            return null;
+        }
+        if ($CI->db->table_exists('webshop_blogs')) {
             return 'webshop_blogs';
         }
-        if ($this->db->table_exists('sma_webshop_blogs')) {
+        if ($CI->db->table_exists('sma_webshop_blogs')) {
             return 'sma_webshop_blogs';
         }
         return null;
@@ -4173,8 +4200,13 @@ XSL;
 
     private function get_active_webshop_theme()
     {
-        $ws = $this->db->select('webshop_theme')->get('webshop_settings')->row();
-        return $ws && !empty($ws->webshop_theme) ? (string)$ws->webshop_theme : 'default';
+        $CI = get_instance();
+        if (!isset($CI->db) || !is_object($CI->db)) {
+            $ws = $this->webshop_settings;
+            return $ws && !empty($ws->webshop_theme) ? (string) $ws->webshop_theme : 'default';
+        }
+        $ws = $CI->db->select('webshop_theme')->get('webshop_settings')->row();
+        return $ws && !empty($ws->webshop_theme) ? (string) $ws->webshop_theme : 'default';
     }
 
     private function has_active_blogs()
@@ -4183,11 +4215,15 @@ XSL;
         if ($blogTable === null) {
             return false;
         }
+        $CI = get_instance();
+        if (!isset($CI->db) || !is_object($CI->db)) {
+            return false;
+        }
 
         $activeTheme = $this->get_active_webshop_theme();
-        $this->db->where('is_active', 1);
-        if ($this->db->field_exists('webshop_theme', $blogTable)) {
-            $this->db
+        $CI->db->where('is_active', 1);
+        if ($CI->db->field_exists('webshop_theme', $blogTable)) {
+            $CI->db
                 ->group_start()
                 ->where('webshop_theme', $activeTheme)
                 ->or_where('webshop_theme IS NULL', null, false)
@@ -4195,7 +4231,7 @@ XSL;
                 ->group_end();
         }
 
-        return ((int) $this->db->count_all_results($blogTable)) > 0;
+        return ((int) $CI->db->count_all_results($blogTable)) > 0;
     }
     /////////////////////// Whats App Integration //////////////////////////
     public function getShippingAddress($shipping_address_id)

@@ -4,11 +4,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
-    <title><?= isset($store_display_name) ? htmlspecialchars($store_display_name, ENT_QUOTES, 'UTF-8') : 'Shop' ?> — <?= htmlspecialchars((isset($webshop_settings->home_page) ? $webshop_settings->home_page : 'theme_9'), ENT_QUOTES, 'UTF-8') ?></title>
+    <title>Webshop <?=$webshop_settings->home_page?> <?=$webshop_settings->theme_color?> <?=$_GET['strip']?></title>
         
     <!-- <link rel="stylesheet" type="text/css" href="<?=$assets?>css/bootstrap.min.css" media="all" /> -->
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     
     <link rel="stylesheet" type="text/css" href="<?=$assets?>css/font-awesome.min.css" media="all" />
     <!-- <link rel="stylesheet" type="text/css" href="<?=$assets?>css/bootstrap-grid.min.css" media="all" /> -->
@@ -24,7 +25,9 @@
 
     <link href="//fonts.googleapis.com/css?family=Rubik:300,400,500,900" rel="stylesheet">
     <link rel="icon" type="image/png" sizes="16x16" href="<?=$uploads?>logos/<?= $webshop_settings->favicon ?>">
-    <link rel="manifest" href="<?=$assets?>manifest.json">
+    <link rel="manifest" href="<?=$uploads?>logos/manifest.json">
+    <meta name="msapplication-TileColor" content="#ffffff">
+    <meta name="msapplication-TileImage" content="<?=$uploads?>logos/ms-icon-144x144.png">
 
     <meta name="theme-color" content="#ffffff">
 
@@ -92,12 +95,15 @@
 
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>
     <script type="text/javascript" src="<?=$assets?>js/jquery.min.js"></script>
-    <script type="text/javascript" src="<?=$assets?>js/jquery-migrate.min.js"></script>
     <script type="text/javascript" src="<?=$assets?>js/tether.min.js"></script>
     <script type="text/javascript" src="<?=$assets?>js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="<?=$assets?>js/jquery-migrate.min.js"></script>
     <script type="text/javascript" src="<?=$assets?>js/hidemaxlistitem.min.js"></script>
     <script type="text/javascript" src="<?=$assets?>js/jquery-ui.min.js"></script>
+    <script type="text/javascript" src="<?=$assets?>js/hidemaxlistitem.min.js"></script>
     <script type="text/javascript" src="<?=$assets?>js/jquery.easing.min.js"></script>
     <script type="text/javascript" src="<?=$assets?>js/scrollup.min.js"></script>
     <script type="text/javascript" src="<?=$assets?>js/jquery.waypoints.min.js"></script>

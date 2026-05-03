@@ -4,14 +4,36 @@ webshopapi — CodeIgniter 3 storefront (“Webshop AI”)
 
 Entry:  index.php
 Core:   system/
-App:    application/   (config, controllers, views, libraries, …)
+App:    application/   (config, controllers, views, libraries, models, helpers, …)
 Static: assets/webshop/
 
-ElintOm POS runs as a second app (e.g. C:\wamp\www\ElintOm). This project does
-not use ElintOm’s database; it calls HTTP POST …/api3/eshop only (see
-application/config/elintom_api.php and libraries/Elintom_api_client.php).
+ElintOm POS runs as a separate app (e.g. C:\wamp\www\ElintOm). This storefront
+typically has NO local POS database autoloaded; settings and catalogue come from
+ElintOm over HTTP.
 
-API keys: copy application/config/elintom_api.local.example.php to
-elintom_api.local.php (optional gitignore) or edit elintom_api.php.
+HTTP bridge (see application/config/elintom_api.php and
+application/libraries/Elintom_api_client.php):
+
+  Primary : POST {elintom_api_base_url}{elintom_api_webshop_endpoint_path}
+            Default path segment: webshop_api/index
+            (use index.php/webshop_api/index when URL rewriting is off)
+
+  Legacy  : POST {elintom_api_base_url}{elintom_api_legacy_endpoint_path}
+            Default: api3/eshop — catalogue fallbacks; legacy geo may return 103.
+
+Models :
+  Webshop_api_model  — storefront API adapter (Elintom_api_client).
+  Webshop_model      — legacy MySQL model when DB is loaded / admin tools.
+
+Bootstrap :
+  MY_Controller loads webshop_api_model::get_settings() before most pages.
+
+API keys :
+  Use application/config/elintom_api.php or optional elintom_api.local.php (same folder).
+
+See also :
+  application/helpers/elintom_mdata_helper.php     — shared mdata/host paths
+  application/libraries/Elintom_api_response.php   — ElintOm JSON normalisation
+  application/docs/ELINTOM_WEBSHOP_API_CONTRACT.md  — target JSON shapes (ElintOm)
 
 ================================================================================

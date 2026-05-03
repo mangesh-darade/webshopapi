@@ -7,7 +7,7 @@
 
 
 
-    <title>Category Products - Herbinn Micro Medicines</title>
+    <title>Category Products - <?= !empty($this->data['title']) ? $this->data['title'] : "Default Website Title" ?></title>
     <meta name="description" content="Established in the year 1994 we Herbinn Micro Medicines">
     <link rel="canonical" href="https://herbinnmicromedicines.elintpos.in/webshop">
     <link href="https://fonts.googleapis.com/css?family=Lato:400,400italic,700,700italic|Oxygen:700" rel="stylesheet" type="text/css">
@@ -218,7 +218,8 @@
                                                 <a href="<?= $baseUrl . 'product_details/' . $product['proudctIdHash'] ?>" class="image"><img src="<?= !empty($image) ?  $uploads . $image : $thumbs . 'no_image.png' ?>" class="img-responsive" alt="<?= $product['name'] ?>"></a>
                                                 <div class="info">
                                                     <h3><a href="<?= $baseUrl . 'product_details/' . $product['proudctIdHash'] ?>"><?= $product['name'] ?></a></h3>
-                                                    <span class="price hide_price" id="product_price"><?= $formatedPrice ?>
+                                                    <span class="price"><?= $formatedPrice ?>
+
                                                     </span>
 
                                                     <p><?= $product['product_details'] ?> </p>
@@ -337,12 +338,8 @@
                                         // cart_contents += '<div class="col-xs-8 col-md-8 pap-item"><h3>' + json.item_added[0].name + '</h3>';
                                         cart_contents += `<div class="col-xs-8 col-md-8 pap-item"><h3>${name}</h3>`;
                                         // cart_contents += '<p><strong>Qty:</strong> ' + json.item_added[0].amount + ' &nbsp;&nbsp;<strong>Price:</strong> ' + display_price + '</p>';
-                                        if (!document.getElementById('product_price').classList.contains('hide_price')) {
-                                            cart_contents += '<p><strong>Qty:</strong> ' + quantity + ' &nbsp;&nbsp;<strong>Price:</strong> ' + currencySymbol + productPrice + '</p>';
-                                        } else {
-                                            cart_contents += '<p><strong>Qty:</strong> ' + quantity + ' &nbsp;&nbsp;</p>';
-                                        }
-                                        cart_contents += '<p><a href="<?= base_url("webshop/cart") ?>" class="btn add-to-cart" style="margin-bottom:5px; font-size:130%; padding-left:30px; padding-right:30px">View Cart &amp; Checkout</a> <a class="btn btn-grey btn-sm continue-shopping" style="border-radius:60px">Continue Shopping</a></p>';
+                                        cart_contents += '<p><strong>Qty:</strong> ' + quantity + ' &nbsp;&nbsp;<strong>Price:</strong> ' + currencySymbol + productPrice + '</p>';
+                                        cart_contents += '<p><a href="<?= baseUrl("webshop/cart") ?>" class="btn add-to-cart" style="margin-bottom:5px; font-size:130%; padding-left:30px; padding-right:30px">View Cart &amp; Checkout</a> <a class="btn btn-grey btn-sm continue-shopping" style="border-radius:60px">Continue Shopping</a></p>';
                                         cart_contents += '</div></div>';
 
                                         cart_contents += '</div></div>';
@@ -430,7 +427,6 @@
         })();
     </script>
 
-    <script type="module" src="<?= $assets ?>nw_theme/js/common.js"></script>
 
 </body>
 

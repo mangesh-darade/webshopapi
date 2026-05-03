@@ -6,7 +6,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="robots" content="noindex">
-    <title>Cart - Herbinn Micro Medicines</title>
+    <title>Cart - <?= !empty($this->data['title']) ? $this->data['title'] : "Default Website Title" ?></title>
     <meta name="description" content="Established in the year 1994 we Herbinn Micro Medicines">
     <link href="//fonts.googleapis.com/css?family=Lato:400,400italic,700,700italic|Raleway:600" rel="stylesheet"
         type="text/css">
@@ -67,7 +67,7 @@
                             }
 
                             $item_name = $cart_data['products'][$item['product_id']]['name'];
-                            // $subtotal += ((float) $item['quantity'] * (float) $item['product_price']);
+                            $subtotal += ((float) $item['quantity'] * (float) $item['product_price']);
                             $item_id = $item['product_id'];
 
                         ?>
@@ -94,15 +94,10 @@
                                             <input type="number" value="<?= $item['quantity'] ?>" class="item-qty-cart" productid="<?= $item_id ?>" min=1 onkeydown="event.preventDefault(); alert('Please use spinner arrows');" />
                                         </div>
 
-                                        <!-- (temporary hide prices) <?php 
-                                        echo !empty($item['show_price'])
-                                            ? '<p class="price">
-                                                <span class="sale">'
-                                            . $this->sma->formatMoney($item['product_price']) .
-                                            '</span>
-                                                </p>'
-                                            : '';
-                                        ?> -->
+                                        <p class="price">
+                                            <span class="sale"><?= $this->sma->formatMoney($item['product_price'], 2) ?></span>
+                                        </p>
+
                                         <a href="#" class="remove" cart_item_key="<?= $item_id ?>">
                                             <i class="icon-remove fa fa-remove"></i>
                                             Remove
@@ -110,8 +105,7 @@
                                     </div>
 
                                     <div class="item total">
-                                        <!-- Subtotal <span><?= $this->sma->formatMoney((float) $item['quantity'] * (float) $item['product_price'], 2) ?></span> -->
-                                         Subtotal <span><?= $this->sma->formatMoney((float) $subtotal) ?></span>
+                                        Subtotal <span><?= $this->sma->formatMoney((float) $item['quantity'] * (float) $item['product_price'], 2) ?></span>
                                     </div>
                                 </div>
 

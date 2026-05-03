@@ -22,11 +22,6 @@
         <link rel="icon" type="image/png" sizes="16x16" href="<?=$uploads?>logos/favicon-16x16.png">
         <link rel="stylesheet" type="text/css" href="<?=$assets?>css/custom.css" media="all" />
     </head>
-    <style>
-          .body {
-        display: none;
-    }
-    </style>
     <body class="page-template-default body woocommerce-checkout woocommerce-page woocommerce-order-received can-uppercase woocommerce-active">
         <div id="page" class="hfeed site">
             
@@ -233,30 +228,25 @@
         <script type="text/javascript" src="<?=$assets?>js/scripts.js"></script>
         
         <script>
-        
-        // $(document).ready(function(){
-            
-            
-        //     $('.payment_gatway_option').click(function(){
-                
-        //         $('.payment_gatway').attr("disabled","disabled");
-                                
-        //         if($(this).val()){
-        //             $('.'+$(this).val()).removeAttr("disabled");
-        //             $('#btn_payment').removeAttr("disabled");
-        //         }
-        //     });
-            
-            
-        // });
-        
-        </script>        
-        <script>
-    
-        // JavaScript to automatically click the button on page load
-        window.onload = function() {
-            document.getElementById('btn_payment').click();
-        }
-</script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var form = document.getElementById('myform');
+            if (!form) {
+                return;
+            }
+
+            var ccavenueRadio = form.querySelector('input[name="payment_gatway"][value="ccavenue"]');
+            if (!ccavenueRadio) {
+                return;
+            }
+
+            // Keep selection dynamic from DB-enabled gateways, but auto-pick CCAvenue when available.
+            ccavenueRadio.checked = true;
+
+            // Directly continue to gateway from payments screen.
+            setTimeout(function () {
+                form.submit();
+            }, 150);
+        });
+        </script>
     </body>
 </html>

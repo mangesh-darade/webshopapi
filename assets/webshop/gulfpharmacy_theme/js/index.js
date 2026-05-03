@@ -2,7 +2,6 @@ document.addEventListener("DOMContentLoaded", function () {
   const searchParams = new URLSearchParams(window.location.search);
   const msg = searchParams.get("msg");
   const order_status = searchParams.get("order_status");
-  console.log("order_statusorder_status", order_status);
   if (msg) {
     if (msg == "auth_success") {
       alert("Registered successfully");
@@ -15,9 +14,7 @@ document.addEventListener("DOMContentLoaded", function () {
       alert("Order placed successfully");
       window.location.href = baseUrl;
     }
-  } else if (message) {
-    console.log("messagemessage", message);
-    // alert("You have been logged out successfully");
+  } else if (typeof message !== "undefined" && message) {
     alert(message);
   }
 

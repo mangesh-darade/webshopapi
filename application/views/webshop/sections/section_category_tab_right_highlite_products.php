@@ -87,7 +87,7 @@ $sectionData = $section_category_tab_right_highlite_products;
                         } 
 
                         //Set Overselling Condition.
-                        $item_quantity = (!empty($webshop_settings->overselling)) ? 999 : $item_quantity;
+                        $item_quantity = $this->webshop_settings->overselling ? 999 : $item_quantity;
 
                         
                         ?>

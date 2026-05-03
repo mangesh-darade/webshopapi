@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="robots" content="noindex">
-    <title>Forgot Password - Herbinn Micro Medicines</title>
+    <title>Forgot Password - <?= !empty($this->data['title']) ? $this->data['title'] : "Default Website Title" ?></title>
     <meta name="description" content="Established in the year 1994 we Herbinn Micro Medicines">
     <link href="//fonts.googleapis.com/css?family=Lato:400,400italic,700,700italic|Raleway:600" rel="stylesheet" type="text/css">
     <link href="<?= $assets ?>nw_theme/css/main.css?ver=20090901" rel="stylesheet">
@@ -67,7 +67,7 @@
                             <p id="mob-error" class="error-text error-msg">Please enter correct mobile number format</p>
                         </div>
                         <p id="ErrOTP" class="error-msg"></p>
-                        <p id="registerWithUs">Looks like you are not registered. <a href="<?= base_url('webshop/register') ?>"><strong>Register</strong></a> with us ?</p>
+                        <p id="registerWithUs">Looks like you are not registered. <a href="<?= baseUrl('webshop/register') ?>"><strong>Register</strong></a> with us ?</p>
                         <div class="form-group">
                             <div class="col-lg-offset-1 col-lg-3">
                                 <button type="submit" id="send-otp-btn" class="btn btn-primary btn-morris">Send OTP</button>

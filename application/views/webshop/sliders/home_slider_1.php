@@ -29,7 +29,7 @@
     ?>
     <?php if($is_active1) { ?>
     <div class="slider-1" style="background-image: <?=$sldrBg1?>;">
-        <?php if (!empty($sldrImg1)) { ?><img src="<?= $uploads ?>webshop/slider/slide/<?= htmlspecialchars($sldrImg1) ?>" alt="slider-1"><?php } ?>
+        <img src="<?= $uploads ?>webshop/slider/slide/<?=$sldrImg1?>" style="<?= empty($sldrImg1) ? 'display: none;' : '' ?>" alt="slider-1">
         <div class="caption">
             <div class="title" style="color:<?=$title_color1?>;"><?=$sldrTitle1?></div>
             <div class="sub-title" style="color:<?=$subtitle_color1?>;"><?=$sldrSubTitle1?></div>
@@ -43,7 +43,7 @@
     <!-- .slider-1 -->
     <?php if($is_active2) { ?>
      <div class="slider-1 slider-2" style="background-image: <?=$sldrBg2?>;">
-        <?php if (!empty($sldrImg2)) { ?><img src="<?= $uploads ?>webshop/slider/slide/<?= htmlspecialchars($sldrImg2) ?>" alt="slider-2"><?php } ?>
+        <img src="<?= $uploads ?>webshop/slider/slide/<?=$sldrImg2?>" style="<?= empty($sldrImg2) ? 'display: none;' : '' ?>" alt="slider-2">
         <div class="caption">
             <div class="title" style="color:<?=$title_color2?>;"><?=$sldrTitle2?></div>
             <div class="sub-title" style="color:<?=$subtitle_color2?>;"><?=$sldrSubTitle2?></div>

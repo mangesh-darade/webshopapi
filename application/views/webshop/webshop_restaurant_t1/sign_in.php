@@ -132,7 +132,7 @@ button.vs-btn.mask-style1.w-100.rounded-0.bg-white {
                 </div> -->
                 <div class="form-group">
                         <label for="signUpUserPhone" class="sr-only">Mobile Number</label>
-                        <input type="text" class="form-control" placeholder="Mobile number(Without Country Code) *" id="signUpUserPhone" name="phone" required pattern="\d+" value="" >
+                        <input type="text" class="form-control" placeholder="Mobile number(Without Country Code) *" id="signUpUserPhone" name="phone" required pattern="\d+" >
                         <small id="billing_phone_error" style="color: red; display: none;"></small>
                        <!-- <small id="phone" style="color: red;" class ="<?= empty($phone_error) ? 'd-none' : '' ?>">
                             <?= isset($login_error) ? $login_error : '' ?>
@@ -140,7 +140,7 @@ button.vs-btn.mask-style1.w-100.rounded-0.bg-white {
                 </div>
                 <div class="form-group position-relative">
                     <label for="webshop_password" class="sr-only">Password*</label>
-                    <input type="password" class="form-control pr-5" placeholder="Password*" id="webshop_password" name="webshop_password" required="" value="">
+                    <input type="password" class="form-control pr-5" placeholder="Password*" id="webshop_password" name="webshop_password" required="">
 
                     <!-- Eye icon for show/hide -->
                     <span toggle="#webshop_password" class="fa fa-fw fa-eye field-icon toggle-password" style="

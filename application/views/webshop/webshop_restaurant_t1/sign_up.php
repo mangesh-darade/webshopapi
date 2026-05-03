@@ -76,6 +76,13 @@ button.vs-btn.mask-style1.w-100.rounded-0.bg-white {
     padding-top: 50px !important;
     padding-bottom: 50px !important;
 }
+.row-set{
+    display: flex;
+    margin-right: -15px;
+    margin-left: -15px;
+    flex-wrap: nowrap;
+}
+
 </style>
     <!--[if lte IE 9]>
     	<p class="browserupgrade">You are using an <strong>outdated</strong> browser. Please <a href="https://browsehappy.com/">upgrade your browser</a> to improve your experience and security.</p>
@@ -134,7 +141,7 @@ button.vs-btn.mask-style1.w-100.rounded-0.bg-white {
                         </div>
                         <div class="form-group">
                             <label for="signUpUserPhone" class="sr-only">Mobile Number</label>
-                            <div class="row" style="margin-right: 0; margin-left: 0;">
+                            <div class="row row-set" style="margin-right: 0; margin-left: 0;">
                                 <div class="col-xs-4 Dropdown-set" style="padding-right: 5px;">
                                     <select class="country_code form-control" id="country_code" name="country_code"
                                         style="border: 1px solid rgba(0, 0, 0, 0.1); font-size: small;">
@@ -499,12 +506,12 @@ button.vs-btn.mask-style1.w-100.rounded-0.bg-white {
     const termsCheckbox = document.getElementById('signUpTerms');
     const errorMsg = document.getElementById('termsError');
 
-    if (!termsCheckbox.checked) {
-        e.preventDefault(); // Stop form submission
-        errorMsg.style.display = 'block';
-    } else {
-        errorMsg.style.display = 'none';
-    }
+    // if (!termsCheckbox.checked) {
+    //     e.preventDefault(); // Stop form submission
+    //     errorMsg.style.display = 'block';
+    // } else {
+    //     errorMsg.style.display = 'none';
+    // }
 });
 ///////////////////////////Term and condition checkbox///////////////////////////
 document.querySelector('button[name="submit_register"]').addEventListener('click', function(e) {

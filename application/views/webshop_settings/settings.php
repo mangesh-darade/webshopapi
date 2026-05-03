@@ -15,7 +15,7 @@
                 <div class="row">
                     <div class="col-lg-12">                        
                         <fieldset class="scheduler-border">
-                            <legend class="scheduler-border"><?= lang('Ecommorce_Configurations') ?></legend>
+                            <legend class="scheduler-border"><?= lang('E-commerce_Configurations') ?></legend>
                             <div class="col-md-4">
                                 <div class="form-group">
                                     <?= lang("Free_Delivery_On_Above_Amount", "free_delivery_above_amount"); ?>

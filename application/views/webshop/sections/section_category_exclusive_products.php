@@ -1,26 +1,19 @@
 <?php
 $sectionKey = md5('section_category_exclusive_products');
-$sectionData = isset($section_category_exclusive_products) ? $section_category_exclusive_products : array();
-$exclusive_products = array();
+$sectionData = $section_category_exclusive_products;
 
-if (!empty($sectionData['section_tabs']) && is_array($sectionData['section_tabs'])
-    && !empty($sectionData['section_products']) && is_array($sectionData['section_products'])) {
+if(isset($sectionData['section_tabs'])) {
     $category_id = key($sectionData['section_tabs']);
-    if ($category_id !== null && isset($sectionData['section_products'][$category_id])) {
-        $exclusive_products = $sectionData['section_products'][$category_id];
-    }
-}
 
-if (empty($exclusive_products) || !is_array($exclusive_products)) {
-    return;
+    $exclusive_products = $sectionData['section_products'][$category_id];
 }
 ?>
 <section style="background-size: cover; background-position: center center; background-image: url( <?= $uploads ?>images/slider/bg/card-bg.jpg ); height: 853px;" class="section-landscape-full-product-cards-carousel">
     <div class="col-full">
         <header class="section-header">
             <h2 class="section-title">
-                <strong><?= isset($sectionData['section_titles']) ? html_escape($sectionData['section_titles']) : '' ?></strong>
-                <?= !empty($is_admin_login) ? '<small title="Section Settings"><a href="'.base_url("webshop_settings/elements/section_category_exclusive_products").'" target="new" ><i class="fa fa-cog text-info"></i></a></small>' : ''; ?>
+                <strong><?=$sectionData['section_titles']?></strong>
+                <?= $is_admin_login ? '<small title="Section Settings"><a href="'.base_url("webshop_settings/elements/section_category_exclusive_products").'" target="new" ><i class="fa fa-cog text-info"></i></a></small>' : ''; ?>
             </h2>
         </header>
         <!-- .section-header -->

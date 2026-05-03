@@ -9,7 +9,7 @@ class webshop_settings extends MY_Controller {
     public function __construct() {
         parent::__construct();
 
-        $this->active_webshop = (bool) $this->Settings->active_webshop ? $this->Settings->active_webshop : 0;
+        $this->active_webshop = isset($this->Settings->active_webshop) && (int) $this->Settings->active_webshop === 1 ? 1 : 0;
         if (!$this->active_webshop) {
             redirect('access_denied');
         }

@@ -116,6 +116,11 @@
                                     <li><a href="<?= base_url('webshop/terms_and_conditions') ?>">Terms And
                                             Conditions</a></li>
                                     <li><a href="<?= base_url('webshop/privacy_policy') ?>">Privacy Policy</a></li>
+                                    <?php if (!empty($footer_theme_pages) && is_array($footer_theme_pages)): ?>
+                                        <?php foreach ($footer_theme_pages as $themePage): ?>
+                                            <li><a href="<?= base_url('webshop/' . $themePage['slug']) ?>"><?= htmlspecialchars($themePage['title']) ?></a></li>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
                                 </ul>
                             </div>
                         </div>
@@ -224,7 +229,7 @@
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content rounded-4 p-3 text-center">
       <div class="modal-header border-0 justify-content-center">
-        <img src="<?= $uploads ?>webshop/Minatshi Logo.png" alt="Loader Image" class="img-fluid" style="height: 80px;">
+        <img src="<?= $uploads ?>webshop/elintom_logo.jpg" alt="Loader Image" class="img-fluid" style="height: 80px;">
       </div>
       <div class="modal-body">
         <h5 class="mb-3">Sign in or continue to place your order</h5>

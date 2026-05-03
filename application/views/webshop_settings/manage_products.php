@@ -1,7 +1,7 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 <div class="box">
     <div class="box-header">
-        <h2 class="blue"><i class="fa-fw fa fa-plus"></i><?= lang('Manage Products For E-Shop & Ecommerce'); ?></h2>
+        <h2 class="blue"><i class="fa-fw fa fa-plus"></i><?= lang('Manage Products For E-Shop & E-commerce'); ?></h2>
     </div>
     <div class="box-content">
         <?php

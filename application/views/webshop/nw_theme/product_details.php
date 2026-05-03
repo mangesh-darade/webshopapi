@@ -6,7 +6,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title>Product Details | Herbinn Micro Medicines</title>
+    <title>Product Details | <?= !empty($this->data['title']) ? $this->data['title'] : "Default Website Title" ?></title>
     <meta name="description" content="Established in the year 1994 we Herbinn Micro Medicines" />
     <link rel="canonical" href="https://herbinnmicromedicines.elintpos.in/webshop" />
     <link href='https://fonts.googleapis.com/css?family=Lato:400,400italic,700,700italic|Oxygen:700' rel='stylesheet' type='text/css' />
@@ -20,12 +20,6 @@
     <link rel="icon" type="image/x-icon" href="<?= $uploads ?>webshop/herbinn_favicon.ico">
 
     <style>
-        .btn-increase,
-        .btn-decrease {
-            pointer-events: auto !important;
-            opacity: 1 !important;
-        }
-
         .add-to-cart {
             /* background: #FBC132; */
             background: #63ad1f;
@@ -386,9 +380,7 @@
     $productName = $product['name'];
     $productDescp = $product['product_details'];
     $productPrice = $product['price'];
-    // $productImage = $uploads . $product['image'];
-    $noImage = $uploads . 'no_image.png';
-    $productImage = !empty($product['image']) ? $uploads . $product['image'] : $noImage;
+    $productImage = $uploads . $product['image'];
     $uploads = $this->data['uploads'];
     $formattedPrice = $this->sma->formatMoney($productPrice);
     $productTaxRate = $product['tax_rate'];
@@ -413,172 +405,159 @@
         <div class="container">
             <meta itemprop="description" content="<?= $productDesc ?>" />
             <div class="product-inner-pf">
-                <div class="prod-img-head-div">
-                    <div class="heading">
-                        <h1 itemprop="name"><?= $productName ?></h1>
-                        <div class="productDescp"><?= $productDescp ?></div>
 
-                        <?php
-                        // var_dump($gallary_images);
-                        ?>
+                <div class="heading">
+                    <h1 itemprop="name"><?= $productName ?></h1>
+                    <div class="productDescp"><?= $productDescp ?></div>
+
+                    <?php
+                    // var_dump($gallary_images);
+                    ?>
 
 
-                    </div><!--/heading-->
+                </div><!--/heading-->
 
-                    <div class="images">
-                        <div class="slider-product-contain">
-                            <div class="slider slider-product">
-                                <?php
-                                if (is_array($gallary_images) && !empty($gallary_images)) {
-                                    foreach ($gallary_images as $image) {
-                                ?>
-                                        <div><a href="<?= $productImage ?>"><img src="<?= $uploads . $image['photo'] ?>" class="img-responsive" title="<?= $productName ?>" alt="<?= $productName ?>" itemprop="image" /></a></div>
-                                    <?php
-                                    }
-                                } else {  ?>
-
-                                    <div><a href="<?= $productImage ?>"><img src="<?= $productImage ?>" class="img-responsive" title="<?= $productName ?>" alt="<?= $productName ?>" itemprop="image" /></a></div>
-                                    <div><a href="<?= $productImage ?>"><img src="<?= $productImage ?>" class="img-responsive" title="<?= $productName ?>" alt="<?= $productName ?>" /></a></div>
-                                    <div><a href="<?= $productImage ?>"><img src="<?= $productImage ?>" class="img-responsive" title="<?= $productName ?>" alt="<?= $productName ?>" /></a></div>
-                                <?php } ?>
-                            </div>
-
-                            <!-- <p class="product-servings">30-Day Supply</p> -->
-
+                <div class="images">
+                    <div class="slider-product-contain">
+                        <div class="slider slider-product">
                             <?php
-                            if (is_array($gallary_images) && !empty($gallary_images)) { ?>
-                                <div class="thumbs"> <?php
+                            if (is_array($gallary_images) && !empty($gallary_images)) {
+                                foreach ($gallary_images as $image) {
+                            ?>
+                                    <div><a href="<?= $productImage ?>"><img src="<?= $uploads . $image['photo'] ?>" class="img-responsive" title="<?= $productName ?>" alt="<?= $productName ?>" itemprop="image" /></a></div>
+                                <?php
+                                }
+                            } else {  ?>
 
-                                                        foreach ($gallary_images as $image) {
-                                                        ?>
-                                        <a><img src="<?= $thumbs . $image['photo'] ?>" title="<?= $productName ?>" alt="<?= $productName ?>" class="img-responsive" /></a>
-
-                                    <?php
-                                                        }        ?>
-                                </div> <?php
-                                    }
-                                        ?>
-
-                            <!-- <div class="thumbs">
-                                <a class="selected"><img src="<?= $productImage ?>" title="<?= $productName ?>" alt="<?= $productName ?>" class="img-responsive" /></a>
-                                <a><img src="<?= $productImage ?>" title="<?= $productName ?>" alt="<?= $productName ?>" class="<?= $productName ?>" /></a>
-                                <a><img src="<?= $productImage ?>" title="<?= $productName ?>" alt="<?= $productName ?>" class="<?= $productName ?>" /></a>
-                            </div> -->
+                                <div><a href="<?= $productImage ?>"><img src="<?= $productImage ?>" class="img-responsive" title="<?= $productName ?>" alt="<?= $productName ?>" itemprop="image" /></a></div>
+                                <div><a href="<?= $productImage ?>"><img src="<?= $productImage ?>" class="img-responsive" title="<?= $productName ?>" alt="<?= $productName ?>" /></a></div>
+                                <div><a href="<?= $productImage ?>"><img src="<?= $productImage ?>" class="img-responsive" title="<?= $productName ?>" alt="<?= $productName ?>" /></a></div>
+                            <?php } ?>
                         </div>
 
-                    </div><!--/images-->
-                </div>
+                        <!-- <p class="product-servings">30-Day Supply</p> -->
 
-                <div class="prod-detail-div">
-                    <div class="purchase-options" id="purchase-options">
-                        <form name="prodinfo" id="prodinfo">
-                            <input type="hidden" name="addtocart">
-                            <input type="hidden" name="additem" value="N441">
+                        <?php
+                        if (is_array($gallary_images) && !empty($gallary_images)) { ?>
+                            <div class="thumbs"> <?php
 
-                            <div itemprop="offers" itemscope itemtype="http://schema.org/Offer">
-                                <meta itemprop="availability" content="InStock" />
-                                <meta itemprop="priceCurrency" content="USD" />
-                                <meta itemprop="price" content="<?= $formattedPrice ?>" />
-                            </div>
+                                                    foreach ($gallary_images as $image) {
+                                                    ?>
+                                    <a><img src="<?= $thumbs . $image['photo'] ?>" title="<?= $productName ?>" alt="<?= $productName ?>" class="img-responsive" /></a>
 
-                            <?php
-                            $productCategory;
-                            if (!empty($categories)) {
-                                foreach ($categories as $category) {
-                                    if ($product['category_id'] == $category->id) {
-                                        $productCategory = $category->name;
-                                        break;
-                                    }
+                                <?php
+                                                    }        ?>
+                            </div> <?php
                                 }
-                            }
-                            ?>
-                            <p class="price">
-                                <span id="price-old"></span>
-                                <span class="hide_price" id="price-current"><?= $formattedPrice ?></span>
-                                <span id="price-savings"></span>
-                            </p>
+                                    ?>
+
+                        <!-- <div class="thumbs">
+                            <a class="selected"><img src="<?= $productImage ?>" title="<?= $productName ?>" alt="<?= $productName ?>" class="img-responsive" /></a>
+                            <a><img src="<?= $productImage ?>" title="<?= $productName ?>" alt="<?= $productName ?>" class="<?= $productName ?>" /></a>
+                            <a><img src="<?= $productImage ?>" title="<?= $productName ?>" alt="<?= $productName ?>" class="<?= $productName ?>" /></a>
+                        </div> -->
+                    </div>
+
+                </div><!--/images-->
+                <div class="purchase-options" id="purchase-options">
+                    <form name="prodinfo" id="prodinfo">
+                        <input type="hidden" name="addtocart">
+                        <input type="hidden" name="additem" value="N441">
+
+                        <div itemprop="offers" itemscope itemtype="http://schema.org/Offer">
+                            <meta itemprop="availability" content="InStock" />
+                            <meta itemprop="priceCurrency" content="USD" />
+                            <meta itemprop="price" content="<?= $formattedPrice ?>" />
+                        </div>
+
+
+
+                        <p class="price">
+                            <span id="price-old"></span>
+                            <!-- <?php var_dump($formattedPrice); ?> -->
+                            <span id="price-current"><?= $formattedPrice ?></span>
+                            <span id="price-savings"></span>
+                        </p>
+
+
 
                         <div class="buy-qty" style='display:flex; margin-bottom:15px;'>
-                            <div style='display:flex; flex-grow:1; max-width:120px;gap: 5px;'>
-                                <!-- Decrease Button -->
-                                <button type="button" class="btn btn-outline-secondary btn-decrease" style="width:35px; border: 1px solid #cbcaca;">-</button>
+                            <div>
                                 <input name="txtquanto" oninput="this.value = (this.value < 0) ? '' : this.value;" type="number" min="1" value="<?= $found ?  $isIncartQuantity['quantity'] : 1 ?>" isincart="<?= $found ? '1' : '0' ?>" class="form-control itemQty" id="txtquanto" style="height:100%" onkeydown="event.preventDefault(); alert('Please use spinner arrows');" />
-                                <!-- Increase Button -->
-                                <button type="button" class="btn btn-outline-secondary btn-increase" style="width:35px; border: 1px solid #cbcaca;">+</button>
+
                             </div>
                             <div style='padding-left:15px; flex-grow:3'>
                                 <button class="btn btn-block add-to-cart" name="submit-form" type="submit" value="Add to Cart" product_id="<?= $productId ?>" quantity="1" tax_rate="<?= $productTaxRate ?>" tax_method="<?= $productTaxMethod ?>" price="<?= $productPrice ?>" promotion_price="<?= $productPromoPrice ?>" product_price="<?= $productPrice ?>" product_desc="<?= $productDesc ?>" imageurl="<?= $productImage ?>" productname="<?= $productName ?>">Add to Cart</button>
                             </div>
                         </div>
 
-                        </form>
+                    </form>
 
-                        <!-- <p style="font-size: 120%; margin-bottom:15px">Ships in 1 Business Day</p>
+                    <!-- <p style="font-size: 120%; margin-bottom:15px">Ships in 1 Business Day</p>
 
-                        <p><img style="display: block; max-width:100%; margin:0 auto 15px" src="<?= $assets ?>nw_theme/images/guarantee-product-page.png" alt="Guarantee"></p>
+                    <p><img style="display: block; max-width:100%; margin:0 auto 15px" src="<?= $assets ?>nw_theme/images/guarantee-product-page.png" alt="Guarantee"></p>
 
-                        <div style="max-width:360px; margin:0 auto 15px; padding:12px 15px; border:1px solid #DDD">
-                            <h5 style="margin-top:0">Buy Now, Pay Later</h5>
-                            <div data-pp-message data-pp-placement="product" data-pp-style-layout="text"></div>
-                        </div> -->
+                    <div style="max-width:360px; margin:0 auto 15px; padding:12px 15px; border:1px solid #DDD">
+                        <h5 style="margin-top:0">Buy Now, Pay Later</h5>
+                        <div data-pp-message data-pp-placement="product" data-pp-style-layout="text"></div>
+                    </div> -->
 
-                        <!-- <div class="seals" style="margin-bottom:30px">
-                            <img src="<?= $assets ?>nw_theme/images/icon-non-gmo.png" alt="Made with non-gmo ingredients" title="Made with non-gmo ingredients">
-                            <img src="<?= $assets ?>nw_theme/images/icon-gluten-free.png" alt="Gluten free" title="Gluten free">
-                            <img src="<?= $assets ?>nw_theme/images/icon-fda-registered-facility.png" alt="Made in a FDA registered facility" title="Made in a FDA registered facility">
-                            <img src="<?= $assets ?>nw_theme/images/GMPSeal.png" alt="Current good manufacturing process" title="Current good manufacturing process">
-                            <img src="<?= $assets ?>nw_theme/images/icon-third-party-tested.png" alt="Third party tested" title="Third party tested">
-                        </div> -->
+                    <!-- <div class="seals" style="margin-bottom:30px">
+                        <img src="<?= $assets ?>nw_theme/images/icon-non-gmo.png" alt="Made with non-gmo ingredients" title="Made with non-gmo ingredients">
+                        <img src="<?= $assets ?>nw_theme/images/icon-gluten-free.png" alt="Gluten free" title="Gluten free">
+                        <img src="<?= $assets ?>nw_theme/images/icon-fda-registered-facility.png" alt="Made in a FDA registered facility" title="Made in a FDA registered facility">
+                        <img src="<?= $assets ?>nw_theme/images/GMPSeal.png" alt="Current good manufacturing process" title="Current good manufacturing process">
+                        <img src="<?= $assets ?>nw_theme/images/icon-third-party-tested.png" alt="Third party tested" title="Third party tested">
+                    </div> -->
 
 
 
-                    </div><!--/purchase-options-->
+                </div><!--/purchase-options-->
 
-                    <div class="info-long">
-                        <a id="product-details"></a> <a id="tabArea"></a>
+                <div class="info-long">
+                    <a id="product-details"></a> <a id="tabArea"></a>
 
-                        <div id="product-tabs" class="product-tabs">
+                    <div id="product-tabs" class="product-tabs">
 
-                            <ul class="product-tabs-nav">
-                                <!-- <?php if ($productCF1) { ?> <li><a href="#ProductDetail">Product Detail</a></li> <?php } ?> -->
-                                <!-- <li><a href="#reviews">Reviews</a></li>-->
-                                <!-- <?php if ($productCF2) { ?> <li><a href="#UsageWarnings">Usage/Warnings</a></li> <?php } ?> -->
-                                <!-- <?php if ($productCF3) { ?> <li><a href="#SupplementFacts">Supplement Facts</a></li>  <?php } ?> -->
+                        <ul class="product-tabs-nav">
+                            <!-- <?php if($productCF1) { ?> <li><a href="#ProductDetail">Product Detail</a></li> <?php } ?> -->
+                            <!-- <li><a href="#reviews">Reviews</a></li>-->
+                            <!-- <?php if($productCF2) { ?> <li><a href="#UsageWarnings">Usage/Warnings</a></li> <?php } ?> -->
+                            <!-- <?php if($productCF3) { ?> <li><a href="#SupplementFacts">Supplement Facts</a></li>  <?php } ?> -->
 
-                                <li><a href="#ProductDetail">Product Detail</a></li>
-                                <!-- <li><a href="#UsageWarnings">Usage/Warnings</a></li> -->
-                                <li><a href="#SupplementFacts">Supplement Facts</a></li>
-                            </ul>
+                            <li><a href="#ProductDetail">Product Detail</a></li> 
+                            <li><a href="#UsageWarnings">Usage/Warnings</a></li> 
+                            <li><a href="#SupplementFacts">Supplement Facts</a></li>
+                        </ul>
 
-                            <?php if ($productCF1) {  ?>
-                                <div id="ProductDetail">
-                                    <div class="desc-pd"><?= $productCF1 ?></div>
-                                </div>
-                            <?php } ?>
-
-                            <!-- <?php if ($productCF2) {  ?>
-                                <div id="UsageWarnings">
-                                    <div class="desc-pd"><?= $productCF2 ?></div>
-                                </div>
-                            <?php } ?> -->
-
-                            <?php if ($productCF3) {  ?>
-                                <div id="SupplementFacts">
-                                    <div class="desc-pd"><?= $productCF3 ?></div>
-                                </div>
-                            <?php } ?>
-                            <!-- <div id="UsageWarnings">
-                                <h3>Usage</h3>
-                                <p>As a dietary supplement, adults mix one scoop with your favorite beverage or smoothie.</p>
-                                <h3>Warnings</h3>
-                                <p>Please consult with a health care professional before starting any diet, exercise or supplementation program, before taking any medication, or if you have or suspect you might have a medical condition, are currently taking prescription drugs, or are pregnant or breastfeeding.</p>
+                        <?php if($productCF1) {  ?>  
+                            <div id="ProductDetail">
+                                <div class="desc-pd"><?= $productCF1 ?></div>
                             </div>
+                        <?php } ?>
+
+                        <?php if($productCF2) {  ?>  
+                            <div id="UsageWarnings">
+                                <div class="desc-pd"><?= $productCF2 ?></div>
+                            </div>
+                        <?php } ?>
+
+                        <?php if($productCF3) {  ?>  
                             <div id="SupplementFacts">
-                                <p><img class="img-responsive" src="<?= $assets ?>nw_theme/images/N441_Ingredients.jpg" alt="Fermented Organic Beet Ingredients"></p>
-                                <p><strong>Contains No</strong> salt, dairy, wheat, gluten, eggs,
-                                    peanuts, soy, sesame, yeast, tree nuts, fish, shellfish, preservatives, artificial colors or flavors.</p>
-                            </div> -->
+                                <div class="desc-pd"><?= $productCF3 ?></div>
+                            </div>
+                        <?php } ?>
+                        <!-- <div id="UsageWarnings">
+                            <h3>Usage</h3>
+                            <p>As a dietary supplement, adults mix one scoop with your favorite beverage or smoothie.</p>
+                            <h3>Warnings</h3>
+                            <p>Please consult with a health care professional before starting any diet, exercise or supplementation program, before taking any medication, or if you have or suspect you might have a medical condition, are currently taking prescription drugs, or are pregnant or breastfeeding.</p>
                         </div>
+                        <div id="SupplementFacts">
+                            <p><img class="img-responsive" src="<?= $assets ?>nw_theme/images/N441_Ingredients.jpg" alt="Fermented Organic Beet Ingredients"></p>
+                            <p><strong>Contains No</strong> salt, dairy, wheat, gluten, eggs,
+                                peanuts, soy, sesame, yeast, tree nuts, fish, shellfish, preservatives, artificial colors or flavors.</p>
+                        </div> -->
                     </div>
                 </div>
             </div>
@@ -654,11 +633,7 @@
                         cart_contents = '<div class="mfp-added-cart"><h2>Added to cart</h2>';
                         cart_contents += `<div class="row" style="margin-bottom:30px;"><div class="col-xs-4 col-md-4"><img class="img-responsive" src="${image}" + '"></div>`;
                         cart_contents += `<div class="col-xs-8 col-md-8 pap-item"><h3>${name}</h3>`;
-                        if (!document.getElementById('price-current').classList.contains('hide_price')) {
-                            cart_contents += `<p><strong>Qty:</strong> ${quantity} &nbsp;&nbsp;<strong>Price:</strong> ${currencySymbol} ${(Number(quantity) * Number(price))} </p>`;
-                        } else {
-                            cart_contents += `<p><strong>Qty:</strong> ${quantity} &nbsp;&nbsp;</p>`;
-                        }
+                        cart_contents += `<p><strong>Qty:</strong> ${quantity} &nbsp;&nbsp;<strong>Price:</strong> ${currencySymbol} ${(Number(quantity) * Number(price))} </p>`;
                         cart_contents += '<p><a href="<?= base_url('webshop/cart') ?>" class="btn add-to-cart" style="margin-bottom:5px; font-size:130%; padding-left:30px; padding-right:30px">View Cart &amp; Checkout</a> <a class="btn btn-grey btn-sm continue-shopping" style="border-radius:60px">Continue Shopping</a></p>';
                         cart_contents += '</div></div>';
 
@@ -738,11 +713,7 @@
                         cart_contents = '<div class="mfp-added-cart"><h2>Added to cart</h2>';
                         cart_contents += `<div class="row" style="margin-bottom:30px;"><div class="col-xs-4 col-md-4"><img class="img-responsive" src="${image}"></div>`;
                         cart_contents += `<div class="col-xs-8 col-md-8 pap-item"><h3>${name}</h3>`;
-                        if (!document.getElementById('price-current').classList.contains('hide_price')) {
-                            cart_contents += `<p><strong>Qty:</strong> ${quantity} &nbsp;&nbsp;<strong>Price:</strong> ${currencySymbol} ${(Number(quantity) * Number(price))} </p>`;
-                        } else {
-                            cart_contents += `<p><strong>Qty:</strong> ${quantity} &nbsp;&nbsp;</p>`;
-                        }
+                        cart_contents += `<p><strong>Qty:</strong>${quantity} &nbsp;&nbsp;<strong>Price:</strong>${currencySymbol} ${(Number(quantity) * Number(price))}</p>`;
                         cart_contents += '<p><a href="<?= base_url('webshop/cart') ?>" class="btn add-to-cart" style="margin-bottom:5px; font-size:130%; padding-left:30px; padding-right:30px">View Cart &amp; Checkout</a> <a class="btn btn-grey btn-sm continue-shopping" style="border-radius:60px">Continue Shopping</a></p>';
                         cart_contents += '</div></div>';
 
@@ -952,7 +923,7 @@
                 } else { // ELSE loading check
 
 
-                    current_btn = $("#prodinfo .add-to-cart");
+                    current_btn = $("#prodinfo .btn");
                     $(current_btn).addClass("loading").html("Loading...");
 
                     let url = baseUrl + 'webshop_request';
@@ -1014,30 +985,6 @@
 
         });
     </script>
-    <script>
-        $(document).ready(function(){
-
-    // Increase
-    $(document).on('click', '.btn-increase', function(){
-        var input = $(this).siblings('.itemQty');
-        var qty = parseInt(input.val()) || 1;
-        input.val(qty + 1);
-    });
-
-    // Decrease
-    $(document).on('click', '.btn-decrease', function(){
-        var input = $(this).siblings('.itemQty');
-        var qty = parseInt(input.val()) || 1;
-        if(qty > 1){
-            input.val(qty - 1);
-        }
-    });
-
-});
-
-    </script>
-
-    <script type="module" src="<?= $assets ?>nw_theme/js/common.js"></script>
 
 
 </body>

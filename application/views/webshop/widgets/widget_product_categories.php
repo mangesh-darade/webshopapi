@@ -14,7 +14,7 @@
                                 continue;
                             }
                             
-                            if (!empty($categories[$category->id]) && is_array($categories[$category->id])) {
+                            if (is_array($categories[$category->id])) {
                     ?>     
                         <li class="cat-item"><a href="<?= base_url("webshop/products/?q=cetegory&catid=".$category->id."&key=".str_replace([' & ', '&',' ','-'], '_', $category->name)."&id=".md5($category->id))?>"><?= $category->name ?></a></li>
                         <?php }}} ?>                       

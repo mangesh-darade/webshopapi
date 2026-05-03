@@ -42,7 +42,6 @@ var rzp = new Razorpay(options);
 $(document).ready(function(){
   $("#rzp-button1").click();
    rzp.open();
-    e.preventDefault();
 });
 </script>
 

@@ -773,9 +773,11 @@
     </script>
     <script>
     document.getElementById("apply_coupon").addEventListener("click", function(event) {
+        var currencySymbol =
+                <?= isset($Settings->symbol) ? json_encode($Settings->symbol) : '"Rs."'; ?>;
         var coupon_code = $('#coupon_code').val();
                 var cart_amount = $('#cart_subtotal_original_amt').val();    
-                apply_coupon(coupon_code , cart_amount);
+                apply_coupon(coupon_code , cart_amount , currencySymbol);
     });
     document.addEventListener("DOMContentLoaded", function() {
         const checkbox = document.getElementById('ship_to_different_address');
@@ -819,7 +821,7 @@
             var baseTotal = <?php echo json_encode($total); ?>;
             const freeDeliveryThreshold = <?= (float) $freeDelivery ?>;
             var currencySymbol =
-                <?= isset($settings->symbol) ? json_encode($settings->symbol) : '"د.إ"'; ?>;
+                <?= isset($Settings->symbol) ? json_encode($Settings->symbol) : '"د.إ"'; ?>;
             var selected = $(this).find(':selected');
             var extraCharges = parseFloat(selected.data('charges')) || 0;
             var minimumOrder = parseFloat(selected.data('minimum-order')) || 0;
@@ -1322,8 +1324,8 @@
     document.addEventListener('DOMContentLoaded', () => initCountryCodeBehavior(false));
 
     function formatMoney(amount) {
-  return "$" + parseFloat(amount).toFixed(2);
-}
+        return $Settings->symbol + parseFloat(amount).toFixed(2);
+    }
 $("#couponDiscountAmountShow").html(formatMoney(objData.coupon_data.aplied_discount_amount));
 
  document.getElementById('coupon_code').addEventListener('keydown', function(event) {

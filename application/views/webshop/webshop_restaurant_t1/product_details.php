@@ -116,10 +116,10 @@
         data-overlay="black" data-opacity="6">
         <div class="container z-index-common">
             <div class="breadcumb-content text-center pt-65 pt-lg-140 pb-95 pb-lg-175">
-                <h1 class="breadcumb-title sec-title1 text-white my-0">Ingredients</h1>
+                <h1 class="breadcumb-title sec-title1 text-white my-0"><?= $this->data['product']['category_name'] ? $this->data['product']['category_name'] : 'Product Details' ?></h1>
                 <ul class="breadcumb-menu-style1 bg-white">
                     <li><a href="<?= base_url('webshop') ?>"><i class="fal fa-home text-theme"></i>Home</a></li>
-                    <li class="active">Ingredients</li>
+                    <li class="active"><?= $this->data['product']['category_name'] ? $this->data['product']['category_name'] : 'Product Details' ?></li>
                 </ul>
             </div>
         </div>

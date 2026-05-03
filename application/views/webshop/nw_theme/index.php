@@ -44,11 +44,9 @@ if (!empty($this->data['website_setting'])) {
     <meta property="og:image:height" content="627" />
     <meta property="og:type" content="website" /> -->
     <title>
-        Herbinn Micro Medicines
+        <?= !empty($this->data['title']) ? $this->data['title'] : "Default Website Title" ?>
     </title>
-    <meta
-        name=" description"
-        content="Established in the year 1994 we Herbinn Micro Medicines" />
+    <meta name="description" content="Established in the year 1994 we Herbinn Micro Medicines" />
     <link rel="canonical" href="https://herbinnmicromedicines.elintpos.in/webshop" />
     <link
         href="https://fonts.googleapis.com/css?family=Lato:400,400italic,700,700italic|Oxygen:700"
@@ -64,121 +62,114 @@ if (!empty($this->data['website_setting'])) {
     <link rel="stylesheet" href="home.css" />
     <link rel="stylesheet" type="text/css" href="<?= $assets ?>nw_theme/css/slick-slider.css" />
     <link rel="stylesheet" href="<?= $assets ?>nw_theme/css/common.css">
-    <link rel="stylesheet" href="<?= $assets ?>nw_theme/css/index.css">
     <link rel="icon" type="image/x-icon" href="<?= $uploads ?>webshop/herbinn_favicon.ico">
     <style>
         .category-contain {
             display: grid;
-            grid-template-columns: repeat(1, 1fr);
-            gap: 30px;
-            padding: 20px 0;
-        }
-
-        /* Tablet and Desktop: Forced 3 Columns */
-        @media (min-width: 768px) {
-            .category-contain {
-                grid-template-columns: repeat(3, 1fr);
-            }
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
         }
 
         .category-contain a {
             display: block;
             text-decoration: none;
-            color: #0f172a;
+            color: #000;
         }
 
         .category-contain>div {
             text-align: center;
-            background: #ffffff;
-            border-radius: 20px;
-            border: 1px solid #e2e8f0;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            overflow: hidden;
-            position: relative;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+            background: #eee;
+            border-radius: 8px;
+            transition: all 0.2s ease-out;
         }
 
         .category-contain>div:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 20px 40px rgba(33, 69, 72, 0.1);
-            border-color: #214548;
+            transform: scale(110%);
         }
 
         .category-contain>div img {
             width: 100%;
-            height: 240px;
-            object-fit: cover;
-            transition: transform 0.6s ease;
-        }
-
-        .category-contain>div:hover img {
-            transform: scale(1.08);
+            height: auto;
+            border-radius: 8px 8px 0 0;
         }
 
         .category-contain>div h5 {
-            padding: 20px 15px;
-            margin: 0;
-            font-size: 18px;
-            font-weight: 700;
-            color: #214548;
-            background: #ffffff;
-            border-top: 1px solid #f1f5f9;
-            text-transform: capitalize;
+            padding: 10px;
         }
 
-        .h-section {
-            display: block;
-            text-align: center;
-            font-size: 32px;
-            font-weight: 800;
-            color: #214548;
-            margin-bottom: 40px;
-            position: relative;
-        }
-
-        .h-section span {
-            position: relative;
-            padding-bottom: 10px;
-        }
-
-        .h-section span::after {
-            /* content: "";
-        position: absolute;
-        bottom: 0;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 60px;
-        height: 4px;
-        background: #214548;
-        border-radius: 2px; */
-        }
-
-        /* Bestsellers Section Padding */
         .best-sellers-new {
-            display: flex;
             overflow-x: auto;
-            gap: 20px;
-            padding-bottom: 20px;
+            flex-wrap: nowrap;
+            display: flex;
+            flex-flow: row wrap;
+            width: 100%;
+        }
+
+        .best-sellers-new::-webkit-scrollbar {
+            width: 4px;
+            height: 10px;
+            background-color: #ededed;
+        }
+
+        .best-sellers-new::-webkit-scrollbar-thumb {
+            background-color: #000;
+            border-radius: 10px;
+            height: 5px;
         }
 
         .best-sellers-new>div {
-            flex: 0 0 calc(33.333% - 20px);
-            background: white;
-            padding: 15px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            flex: 0 0 auto;
+            min-height: 0;
+            min-width: 0;
+            width: 60%;
+            height: auto;
+            margin: 12px 15px 20px 15px;
+            padding: 20px;
+            box-shadow: 0px 0px 12px rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
         }
 
-        @media (max-width: 768px) {
-            .best-sellers-new>div {
-                flex: 0 0 80%;
+        .best-sellers-new>div a {
+            color: #000;
+        }
+
+        .best-sellers-new>div img {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
+        .best-sellers-new>div p {
+            margin-bottom: 0;
+        }
+
+        @media (min-width: 640px) {
+            .category-contain {
+                grid-template-columns: 1fr 1fr 1fr;
             }
 
-            .h-section {
-                font-size: 26px;
+            .best-sellers-new>div {
+                width: 25%;
+            }
+        }
+
+        @media (min-width: 992px) {
+            .category-contain {
+                grid-template-columns: 1fr 1fr 1fr 1fr;
+            }
+
+            .best-sellers-new>div {
+                width: 20%;
+            }
+        }
+
+        @media (min-width: 1200px) {
+            .category-contain {
+                grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
             }
         }
     </style>
+    </script>
 
 </head>
 
@@ -196,8 +187,7 @@ if (!empty($this->data['website_setting'])) {
                 margin: 0;
                 text-align: center;
                 ">
-                    Herbinn Micro Medicines : Premium Liver, Kidney, and Immune
-                    Support Supplements.
+                    Welcome to Pharma Industry, delivering quality healthcare solutions and innovation since 1994.
                 </h1>
             </div>
 
@@ -208,7 +198,8 @@ if (!empty($this->data['website_setting'])) {
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
             margin: 20px auto;
             display: block;
-            border-radius: 8px;" />
+            border-radius: 8px;
+            padding: 10px;" />
             <!-- <div>
                 <a
                     href="#"
@@ -235,30 +226,12 @@ if (!empty($this->data['website_setting'])) {
         </div>
     </div>
     <?php
-    $homePageWelcomeMessageSection = null;
-    $homePageCompanyCertificationSection = null;
-    $homePageBulletPoints = null;
-    $homePageCompanyUpdatesSection = null;
-    $homePageSectionsArr = array();
-    if (!empty($this->data['custom_pages']['header_strip']) && is_array($this->data['custom_pages']['header_strip'])) {
-        $homePageSectionsArr = $this->data['custom_pages']['header_strip'];
-    }
+    $homePageSectionsArr = $this->data['custom_pages']['header_strip'];
     foreach ($homePageSectionsArr as $section) {
-        if (!is_array($section) || empty($section['page_key'])) {
-            continue;
-        }
-        if ($section['page_key'] === 'homepagewelcomemessagesection') {
-            $homePageWelcomeMessageSection = $section;
-        }
-        if ($section['page_key'] === 'homepagecompanycertificationsection') {
-            $homePageCompanyCertificationSection = $section;
-        }
-        if ($section['page_key'] === 'homepagebulletpoints') {
-            $homePageBulletPoints = $section;
-        }
-        if ($section['page_key'] === 'homepagecompanyupdatessection') {
-            $homePageCompanyUpdatesSection = $section;
-        }
+        if ($section['page_key'] == 'homepagewelcomemessagesection') $homePageWelcomeMessageSection = $section;
+        if ($section['page_key'] == 'homepagecompanycertificationsection') $homePageCompanyCertificationSection = $section;
+        if ($section['page_key'] == 'homepagebulletpoints') $homePageBulletPoints = $section;
+        if ($section['page_key'] == 'homepagecompanyupdatessection') $homePageCompanyUpdatesSection = $section;
     }
     ?>
     <div class="container">
@@ -269,7 +242,7 @@ if (!empty($this->data['website_setting'])) {
             color: #567c34;
             margin: 10;
             " class="text-ban-be">
-            Welcome to Herbinn Micro Medicines - Your Partner in Health Since 1994
+            Welcome to Pharma Industry, delivering quality healthcare solutions and innovation since 1994.
         </h1>
         <br />
         <p>
@@ -336,7 +309,8 @@ if (!empty($this->data['website_setting'])) {
 
         <!-- <div class="container">
         <h1 class="bullet-head">
-            Why Choose Herbinn Micro Medicines        </h1>
+            Why Choose Herbinn Micro Medicines<sup>®</sup>
+        </h1>
         <br />
         <ul>
             <li>
@@ -375,77 +349,73 @@ if (!empty($this->data['website_setting'])) {
         </p>
     </div> -->
 
-        <div
+        <!-- <div
             class="section our-company2"
             style="padding-bottom: 20px; background: #fff">
-            <div class="container">
-                <h2 class="h-section">
-                    <span>Our Certifications</span>
-                </h2>
-                <!-- <div class="row">
-                    <div class="col-sm-4" style="margin-bottom: 20px">
-                        <img
-                            class="seal-img"
-                            alt="Doctor" />
-                        <p>
-                            For over 20 years, our supplements have been recommended by
-                            healthcare professionals and sold worldwide. When developing,
-                            formulating and producing supplements, we focus on science,
-                            quality, and proven performance.
-                        </p>
-                    </div>
-                    <div class="col-sm-4" style="margin-bottom: 20px">
-                        <img
-                            class="seal-img"
-                            alt="GMPSeal" />
-                        <p>
-                            All ingredients used are of the highest quality, and all Herbinn Micro Medicines supplements are manufactured in the USA under strict
-                            current Good Manufacturing Practice (cGMP) regulations ensuring
-                            all safety and quality standards are met.
-                        </p>
-                    </div>
-                    <div class="col-sm-4" style="margin-bottom: 20px">
-                        <img
-                            class="seal-img"
-                            alt="LabTestedSeal" />
-                        <p>
-                            All products are tested both before and after production to
-                            confirm that what is on the product label matches what is in each
-                            and every capsule and tablet.
-                        </p>
-                    </div>
-                </div>
-                <div style="margin-bottom: 30px">
+            <div class="container"> -->
+        <!-- <h2 class="h-section">
+                <span>Product Focused, Quality Verified</span>
+            </h2>
+            <div class="row">
+                <div class="col-sm-4" style="margin-bottom: 20px">
                     <img
                         class="seal-img"
-                        alt="MadeinFDARegisteredFacilitySeal" />
-                </div> -->
-                <?php
-                if ($homePageCompanyCertificationSection) {
-                    if (!empty($homePageCompanyCertificationSection['page_text'])) { ?>
-                        <!-- <div
+                        alt="Doctor" />
+                    <p>
+                        For over 20 years, our supplements have been recommended by
+                        healthcare professionals and sold worldwide. When developing,
+                        formulating and producing supplements, we focus on science,
+                        quality, and proven performance.
+                    </p>
+                </div>
+                <div class="col-sm-4" style="margin-bottom: 20px">
+                    <img
+                        class="seal-img"
+                        alt="GMPSeal" />
+                    <p>
+                        All ingredients used are of the highest quality, and all Herbinn Micro Medicines supplements are manufactured in the USA under strict
+                        current Good Manufacturing Practice (cGMP) regulations ensuring
+                        all safety and quality standards are met.
+                    </p>
+                </div>
+                <div class="col-sm-4" style="margin-bottom: 20px">
+                    <img
+                        class="seal-img"
+                        alt="LabTestedSeal" />
+                    <p>
+                        All products are tested both before and after production to
+                        confirm that what is on the product label matches what is in each
+                        and every capsule and tablet.
+                    </p>
+                </div>
+            </div>
+            <div style="margin-bottom: 30px">
+                <img
+                    class="seal-img"
+                    alt="ManufacturedintheUSASeal" />
+                <img
+                    class="seal-img"
+                    alt="MadeinFDARegisteredFacilitySeal" />
+            </div> -->
+        <?php
+        // $homePageCompanyCertificationSection  = $this->data['custom_pages']->homepagecompanycertificationsection;
+        if ($homePageCompanyCertificationSection) {
+            if (!empty($homePageCompanyCertificationSection['page_text'])) { ?>
+                <div
                     class="section our-company2"
-                    style="padding-bottom: 20px; background: #fff"> -->
-                        <!-- <div class="container"> -->
+                    style="padding-bottom: 20px; background: #fff">
+                    <div class="container">
                         <?=
                         $homePageCompanyCertificationSection['page_text'];
                         ?>
-                        <!-- </div> -->
-                        <!-- </div> -->
-                    <?php } else if (!empty($homePageCompanyCertificationSection['page_file'])) { ?>
-                        <div
-                            class="section our-company2"
-                            style="padding-bottom: 20px; background: #fff">
-                            <div class="container">
-                                <h1>Certification</h1>
-                                <canvas id="pdf-canvas"></canvas>
-                            </div>
-                        </div>
-                <?php }
+                    </div>
+                </div> <?php
+                    }
                 }
-                ?>
-            </div>
-        </div>
+                // echo !empty($homePageCompanyCertificationSection->page_text) ? $homePageCompanyCertificationSection->page_text : "";
+                        ?>
+        <!-- </div>
+        </div> -->
 
 
 
@@ -606,18 +576,12 @@ if (!empty($this->data['website_setting'])) {
         <script defer type="module/javascript" src="<?= $assets ?>nw_theme/js/common.js"></script>
 
         <script>
-            const baseUrl = "<?= base_url('webshop') ?>"
+            const baseUrl = "<?= baseUrl('webshop') ?>"
             const message = "<?= $this->session->flashdata('message') ?>";
             const assets = "<?= $assets ?>";
             const websitePhoneNumber = "<?= $phone_number ?>";
         </script>
 
-        <!-- Include the PDF.js library -->
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
-        <script>
-            if (document.getElementById('pdf-canvas'))
-                var certificateUrl = '<?php echo $uploads . "webshop/pages/" . $homePageCompanyCertificationSection["page_file"]; ?>';
-        </script>
 </body>
 
 </html>

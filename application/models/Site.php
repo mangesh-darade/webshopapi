@@ -7,7 +7,10 @@ class Site extends CI_Model {
 
     public function __construct() {
         parent::__construct();
-        $this->setSettings();
+        // DB-less storefront (API-only): skip loading sma_settings from MySQL
+        if (isset($this->db)) {
+            $this->setSettings();
+        }
     }
 
     // public function get_total_qty_alerts() {
@@ -76,8 +79,11 @@ class Site extends CI_Model {
     }
 
     public function get_setting() {
+        if (!isset($this->db)) {
+            return FALSE;
+        }
         $q = $this->db->get('settings');
-        if ($q->num_rows() > 0) {
+        if ($q && is_object($q) && $q->num_rows() > 0) {
             return $q->row();
         }
         return FALSE;

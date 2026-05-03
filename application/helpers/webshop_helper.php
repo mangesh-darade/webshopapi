@@ -1,5 +1,26 @@
 <?php
 
+/**
+ * Build image URL: POS paths are relative to uploads base; some payloads return absolute URLs.
+ *
+ * @param string $uploads_base From Webshop_api_model::get_media_uploads_base() / view $uploads
+ * @param string $path         Relative path or http(s) URL
+ */
+function webshop_media_src($uploads_base, $path) {
+    if ($path === null || $path === '') {
+        return '';
+    }
+    $s = trim((string) $path);
+    if ($s === '') {
+        return '';
+    }
+    if (preg_match('#^https?://#i', $s)) {
+        return $s;
+    }
+    $base = rtrim(str_replace('\\', '/', (string) $uploads_base), '/') . '/';
+    return $base . ltrim(str_replace('\\', '/', $s), '/');
+}
+
 function product_sale_price( $productData=[], $variant_price = NULL, $discount = NULL) {
 
     $data['promo_price'] = 0;
@@ -188,13 +209,17 @@ function Date_Time_Format($dateTime, $dateFormat = 'jS M Y') {
 
 function get_brands($ids = NULL) {
 
-    $q = $this->db->select('id, code, name, image');
-    if ($ids) {
-        $this->db->where_in('id', $ids);
+    $CI = CI();
+    if (!isset($CI->db)) {
+        return false;
     }
-    $this->db->get('brands');
+    $CI->db->select('id, code, name, image');
+    if ($ids) {
+        $CI->db->where_in('id', $ids);
+    }
+    $q = $CI->db->get('brands');
 
-    if ($q->num_rows() > 0) {
+    if ($q && is_object($q) && $q->num_rows() > 0) {
 
         foreach ($q->result() as $row) {
             $data[] = $row;
@@ -362,7 +387,12 @@ if (!function_exists('CI')) {
 }
 if (!function_exists('latest_Products')) {
     function latest_Products($imagePath){
-       $latestP =  CI()->db->limit(6)->order_by('id','DESC')->get('sma_products')->result();
+       $CI = CI();
+       if (!isset($CI->db)) {
+           return '';
+       }
+       $latestP = $CI->db->limit(6)->order_by('id','DESC')->get('sma_products')->result();
+       $Settings = isset($CI->Settings) ? $CI->Settings : (object) array('symbol' => '');
     
        $latestProductsStructure = '';
        foreach($latestP as $items){
@@ -430,9 +460,13 @@ if (!function_exists('rupeeFormat')) {
 
 if(!function_exists('product_variants')){
     function product_variants($product_id = NULL){
-         $q = CI()->db->where('product_id', $product_id)->order_by('price', 'asc')->get('product_variants');
+         $CI = CI();
+         if (!isset($CI->db)) {
+             return false;
+         }
+         $q = $CI->db->where('product_id', $product_id)->order_by('price', 'asc')->get('product_variants');
 
-        if ($q->num_rows() > 0) {
+        if ($q && is_object($q) && $q->num_rows() > 0) {
             foreach ($q->result() as $row) {
                 $data[] = (array) $row;
             }
@@ -445,9 +479,22 @@ if(!function_exists('product_variants')){
 
 if(!function_exists('pos_settings')){
     function pos_settings(){
-       $q = CI()->db->select('default_eshop_warehouse, default_eshop_biller, eshop_overselling,eshop_active')->get('pos_settings');
+       $CI = CI();
+       /* DB-less storefront: settings come from MY_Controller + Webshop_api_model (ElintOm getsettings API). */
+       if (!isset($CI->db)) {
+           if (isset($CI->webshop_model) && is_object($CI->webshop_model) && method_exists($CI->webshop_model, 'get_webshop_pos_settings')) {
+               return $CI->webshop_model->get_webshop_pos_settings();
+           }
+           $row = new stdClass();
+           $row->default_eshop_warehouse = '0';
+           $row->default_eshop_biller = '0';
+           $row->eshop_overselling = '0';
+           $row->eshop_active = (isset($CI->Settings->active_webshop) ? (int) $CI->Settings->active_webshop : 1);
+           return $row;
+       }
+       $q = $CI->db->select('default_eshop_warehouse, default_eshop_biller, eshop_overselling,eshop_active')->get('pos_settings');
     
-         if ($q->num_rows() > 0) {
+         if ($q && is_object($q) && $q->num_rows() > 0) {
             return $q->row();
         }
         return FALSE; 
