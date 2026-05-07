@@ -15,9 +15,16 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 |--------------------------------------------------------------------------
 */
 
-// --- Step 1: connect to ElintOm ------------------------------------------------
-$config['elintom_api_base_url']    = 'http://localhost/ElintOm/';
-$config['elintom_api_private_key'] = '3e8676ed23c627117437c7e6a1bbd6e9';
+
+
+$path_to_switch_config = __DIR__ . DIRECTORY_SEPARATOR . 'elintom_api_switch.php';
+if (is_file($path_to_switch_config)) {
+    include $path_to_switch_config;
+}
+unset($path_to_switch_config);
+
+$config['elintom_api_base_url'] = $selected_api_base_url;
+$config['elintom_api_private_key'] = $selected_api_private_key;
 
 // Relative to base URL above (no leading slash). Change only if your ElintOm needs index.php (common on WAMP without rewrite):
 //   index.php/webshop_api/index
@@ -27,7 +34,7 @@ $config['elintom_api_legacy_endpoint_path']  = 'api3/eshop';
 // --- Step 2: product images (optional — empty = automatic) --------------------
 // Full URL to the uploads root, or leave empty. Example:
 //   http://localhost/ElintOm/assets/mdata/localhost/uploads/
-$config['elintom_media_uploads_base_url'] = '';
+$config['elintom_media_uploads_base_url'] = $selected_media_uploads_base_url;
 
 // When host-based mdata is off, this folder name is used: …/mdata/{this}/uploads/
 $config['elintom_customer_assets_folder'] = 'default';
@@ -166,6 +173,11 @@ if (!isset($config['elintom_catalog_source'])) {
 // If the API call fails, try the local database model (needs MySQL in this app).
 if (!isset($config['elintom_catalog_fallback_database'])) {
     $config['elintom_catalog_fallback_database'] = false;
+}
+
+
+if (!isset($config['elintom_domain_theme_map'])) {
+    $config['elintom_domain_theme_map'] = array();
 }
 
 // Session-backed HTTP response cache (seconds). 0 = disable. Low values reduce ElintOm round-trips per shopper session.

@@ -553,6 +553,55 @@ class Webshop_model extends CI_Model {
         return false;
     }
 
+    public function get_entity_tag_map($entity_code, $entity_id)
+    {
+        $entity_code = strtolower(trim((string) $entity_code));
+        $entity_id = (int) $entity_id;
+        if ($entity_code === '' || $entity_id <= 0) {
+            return array();
+        }
+
+        $entities_master_table = $this->db->table_exists('sma_entities_master') ? 'sma_entities_master' : 'entities_master';
+        $entity_tag_map_table = $this->db->table_exists('sma_entity_tag_mapping') ? 'sma_entity_tag_mapping' : 'entity_tag_mapping';
+        if (!$this->db->table_exists($entities_master_table) || !$this->db->table_exists($entity_tag_map_table)) {
+            return array();
+        }
+
+        $entity_master = $this->db
+            ->select('id')
+            ->from($entities_master_table)
+            ->where('entity_code', $entity_code)
+            ->where('is_active', 1)
+            ->get()
+            ->row_array();
+        if (empty($entity_master) || empty($entity_master['id'])) {
+            return array();
+        }
+
+        $rows = $this->db
+            ->select('tag_id, property_name, value')
+            ->from($entity_tag_map_table)
+            ->where('entity_master_id', (int) $entity_master['id'])
+            ->where('entity_id', $entity_id)
+            ->get()
+            ->result_array();
+
+        if (empty($rows)) {
+            return array();
+        }
+
+        $mapped = array();
+        foreach ($rows as $row) {
+            $property_name = isset($row['property_name']) ? trim((string) $row['property_name']) : '';
+            $value = isset($row['value']) ? trim((string) $row['value']) : '';
+            if ($property_name === '' || $value === '') {
+                continue;
+            }
+            $mapped[$property_name] = $value;
+        }
+        return $mapped;
+    }
+
     public function get_product_by_id($productIds, $selects = null) {
 
         if ($selects) {

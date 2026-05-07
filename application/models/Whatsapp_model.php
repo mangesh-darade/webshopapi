@@ -104,8 +104,8 @@ class Whatsapp_model extends CI_Model {
             $items_list[] = $item->product_name . ($item->quantity > 1 ? "({$item->quantity})" : "");
         }
         $order_id = md5($order->id);
-        $delivery_type = ucfirst(strtolower((string) ($order->delivery_type ?? '')));
-        $sale_status = ucfirst(strtolower((string) ($order->sale_status ?? '')));
+        $delivery_type = ucfirst(strtolower((string) (isset($order->delivery_type) ? $order->delivery_type : '')));
+        $sale_status = ucfirst(strtolower((string) (isset($order->sale_status) ? $order->sale_status : '')));
          
         if ($customer_order_msg_response_flag == 'YES') {
              $params = [

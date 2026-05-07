@@ -133,6 +133,27 @@ class Elintom_api_response {
     }
 
     /**
+     * Map API image aliases onto Webshop_model-style `image` (matches product rows: image + photo).
+     */
+    public function coerce_category_image_on_object($obj) {
+        if (!is_object($obj)) {
+            return;
+        }
+        $has = function ($o, $prop) {
+            return isset($o->$prop) && trim((string) $o->$prop) !== '';
+        };
+        if ($has($obj, 'image')) {
+            return;
+        }
+        foreach (array('photo', 'category_image', 'categoryImage', 'thumb', 'thumbnail', 'picture', 'icon', 'logo') as $p) {
+            if ($has($obj, $p)) {
+                $obj->image = $obj->$p;
+                return;
+            }
+        }
+    }
+
+    /**
      * Build the same tree shape as Webshop_model::get_categories(): main + parent_id buckets.
      *
      * @param mixed $categoriesRaw API categories payload (object/array/list)
@@ -169,6 +190,7 @@ class Elintom_api_response {
         foreach ($rows as $row) {
             $obj = is_object($row) ? $row : (object) $row;
             $this->coerce_category_id_on_object($obj);
+            $this->coerce_category_image_on_object($obj);
             if (!isset($obj->id) || $obj->id === '' || $obj->id === null) {
                 continue;
             }
@@ -186,6 +208,27 @@ class Elintom_api_response {
                 }
                 $data[$parent_id][$idKey] = $obj;
             } else {
+                $data['main'][$idKey] = $obj;
+            }
+        }
+
+        // If every row was bucketed under parent ids, `main` stays empty and the home "Shop by Category"
+        // grid has nothing to loop. Re-list all valid rows in `main` as a flat storefront list.
+        if (empty($data['main']) && !empty($rows)) {
+            foreach ($rows as $row) {
+                $obj = is_object($row) ? $row : (object) $row;
+                $this->coerce_category_id_on_object($obj);
+                $this->coerce_category_image_on_object($obj);
+                if (!isset($obj->id) || $obj->id === '' || $obj->id === null) {
+                    continue;
+                }
+                if (!isset($obj->categoryActive)) {
+                    $obj->categoryActive = 'true';
+                }
+                if (!isset($obj->categoryInfoText)) {
+                    $obj->categoryInfoText = array('All*');
+                }
+                $idKey = is_numeric($obj->id) ? (int) $obj->id : $obj->id;
                 $data['main'][$idKey] = $obj;
             }
         }

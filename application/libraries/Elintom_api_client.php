@@ -134,6 +134,16 @@ class Elintom_api_client {
         return $this->post('getnextref');
     }
 
+    public function get_cms_page($url_path) {
+        return $this->post('getcmspage', array(
+            'url' => $url_path,
+        ));
+    }
+
+    public function get_cms_pages() {
+        return $this->post('getcmspages');
+    }
+
     /* ================================================================
      * CATALOGUE  (webshop_ endpoint, falls back to legacy api3 if needed)
      * ================================================================ */

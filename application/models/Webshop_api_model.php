@@ -156,7 +156,12 @@ class Webshop_api_model extends CI_Model {
             return rtrim(str_replace('\\', '/', $media_base_url_from_config), '/') . '/';
         }
         if (isset($CI->api_media_uploads_base) && is_string($CI->api_media_uploads_base) && trim($CI->api_media_uploads_base) !== '') {
-            return rtrim(str_replace('\\', '/', $CI->api_media_uploads_base), '/') . '/';
+            $api_base = rtrim(str_replace('\\', '/', $CI->api_media_uploads_base), '/') . '/';
+            // Keep API-provided base only when it already points to mdata uploads.
+            // If API still returns legacy .../assets/uploads/, fall through to dynamic mdata host resolution below.
+            if (preg_match('#/assets/mdata/[^/]+/uploads/?$#i', $api_base)) {
+                return $api_base;
+            }
         }
         $elintom_base_url               = $this->config->item('elintom_api_base_url', 'elintom_api');
         $use_browser_host_for_media_urls = (bool) $this->config->item('elintom_media_use_http_host', 'elintom_api');
@@ -270,6 +275,11 @@ class Webshop_api_model extends CI_Model {
      * @return stdClass|null    Legacy DB mode may return null when no row exists.
      */
     public function about_usdata($page_key = 'aboutus') {
+        $apiPage = $this->get_cms_page_content('/about-us');
+     
+        if ($apiPage !== null) {
+            return $apiPage;
+        }
         if ($this->has_local_db()) {
             return $this->_fallback_webshop_model()->about_usdata($page_key);
         }
@@ -277,10 +287,103 @@ class Webshop_api_model extends CI_Model {
         $o->page_key = $page_key;
         $o->page_title = '';
         $o->page_text = '';
+        $o->meta_tags = '';
         return $o;
     }
 
+    /**
+     * Dedicated homepage CMS payload.
+     *
+     * @return stdClass
+     */
+    public function home_page_data() {
+        $apiPage = $this->get_cms_page_content('/');
+        if ($apiPage !== null) {
+            return $apiPage;
+        }
+        $o = new stdClass();
+        $o->page_key = 'home';
+        $o->page_title = '';
+        $o->page_text = '';
+        $o->meta_tags = '';
+        return $o;
+    }
+
+    /**
+     * Header/footer CMS static pages from ElintOm CMS tables.
+     *
+     * @return array<int,array{title:string,url:string,href:string}>
+     */
+    public function get_cms_nav_pages() {
+        $res = $this->api->get_cms_pages();
+        if (!$res || !isset($res->status) || strtoupper((string) $res->status) !== 'SUCCESS' || !isset($res->pages)) {
+            return array();
+        }
+        $pages = is_array($res->pages) ? $res->pages : (array) $res->pages;
+        $out = array();
+        foreach ($pages as $row) {
+            $a = is_object($row) ? (array) $row : (is_array($row) ? $row : array());
+            $url   = isset($a['url']) ? trim((string) $a['url']) : '';
+            $title = isset($a['page_name']) ? trim((string) $a['page_name']) : '';
+            $status = isset($a['status']) ? strtolower(trim((string) $a['status'])) : 'published';
+
+            if ($url === '' || $title === '' || $status !== 'published') {
+                continue;
+            }
+            $href = $this->map_cms_url_to_webshop_href($url);
+            if ($href === '') {
+                continue;
+            }
+            $out[] = array(
+                'title' => $title,
+                'url'   => $url,
+                'href'  => $href,
+            );
+        }
+        return $out;
+    }
+
+    /**
+     * Public accessor for any CMS URL path.
+     *
+     * @param string $url_path
+     * @return stdClass|null
+     */
+    public function get_cms_page_by_url($url_path) {
+        return $this->get_cms_page_content($url_path);
+    }
+
+    /**
+     * Map CMS URLs to existing webshop routes.
+     *
+     * @param string $cms_url
+     * @return string
+     */
+    protected function map_cms_url_to_webshop_href($cms_url) {
+        $url = '/' . ltrim((string) $cms_url, '/');
+        if ($url === '//') {
+            $url = '/';
+        }
+        if ($url === '/') {
+            return base_url('webshop');
+        }
+        $slug = ltrim($url, '/');
+        $reserved = array(
+            'index', 'login', 'register', 'cart', 'checkout', 'cms_page',
+            'about_us', 'terms_and_conditions', 'privacy_policy', 'contact_us',
+            'product_details', 'category_products', 'search_products'
+        );
+        if (in_array($slug, $reserved, true)) {
+            return base_url('webshop/cms_page/' . $slug);
+        }
+        return base_url('webshop/' . $slug);
+    }
+
     public function terms_conditions($page_key = 'terms_conditions') {
+        $apiPage = $this->get_cms_page_content('/terms');
+        if ($apiPage !== null) {
+            return $apiPage;
+        }
         if ($this->has_local_db()) {
             return $this->_fallback_webshop_model()->terms_conditions($page_key);
         }
@@ -288,10 +391,15 @@ class Webshop_api_model extends CI_Model {
         $o->page_key = $page_key;
         $o->page_title = '';
         $o->page_text = '';
+        $o->meta_tags = '';
         return $o;
     }
 
     public function privacy_policy($page_key = 'policy') {
+        $apiPage = $this->get_cms_page_content('/privacy-policy');
+        if ($apiPage !== null) {
+            return $apiPage;
+        }
         if ($this->has_local_db()) {
             return $this->_fallback_webshop_model()->privacy_policy($page_key);
         }
@@ -299,6 +407,160 @@ class Webshop_api_model extends CI_Model {
         $o->page_key = $page_key;
         $o->page_title = '';
         $o->page_text = '';
+        $o->meta_tags = '';
+        return $o;
+    }
+
+    /**
+     * Pull CMS page HTML from ElintOm API and shape it like static pages row.
+     *
+     * @param string $url_path CMS URL path (e.g. /about-us)
+     * @return stdClass|null
+     */
+    protected function get_cms_page_content($url_path) {
+        $res = $this->api->get_cms_page($url_path);
+        if (!$res || !isset($res->status) || strtoupper((string) $res->status) !== 'SUCCESS') {
+            $statusText = ($res && isset($res->status)) ? (string) $res->status : 'NULL';
+            $msgText = ($res && isset($res->msg)) ? (string) $res->msg : '';
+            log_message('error', 'Webshop_api_model:get_cms_page_content failed url=' . (string) $url_path . ' status=' . $statusText . ' msg=' . $msgText);
+            return null;
+        }
+        $pick_first_string = function ($sources, $keys) {
+            foreach ($sources as $src) {
+                if (!is_array($src)) {
+                    continue;
+                }
+                foreach ($keys as $k) {
+                    if (isset($src[$k]) && trim((string) $src[$k]) !== '') {
+                        return (string) $src[$k];
+                    }
+                }
+            }
+            return '';
+        };
+        $as_bool_flag = function ($value, $default = true) {
+            if ($value === null || $value === '') {
+                return (bool) $default;
+            }
+            return in_array(strtolower(trim((string) $value)), array('1', 'true', 'yes', 'on'), true);
+        };
+        $resArr = is_object($res) ? (array) $res : (is_array($res) ? $res : array());
+        $pageArr = array();
+        if (isset($res->page) && is_object($res->page)) {
+            $pageArr = (array) $res->page;
+        } elseif (isset($res->page) && is_array($res->page)) {
+            $pageArr = $res->page;
+        }
+
+        $o = new stdClass();
+        $o->page_key = ltrim((string) $url_path, '/');
+        $o->url = '/' . ltrim((string) $url_path, '/');
+        if ($o->url === '//') {
+            $o->url = '/';
+        }
+        $o->page_type = '';
+        $o->status = '';
+        $o->page_title = '';
+        $o->page_text = '';
+        $o->meta_tags = '';
+        $o->sections = array();
+        $o->meta_tags_raw = array();
+        $o->header_html = '';
+        $o->footer_html = '';
+        $o->banner_html = '';
+        $o->logo_html = '';
+        $o->show_header = true;
+        $o->show_footer = true;
+        $o->page_banner_image_url = '';
+        $o->page_logo_image_url = '';
+        $o->page_title = $pick_first_string(array($pageArr, $resArr), array('page_name', 'page_title', 'title', 'name'));
+        $resolvedUrl = $pick_first_string(array($pageArr, $resArr), array('url', 'page_url', 'slug'));
+        if ($resolvedUrl !== '') {
+            $o->url = $resolvedUrl;
+        }
+        $o->page_type = strtolower(trim($pick_first_string(array($pageArr, $resArr), array('page_type', 'type'))));
+        $o->status = strtolower(trim($pick_first_string(array($pageArr, $resArr), array('status', 'page_status'))));
+        if (isset($res->sections) && is_array($res->sections)) {
+            $o->sections = $res->sections;
+        } elseif (isset($res->sections) && is_object($res->sections)) {
+            $o->sections = (array) $res->sections;
+        }
+        // Some API versions wrap sections under page.sections.
+        if (empty($o->sections) && isset($res->page) && is_object($res->page) && isset($res->page->sections)) {
+            $o->sections = is_array($res->page->sections) ? $res->page->sections : (array) $res->page->sections;
+        } elseif (empty($o->sections) && isset($res->page) && is_array($res->page) && isset($res->page['sections'])) {
+            $o->sections = is_array($res->page['sections']) ? $res->page['sections'] : (array) $res->page['sections'];
+        }
+        if (isset($res->meta_tags_raw) && is_array($res->meta_tags_raw)) {
+            $o->meta_tags_raw = $res->meta_tags_raw;
+        }
+        $o->meta_tags = $pick_first_string(array($resArr, $pageArr), array('meta_tags_html', 'meta_tags', 'meta'));
+        $o->page_text = $pick_first_string(
+            array($resArr, $pageArr),
+            array('content_html', 'body_html', 'page_text', 'content', 'description', 'page_description')
+        );
+        // Direct property fallback (some JSON decoders keep nested shapes where array cast omits keys).
+        if (trim((string) $o->page_text) === '' && is_object($res) && isset($res->content_html) && trim((string) $res->content_html) !== '') {
+            $o->page_text = trim((string) $res->content_html);
+        }
+        $o->header_html = $pick_first_string(array($resArr, $pageArr), array('header_html', 'header', 'header_content'));
+        $o->footer_html = $pick_first_string(array($resArr, $pageArr), array('footer_html', 'footer', 'footer_content'));
+        $o->banner_html = $pick_first_string(array($resArr, $pageArr), array('banner_html', 'banner', 'banner_content'));
+        $o->logo_html = $pick_first_string(array($resArr, $pageArr), array('logo_html', 'logo', 'logo_content'));
+        $showHeaderRaw = $pick_first_string(array($resArr, $pageArr), array('show_header', 'header_enabled', 'header'));
+        $showFooterRaw = $pick_first_string(array($resArr, $pageArr), array('show_footer', 'footer_enabled', 'footer'));
+        $o->show_header = $as_bool_flag($showHeaderRaw, true);
+        $o->show_footer = $as_bool_flag($showFooterRaw, true);
+        $o->page_banner_image_url = $pick_first_string(
+            array($resArr, $pageArr),
+            array('page_banner_image_url', 'banner_image_url', 'banner_image')
+        );
+        $o->page_logo_image_url = $pick_first_string(
+            array($resArr, $pageArr),
+            array('page_logo_image_url', 'logo_image_url', 'logo_image')
+        );
+        // Fallback: build static page body from mapped html_block sections.
+        if ($o->page_text === '' && !empty($o->sections) && is_array($o->sections)) {
+            $chunks = array();
+            foreach ($o->sections as $section) {
+                $sec = is_object($section) ? (array) $section : (is_array($section) ? $section : array());
+                $type = isset($sec['section_type']) ? strtolower(trim((string) $sec['section_type'])) : '';
+                if ($type === '' && isset($sec['section_name'])) {
+                    $type = strtolower(trim((string) $sec['section_name']));
+                }
+                if ($type !== 'html_block') {
+                    // Some old payloads store raw HTML even for non-html_block typed sections.
+                    $rawDirect = $pick_first_string(array($sec), array('html', 'content', 'section_html', 'section_contain'));
+                    if ($rawDirect !== '' && strpos(trim($rawDirect), '<') !== false) {
+                        $chunks[] = $rawDirect;
+                    }
+                    continue;
+                }
+                $cfg = array();
+                if (isset($sec['config_json']) && is_array($sec['config_json'])) {
+                    $cfg = $sec['config_json'];
+                } elseif (isset($sec['config_json']) && is_object($sec['config_json'])) {
+                    $cfg = (array) $sec['config_json'];
+                } elseif (isset($sec['config_json']) && is_string($sec['config_json']) && trim($sec['config_json']) !== '') {
+                    $decoded = json_decode($sec['config_json'], true);
+                    if (is_array($decoded)) {
+                        $cfg = $decoded;
+                    }
+                }
+                if (isset($cfg['content']) && trim((string) $cfg['content']) !== '') {
+                    $chunks[] = (string) $cfg['content'];
+                }
+                if (isset($cfg['html']) && trim((string) $cfg['html']) !== '') {
+                    $chunks[] = (string) $cfg['html'];
+                }
+                if (empty($cfg) && isset($sec['section_contain']) && is_string($sec['section_contain']) && trim($sec['section_contain']) !== '') {
+                    $chunks[] = (string) $sec['section_contain'];
+                }
+            }
+            if (!empty($chunks)) {
+                $o->page_text = implode("\n", $chunks);
+            }
+        }
         return $o;
     }
 

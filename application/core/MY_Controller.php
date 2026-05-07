@@ -28,6 +28,7 @@ class MY_Controller extends CI_Controller {
             }
             $this->api_media_uploads_base = $this->_resolve_media_uploads_base_from_api($api_data);
             $this->_sync_customer_assets_from_api_settings();
+            $this->_apply_domain_theme_override();
         } else {
             // Transport failure, empty body, or JSON { status: ERROR }
             echo "<h2>API Connection Error</h2>";
@@ -318,6 +319,47 @@ class MY_Controller extends CI_Controller {
                 }
             }
         }
+    }
+
+    /**
+     * Allow per-domain theme override so one codebase serves multiple customer themes.
+     * Reads application/config/elintom_api.php key: elintom_domain_theme_map
+     */
+    protected function _apply_domain_theme_override() {
+        $this->config->load('elintom_api', true);
+        $map = $this->config->item('elintom_domain_theme_map', 'elintom_api');
+        if (!is_array($map) || empty($map)) {
+            return;
+        }
+
+        $host = isset($_SERVER['HTTP_HOST']) ? strtolower(trim((string) $_SERVER['HTTP_HOST'])) : '';
+        if ($host === '') {
+            return;
+        }
+        if (preg_match('/:\d+$/', $host)) {
+            $host = preg_replace('/:\d+$/', '', $host);
+        }
+        $host_no_www = preg_replace('/^www\./', '', $host);
+
+        $theme = '';
+        if (isset($map[$host])) {
+            $theme = trim((string) $map[$host]);
+        } elseif (isset($map[$host_no_www])) {
+            $theme = trim((string) $map[$host_no_www]);
+        }
+        if ($theme === '') {
+            return;
+        }
+
+        if (!isset($this->webshop_settings) || !is_object($this->webshop_settings)) {
+            $this->webshop_settings = new stdClass();
+        }
+        if (!isset($this->Settings) || !is_object($this->Settings)) {
+            $this->Settings = new stdClass();
+        }
+
+        $this->webshop_settings->webshop_theme = $theme;
+        $this->Settings->webshop_theme = $theme;
     }
 
     public function checkusers(){
