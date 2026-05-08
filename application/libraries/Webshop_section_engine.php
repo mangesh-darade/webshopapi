@@ -145,6 +145,14 @@ class Webshop_section_engine
             if (isset($data['Settings'])) {
                 $sectionData['Settings'] = $data['Settings'];
             }
+            if (!$this->should_render_section_heading($type)) {
+                if (isset($sectionData['title'])) {
+                    $sectionData['title'] = '';
+                }
+                if (isset($sectionData['heading'])) {
+                    $sectionData['heading'] = '';
+                }
+            }
             if (!$this->should_render_catalog_section($type, $sectionData)) {
                 continue;
             }
@@ -210,7 +218,13 @@ class Webshop_section_engine
     public function getCategoryGridData($config, $seed = array())
     {
         $cfg = $this->decode_config($config);
-        $items = isset($seed['categories']) && is_array($seed['categories']) ? $seed['categories'] : array();
+        $items = array();
+        if (isset($seed['categories']) && is_array($seed['categories'])) {
+            $items = $this->normalize_category_seed_items($seed['categories']);
+        }
+        if (empty($items) && isset($seed['main_categories']) && is_array($seed['main_categories'])) {
+            $items = $this->normalize_category_seed_items($seed['main_categories']);
+        }
         if (empty($items)) {
             $items = $this->fetch_categories_for_section_config($cfg);
         }
@@ -236,6 +250,9 @@ class Webshop_section_engine
     {
         $cfg = $this->decode_config($config);
         return array(
+            'title' => isset($cfg['title']) && trim((string) $cfg['title']) !== ''
+                ? (string) $cfg['title']
+                : (isset($cfg['heading']) ? (string) $cfg['heading'] : ''),
             'content' => isset($cfg['content']) ? (string) $cfg['content'] : '',
         );
     }
@@ -312,6 +329,24 @@ class Webshop_section_engine
     public function normalized_section_type(array $section)
     {
         return $this->normalize_section_type($section);
+    }
+
+    /**
+     * Only selected dynamic sections should show optional heading text.
+     *
+     * @param string $type
+     * @return bool
+     */
+    private function should_render_section_heading($type)
+    {
+        $type = strtolower(trim((string) $type));
+        return in_array($type, array(
+            'html_block',
+            'product_grid',
+            'product_carousel',
+            'category_grid',
+            'category_carousel',
+        ), true);
     }
 
     /**
@@ -419,6 +454,35 @@ class Webshop_section_engine
             if ($limit > 0 && count($items) >= $limit) {
                 break;
             }
+        }
+        return $items;
+    }
+
+    /**
+     * Normalize multiple category payload shapes to flat list for section views.
+     *
+     * @param array $rawItems
+     * @return array
+     */
+    private function normalize_category_seed_items(array $rawItems)
+    {
+        // Some payloads pass categories as array('main' => array(...)).
+        if (isset($rawItems['main']) && is_array($rawItems['main'])) {
+            $rawItems = $rawItems['main'];
+        }
+        $items = array();
+        foreach ($rawItems as $cid => $row) {
+            $o = is_object($row) ? $row : (object) $row;
+            $id = isset($o->id) ? (int) $o->id : (int) $cid;
+            if ($id <= 0) {
+                continue;
+            }
+            $items[] = array(
+                'id' => $id,
+                'name' => isset($o->name) ? (string) $o->name : '',
+                'image' => isset($o->image) ? (string) $o->image : '',
+                'photo' => isset($o->photo) ? (string) $o->photo : '',
+            );
         }
         return $items;
     }

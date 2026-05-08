@@ -5,7 +5,9 @@ $cfg      = isset($config)  && is_array($config)  ? $config  : array();
 $dynData  = isset($data)    && is_array($data)     ? $data    : array();
 $items    = isset($items)   && is_array($items)    ? $items
           : (isset($dynData['categories']) && is_array($dynData['categories']) ? $dynData['categories'] : array());
-$title    = (isset($cfg['title']) && $cfg['title'] !== '') ? $cfg['title'] : 'Shop by Category';
+$title    = isset($title) ? trim((string) $title) : '';
+if ($title === '' && isset($cfg['title']) && $cfg['title'] !== '') $title = (string) $cfg['title'];
+if ($title === '') $title = 'Shop by Category';
 $cols     = (isset($cfg['columns_desktop']) && (int)$cfg['columns_desktop'] > 0) ? (int)$cfg['columns_desktop'] : 5;
 $uploadsB = isset($uploads) ? rtrim($uploads, '/') . '/' : '';
 if (empty($items)) return;

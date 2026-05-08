@@ -444,6 +444,61 @@ class Webshop_api_model extends CI_Model {
             }
             return in_array(strtolower(trim((string) $value)), array('1', 'true', 'yes', 'on'), true);
         };
+        $extract_title_from_meta_html = function ($html) {
+            $html = (string) $html;
+            if ($html === '') {
+                return '';
+            }
+            $m = array();
+            if (preg_match('/<title\b[^>]*>(.*?)<\/title>/is', $html, $m) && isset($m[1])) {
+                return trim(strip_tags((string) $m[1]));
+            }
+            return '';
+        };
+        $extract_title_from_meta_raw = function ($raw) {
+            $scan = function ($node) use (&$scan) {
+                if (is_object($node)) {
+                    $node = (array) $node;
+                }
+                if (!is_array($node)) {
+                    return '';
+                }
+
+                $nameCandidates = array('name', 'tag_name', 'key', 'label', 'title');
+                $valueCandidates = array('value', 'tag_value', 'content', 'text');
+
+                $nameVal = '';
+                foreach ($nameCandidates as $nk) {
+                    if (isset($node[$nk]) && trim((string) $node[$nk]) !== '') {
+                        $nameVal = strtolower(trim((string) $node[$nk]));
+                        break;
+                    }
+                }
+                if (in_array($nameVal, array('title', 'seo_title', 'meta_title', 'og:title', 'twitter:title'), true)) {
+                    foreach ($valueCandidates as $vk) {
+                        if (isset($node[$vk]) && trim((string) $node[$vk]) !== '') {
+                            return trim((string) $node[$vk]);
+                        }
+                    }
+                    if (isset($node['title']) && trim((string) $node['title']) !== '' && $nameVal !== '') {
+                        return trim((string) $node['title']);
+                    }
+                }
+
+                if (isset($node['title']) && trim((string) $node['title']) !== '') {
+                    return trim((string) $node['title']);
+                }
+
+                foreach ($node as $child) {
+                    $found = $scan($child);
+                    if ($found !== '') {
+                        return $found;
+                    }
+                }
+                return '';
+            };
+            return $scan($raw);
+        };
         $resArr = is_object($res) ? (array) $res : (is_array($res) ? $res : array());
         $pageArr = array();
         if (isset($res->page) && is_object($res->page)) {
@@ -495,6 +550,17 @@ class Webshop_api_model extends CI_Model {
             $o->meta_tags_raw = $res->meta_tags_raw;
         }
         $o->meta_tags = $pick_first_string(array($resArr, $pageArr), array('meta_tags_html', 'meta_tags', 'meta'));
+        // Prefer SEO title from meta payload when provided.
+        $seoTitle = $extract_title_from_meta_html($o->meta_tags);
+        if ($seoTitle === '' && !empty($o->meta_tags_raw)) {
+            $seoTitle = $extract_title_from_meta_raw($o->meta_tags_raw);
+        }
+        if ($seoTitle === '') {
+            $seoTitle = $extract_title_from_meta_raw($resArr);
+        }
+        if ($seoTitle !== '') {
+            $o->page_title = $seoTitle;
+        }
         $o->page_text = $pick_first_string(
             array($resArr, $pageArr),
             array('content_html', 'body_html', 'page_text', 'content', 'description', 'page_description')
@@ -585,6 +651,9 @@ class Webshop_api_model extends CI_Model {
                 return array();
             case 'get_wishlist_count':
                 return 0;
+            case 'get_entity_tag_map':
+            case 'get_entity_tag_rows':
+                return array();
             case 'getCustomPages':
                 return array();
             case 'restaurantWorking':
@@ -1041,6 +1110,107 @@ class Webshop_api_model extends CI_Model {
     public function normalize_product_detail_item_for_view($item) {
         $a = is_array($item) ? $item : (is_object($item) ? (array) $item : array());
         return $this->elintom_response->normalize_product_detail_item($a);
+    }
+
+    public function get_entity_tag_rows($entity_code, $entity_id) {
+        $entity_code = strtolower(trim((string) $entity_code));
+        $entity_id = (int) $entity_id;
+        if ($entity_code === '' || $entity_id <= 0) {
+            return array();
+        }
+
+        if ($this->use_elintom_api_catalogue()) {
+            $res = $this->api->get_entity_tags($entity_code, $entity_id);
+            if ($res && $this->elintom_response->api_status_ok($res)) {
+                $rows = array();
+                if (isset($res->rows) && is_array($res->rows)) {
+                    $rows = $res->rows;
+                } elseif (isset($res->rows) && is_object($res->rows)) {
+                    $rows = (array) $res->rows;
+                }
+                $out = array();
+                foreach ($rows as $row) {
+                    $a = is_array($row) ? $row : (array) $row;
+                    $property = isset($a['property_name']) ? trim((string) $a['property_name']) : '';
+                    $value = isset($a['value']) ? trim((string) $a['value']) : '';
+                    if ($property === '' || $value === '') {
+                        continue;
+                    }
+                    $out[] = array(
+                        'tag_id' => isset($a['tag_id']) ? (int) $a['tag_id'] : 0,
+                        'property_name' => $property,
+                        'value' => $value,
+                        'tag_name' => isset($a['tag_name']) ? (string) $a['tag_name'] : $property,
+                        'category' => isset($a['category']) && trim((string) $a['category']) !== '' ? (string) $a['category'] : 'General',
+                    );
+                }
+                return $out;
+            }
+            if (!$this->has_local_db()) {
+                return array();
+            }
+        }
+
+        if ($this->has_local_db()) {
+            return $this->_fallback_entity_tag_rows_from_db($entity_code, $entity_id);
+        }
+        return array();
+    }
+
+    public function get_entity_tag_map($entity_code, $entity_id) {
+        $rows = $this->get_entity_tag_rows($entity_code, $entity_id);
+        $mapped = array();
+        foreach ($rows as $row) {
+            $property_name = isset($row['property_name']) ? trim((string) $row['property_name']) : '';
+            $value = isset($row['value']) ? trim((string) $row['value']) : '';
+            if ($property_name === '' || $value === '') {
+                continue;
+            }
+            $mapped[$property_name] = $value;
+        }
+        return $mapped;
+    }
+
+    protected function _fallback_entity_tag_rows_from_db($entity_code, $entity_id) {
+        $wm = $this->_fallback_webshop_model();
+        if (!isset($wm->db)) {
+            return array();
+        }
+
+        $entities_master_table = $wm->db->table_exists('sma_entities_master') ? 'sma_entities_master' : 'entities_master';
+        $entity_tag_map_table = $wm->db->table_exists('sma_entity_tag_mapping') ? 'sma_entity_tag_mapping' : 'entity_tag_mapping';
+        $tags_master_table = $wm->db->table_exists('sma_tags_master') ? 'sma_tags_master' : 'tags_master';
+        if (
+            !$wm->db->table_exists($entities_master_table) ||
+            !$wm->db->table_exists($entity_tag_map_table) ||
+            !$wm->db->table_exists($tags_master_table)
+        ) {
+            return array();
+        }
+
+        $entity_master = $wm->db
+            ->select('id')
+            ->from($entities_master_table)
+            ->where('entity_code', $entity_code)
+            ->where('is_active', 1)
+            ->get()
+            ->row_array();
+        if (empty($entity_master) || empty($entity_master['id'])) {
+            return array();
+        }
+
+        $rows = $wm->db
+            ->select('etm.tag_id, etm.property_name, etm.value, tm.tag_name, tm.category')
+            ->from($entity_tag_map_table . ' etm')
+            ->join($tags_master_table . ' tm', 'tm.id = etm.tag_id', 'left')
+            ->where('etm.entity_master_id', (int) $entity_master['id'])
+            ->where('etm.entity_id', (int) $entity_id)
+            ->order_by('tm.category', 'ASC')
+            ->order_by('tm.tag_name', 'ASC')
+            ->get()
+            ->result_array();
+
+        return is_array($rows) ? $rows : array();
     }
 
     /**

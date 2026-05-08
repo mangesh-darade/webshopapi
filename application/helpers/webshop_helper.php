@@ -190,12 +190,12 @@ function webshop_price_display_fallback($n, $Settings) {
  */
 function webshop_no_image_src($uploads_base, $thumbs_base = '') {
     $try = array();
+    if ($uploads_base !== null && $uploads_base !== '') {
+        // Required default for product/category placeholders.
+        $try[] = webshop_media_src($uploads_base, 'no_image.png');
+    }
     if ($thumbs_base !== null && $thumbs_base !== '') {
         $try[] = webshop_media_src($thumbs_base, 'no_image.png');
-    }
-    if ($uploads_base !== null && $uploads_base !== '') {
-        $try[] = webshop_media_src($uploads_base, 'thumbs/no_image.png');
-        $try[] = webshop_media_src($uploads_base, 'no_image.png');
     }
     foreach ($try as $u) {
         if ($u !== '') {

@@ -371,7 +371,7 @@ class Elintom_api_response {
             $a['product_details'] = '';
         }
         if (!isset($a['price'])) {
-            foreach (array('eshop_price', 'unit_price', 'sale_price') as $k) {
+            foreach (array('eshop_price', 'unit_price', 'sale_price', 'mrp', 'regular_price') as $k) {
                 if (isset($a[$k]) && $a[$k] !== '' && $a[$k] !== null) {
                     $a['price'] = $a[$k];
                     break;
@@ -412,6 +412,25 @@ class Elintom_api_response {
         if ($raw === null || $raw === false) {
             return array();
         }
+        if (is_object($raw)) {
+            $raw = (array) $raw;
+        }
+        // Accept wrapped payloads like {images:[...]} or a single image row object.
+        if (is_array($raw) && isset($raw['images']) && (is_array($raw['images']) || is_object($raw['images']))) {
+            $raw = is_array($raw['images']) ? $raw['images'] : (array) $raw['images'];
+        }
+        if (is_array($raw) && !$this->is_list_array($raw)) {
+            $single = false;
+            foreach (array('photo', 'image', 'filename', 'file_name', 'url', 'path') as $k) {
+                if (isset($raw[$k]) && trim((string) $raw[$k]) !== '') {
+                    $single = true;
+                    break;
+                }
+            }
+            if ($single) {
+                $raw = array($raw);
+            }
+        }
         if (!is_array($raw)) {
             $raw = (array) $raw;
         }
@@ -423,6 +442,14 @@ class Elintom_api_response {
                 $photo = $row['photo'];
             } elseif (isset($row['image']) && $row['image'] !== '') {
                 $photo = $row['image'];
+            } elseif (isset($row['filename']) && $row['filename'] !== '') {
+                $photo = $row['filename'];
+            } elseif (isset($row['file_name']) && $row['file_name'] !== '') {
+                $photo = $row['file_name'];
+            } elseif (isset($row['url']) && $row['url'] !== '') {
+                $photo = $row['url'];
+            } elseif (isset($row['path']) && $row['path'] !== '') {
+                $photo = $row['path'];
             }
             if ($photo !== '') {
                 $out[] = array('photo' => $photo);
@@ -461,55 +488,95 @@ class Elintom_api_response {
         if (!$res || !is_object($res)) {
             return null;
         }
-        $product = null;
+        $bundle = array();
+
         if (isset($res->product)) {
-            $product = $res->product;
+            $bundle = is_object($res->product) ? (array) $res->product : (is_array($res->product) ? $res->product : array());
         } elseif (isset($res->result) && is_object($res->result) && isset($res->result->product)) {
-            $product = $res->result->product;
+            $bundle = is_object($res->result->product) ? (array) $res->result->product : (is_array($res->result->product) ? $res->result->product : array());
         } elseif (isset($res->result) && (is_object($res->result) || is_array($res->result))) {
-            $cand = is_array($res->result) ? $res->result : (array) $res->result;
-            if (isset($cand['id']) || isset($cand['product_id']) || isset($cand['name']) || isset($cand['product_name'])) {
-                $product = $res->result;
-            }
-        } elseif (isset($res->item)) {
-            $product = $res->item;
+            $bundle = is_array($res->result) ? $res->result : (array) $res->result;
         } elseif (isset($res->data)) {
             $d = $res->data;
             if (is_array($d) && $this->is_list_array($d) && count($d) === 1) {
-                $product = $d[0];
+                $bundle = is_array($d[0]) ? $d[0] : (array) $d[0];
             } elseif (is_array($d) && !$this->is_list_array($d)) {
-                $product = $d;
+                $bundle = $d;
             } elseif (is_object($d)) {
-                $product = $d;
+                $bundle = (array) $d;
             }
+        } elseif (isset($res->item)) {
+            $bundle = array('item' => $res->item);
         }
-        if ($product === null) {
+
+        if (empty($bundle)) {
             return null;
         }
-        if (is_string($product) && $product !== '') {
-            $decoded = json_decode($product, true);
+
+        // Some APIs return the product bundle as a JSON string.
+        if (count($bundle) === 1 && isset($bundle[0]) && is_string($bundle[0])) {
+            $decoded = json_decode($bundle[0], true);
             if (is_array($decoded)) {
-                $product = $decoded;
+                $bundle = $decoded;
             }
         }
-        if (!is_array($product) && !is_object($product)) {
+        foreach (array('product', 'result', 'data') as $wrapKey) {
+            if (isset($bundle[$wrapKey]) && (is_array($bundle[$wrapKey]) || is_object($bundle[$wrapKey]))) {
+                $wrapped = is_array($bundle[$wrapKey]) ? $bundle[$wrapKey] : (array) $bundle[$wrapKey];
+                if (!empty($wrapped)) {
+                    $bundle = $wrapped;
+                    break;
+                }
+            }
+        }
+
+        $itemRaw = null;
+        if (isset($bundle['item'])) {
+            $itemRaw = $bundle['item'];
+        } else {
+            // Flat product row shape.
+            $itemRaw = $bundle;
+        }
+        if (is_string($itemRaw) && $itemRaw !== '') {
+            $decoded = json_decode($itemRaw, true);
+            if (is_array($decoded)) {
+                $itemRaw = $decoded;
+            }
+        }
+        if (!is_array($itemRaw) && !is_object($itemRaw)) {
             return null;
         }
-        $item = is_array($product) ? $product : (array) $product;
+        $item = is_array($itemRaw) ? $itemRaw : (array) $itemRaw;
         $item = $this->normalize_product_detail_item($item);
 
         $variants = array();
-        if (isset($res->variants)) {
+        if (isset($bundle['variants'])) {
+            $variants = $this->rows_to_assoc_arrays($bundle['variants']);
+        } elseif (isset($res->variants)) {
             $variants = $this->rows_to_assoc_arrays($res->variants);
         }
         $images = array();
-        if (isset($res->images)) {
+        if (isset($bundle['images'])) {
+            $images = $this->normalize_product_images_from_api($bundle['images']);
+        } elseif (isset($bundle['product_images'])) {
+            $images = $this->normalize_product_images_from_api($bundle['product_images']);
+        } elseif (isset($res->images)) {
             $images = $this->normalize_product_images_from_api($res->images);
         } elseif (isset($res->product_images)) {
             $images = $this->normalize_product_images_from_api($res->product_images);
         }
         if (empty($images) && !empty($item['image'])) {
             $images[] = array('photo' => $item['image']);
+        }
+        if (empty($images)) {
+            foreach (array('images', 'product_images', 'gallery_images', 'photos') as $imgKey) {
+                if (isset($item[$imgKey])) {
+                    $images = $this->normalize_product_images_from_api($item[$imgKey]);
+                    if (!empty($images)) {
+                        break;
+                    }
+                }
+            }
         }
 
         return array(

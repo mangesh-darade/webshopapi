@@ -171,6 +171,13 @@ class Elintom_api_client {
         return $this->post('getproductbyhash', array('product_hash' => $hash));
     }
 
+    public function get_entity_tags($entity_code, $entity_id) {
+        return $this->post('getentitytags', array(
+            'entity_code' => $entity_code,
+            'entity_id' => (int) $entity_id,
+        ));
+    }
+
     public function search_products($keyword, $category_id = null) {
         return $this->post('searchproducts', array(
             'keyword'     => $keyword,

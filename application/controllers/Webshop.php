@@ -337,6 +337,13 @@ XSL;
             'gulfpharmacy_theme/index',
             'nw_theme/product_details',
             'gulfpharmacy_theme/product_details',
+            'flow/category_products',
+            'flow/cart',
+            'flow/login',
+            'flow/register',
+            'flow/checkout',
+            'payments',
+            'order_success',
         );
         if (!in_array($method, $allowed, true)) {
             return '';
@@ -1269,14 +1276,18 @@ XSL;
                     : '';
                 $bodyForRender = $this->filter_body_sections($cmsSections);
                 $localBodyHtml = trim($this->webshop_section_engine->render_components($bodyForRender, $this->data));
-                // Prefer ElintOm getcmspage body (content_html → page_text): it includes Cms_renderer output for dynamic sections (categories, etc.).
-                // Local render_components is fallback when API omits body or returns empty.
+                // Keep API body HTML, but also append locally rendered dynamic components.
+                // This ensures newly mapped CMS sections (e.g. product_carousel) are not hidden
+                // when API still returns a non-empty page_text.
+                $composedHomeHtml = '';
                 if ($pageBodyHtml !== '') {
-                    $this->data['home_section_html_block'] = $pageBodyHtml;
-                    $this->data['home_has_category_grid'] = false;
-                    $this->data['home_has_product_grid'] = false;
-                } elseif ($localBodyHtml !== '') {
-                    $this->data['home_section_html_block'] = $localBodyHtml;
+                    $composedHomeHtml .= $pageBodyHtml;
+                }
+                if ($localBodyHtml !== '') {
+                    $composedHomeHtml .= ($composedHomeHtml !== '' ? "\n" : '') . $localBodyHtml;
+                }
+                if ($composedHomeHtml !== '') {
+                    $this->data['home_section_html_block'] = $composedHomeHtml;
                     $this->data['home_has_category_grid'] = false;
                     $this->data['home_has_product_grid'] = false;
                 }
@@ -1287,15 +1298,20 @@ XSL;
                     $this->data['home_has_category_grid'] = false;
                 }
             }
-            $this->data['themeSections'] = $themeSections = $this->webshop_model->get_theme_sections($this->webshop_settings->home_page);
-
-            $this->set_theme_sections_data($themeSections);
-
-            $this->data['sliders'] = $this->webshop_model->get_sliders();
-
-            $this->data['features'] = $this->webshop_model->get_features();
-
-            $this->data['recent_viewed'] = $this->webshop_model->get_recent_viewed_product();
+            $activeTheme = isset($this->webshop_settings->webshop_theme) ? (string) $this->webshop_settings->webshop_theme : '';
+            // Gulf homepage uses CMS sections and custom blocks; skip heavy legacy payload fetches.
+            if ($activeTheme !== 'gulfpharmacy') {
+                $this->data['themeSections'] = $themeSections = $this->webshop_model->get_theme_sections($this->webshop_settings->home_page);
+                $this->set_theme_sections_data($themeSections);
+                $this->data['sliders'] = $this->webshop_model->get_sliders();
+                $this->data['features'] = $this->webshop_model->get_features();
+                $this->data['recent_viewed'] = $this->webshop_model->get_recent_viewed_product();
+            } else {
+                $this->data['themeSections'] = array();
+                $this->data['sliders'] = array();
+                $this->data['features'] = array();
+                $this->data['recent_viewed'] = array();
+            }
             $this->data['website_setting'] = $this->webshop_model->get_website_setting();
             $theme = $this->input->get('theme');
             if ($theme) {
@@ -1497,12 +1513,15 @@ XSL;
         $pageBodyHtml = isset($cmsPage->page_text) ? trim((string) $cmsPage->page_text) : '';
         $bodyForRender = $this->filter_body_sections($sections);
         $localBodyHtml = trim($this->webshop_section_engine->render_components($bodyForRender, $this->data));
+        $composedBodyHtml = '';
         if ($pageBodyHtml !== '') {
-            $this->data['home_section_html_block'] = $composedCmsHtml . $pageBodyHtml;
-            $this->data['home_has_category_grid'] = false;
-            $this->data['home_has_product_grid'] = false;
-        } elseif ($localBodyHtml !== '') {
-            $this->data['home_section_html_block'] = $composedCmsHtml . $localBodyHtml;
+            $composedBodyHtml .= $pageBodyHtml;
+        }
+        if ($localBodyHtml !== '') {
+            $composedBodyHtml .= ($composedBodyHtml !== '' ? "\n" : '') . $localBodyHtml;
+        }
+        if ($composedBodyHtml !== '') {
+            $this->data['home_section_html_block'] = $composedCmsHtml . $composedBodyHtml;
             $this->data['home_has_category_grid'] = false;
             $this->data['home_has_product_grid'] = false;
         } elseif ($composedCmsHtml !== '') {
@@ -1519,17 +1538,8 @@ XSL;
             ? (string)$this->data['home_section_html_block'] : '';
         $this->data['cms_page'] = $cmsPage;
 
-        // Render body sections as HTML array for cms_page.php
-        $renderedSections = [];
-        if (!empty($bodyForRender)) {
-            foreach ($bodyForRender as $sec) {
-                $secHtml = trim($this->webshop_section_engine->render_components([$sec], $this->data));
-                if ($secHtml !== '') {
-                    $renderedSections[] = $secHtml;
-                }
-            }
-        }
-        $this->data['cms_page_sections'] = $renderedSections;
+        // Reuse already-rendered section HTML; avoid rendering each section again.
+        $this->data['cms_page_sections'] = $localBodyHtml !== '' ? array($localBodyHtml) : array();
 
         // Non-home CMS pages → dedicated cms_page.php view (full layout)
         // Home-type pages → theme index (with dynamic sections)
@@ -1590,12 +1600,15 @@ XSL;
         $pageBodyHtml = isset($cmsPage->page_text) ? trim((string) $cmsPage->page_text) : '';
         $bodyForRender = $this->filter_body_sections($sections);
         $localBodyHtml = trim($this->webshop_section_engine->render_components($bodyForRender, $this->data));
+        $combinedBodyHtml = '';
         if ($pageBodyHtml !== '') {
-            $this->data['home_section_html_block'] = $pageBodyHtml;
-            $this->data['home_has_category_grid'] = false;
-            $this->data['home_has_product_grid'] = false;
-        } elseif ($localBodyHtml !== '') {
-            $this->data['home_section_html_block'] = $localBodyHtml;
+            $combinedBodyHtml .= $pageBodyHtml;
+        }
+        if ($localBodyHtml !== '') {
+            $combinedBodyHtml .= ($combinedBodyHtml !== '' ? "\n" : '') . $localBodyHtml;
+        }
+        if ($combinedBodyHtml !== '') {
+            $this->data['home_section_html_block'] = $combinedBodyHtml;
             $this->data['home_has_category_grid'] = false;
             $this->data['home_has_product_grid'] = false;
         }
@@ -1657,7 +1670,14 @@ XSL;
         if (!is_array($entity_tags)) {
             $entity_tags = [];
         }
+        $entity_tag_rows = method_exists($this->webshop_model, 'get_entity_tag_rows')
+            ? $this->webshop_model->get_entity_tag_rows('product', $productId)
+            : array();
+        if (!is_array($entity_tag_rows)) {
+            $entity_tag_rows = array();
+        }
         $this->data['entity_tags'] = $entity_tags;
+        $this->data['entity_tag_groups'] = $this->group_entity_tags_for_view($entity_tag_rows);
         $this->data['entity_meta_title'] = $this->resolve_entity_meta_title($entity_tags);
         $entity_meta_tags = $this->build_entity_meta_tags($entity_tags);
         if ($entity_meta_tags !== '') {
@@ -1714,6 +1734,39 @@ XSL;
             }
         }
         return '';
+    }
+
+    private function group_entity_tags_for_view($rows)
+    {
+        if (!is_array($rows) || empty($rows)) {
+            return array();
+        }
+        $groups = array();
+        foreach ($rows as $row) {
+            $r = is_object($row) ? (array) $row : (is_array($row) ? $row : array());
+            $value = isset($r['value']) ? trim((string) $r['value']) : '';
+            if ($value === '') {
+                continue;
+            }
+            $category = isset($r['category']) ? trim((string) $r['category']) : '';
+            if ($category === '') {
+                $category = 'General';
+            }
+            $tag_name = isset($r['tag_name']) && trim((string) $r['tag_name']) !== ''
+                ? (string) $r['tag_name']
+                : (isset($r['property_name']) ? (string) $r['property_name'] : '');
+            if ($tag_name === '') {
+                continue;
+            }
+            if (!isset($groups[$category])) {
+                $groups[$category] = array();
+            }
+            $groups[$category][] = array(
+                'label' => $tag_name,
+                'value' => $value,
+            );
+        }
+        return $groups;
     }
 
     public function category_products()
@@ -1818,15 +1871,15 @@ XSL;
                 $item['proudctIdHash'] = md5($item['id']);
                 $item['formatedPrice'] = $this->sma->formatMoney($item['price']);
             }
-            $this->load_view("nw_theme/category_products", $this->data);
+            $this->load_view("flow/category_products", $this->data);
         } else if ($this->webshop_settings->webshop_theme == 'gulfpharmacy') {
             foreach ($this->data['listItems'] as &$item) {
                 $item['proudctIdHash'] = md5($item['id']);
                 $item['formatedPrice'] = $this->sma->formatMoney($item['price']);
             }
-            $this->load_view("gulfpharmacy_theme/category_products", $this->data);
+            $this->load_view("flow/category_products", $this->data);
         } else {
-            $this->load_view("category_products", $this->data);
+            $this->load_view("flow/category_products", $this->data);
         }
     }
 
@@ -1919,7 +1972,7 @@ XSL;
             //     echo json_encode($this->data);
             //     return;
             // }
-            $this->load_view("webshop_restaurant_t1/cart", $this->data);
+            $this->load_view("flow/cart", $this->data);
         } else if ($theme == 'nw') {
             $hideCategories = ['Veterinary Nutraceuticals', 'Softgel Capsules'];
             foreach ($this->data['cart_items'] as &$item) {
@@ -1930,7 +1983,7 @@ XSL;
                 $item['show_price'] = !in_array($catName, $hideCategories);
             }
             unset($item);
-            $this->load_view("nw_theme/cart", $this->data);
+            $this->load_view("flow/cart", $this->data);
         } else if ($theme == 'gulfpharmacy') {
             // $hideCategories = ['Veterinary Nutraceuticals', 'Softgel Capsules'];
             // foreach ($this->data['cart_items'] as &$item) {
@@ -1941,7 +1994,7 @@ XSL;
             //     $item['show_price'] = !in_array($catName, $hideCategories);
             // }
             // unset($item);
-            $this->load_view("gulfpharmacy_theme/cart", $this->data);
+            $this->load_view("flow/cart", $this->data);
         } else {
             if (!isset($_SESSION['cart'])) {
                 redirect('webshop/index');
@@ -1950,7 +2003,7 @@ XSL;
             $this->data['recent_viewed'] = $this->webshop_model->get_recent_viewed_product();
             $this->data['state_list'] = $this->webshop_model->get_state();
 
-            $this->load_view("cart", $this->data);
+            $this->load_view("flow/cart", $this->data);
         }
     }
 
@@ -3096,15 +3149,7 @@ XSL;
                 $this->data['validated'] = false;
                 $this->data['return_page'] = $return_page;
 
-                if ($theme == 'restaurant') {
-                    $this->load_view("webshop_restaurant_t1/sign_in", $this->data);
-                } else if ($theme == "nw") {
-                    $this->load_view("nw_theme/login", $this->data);
-                } else if ($theme == "gulfpharmacy") {
-                    $this->load_view("gulfpharmacy_theme/login", $this->data);
-                } else {
-                    $this->load_view("login_registration", $this->data);
-                }
+                $this->load_view("flow/login", $this->data);
             }
         } else {
             if ($this->session->webshop->is_login && $this->session->webshop->user_id) {
@@ -3117,15 +3162,7 @@ XSL;
             foreach ($raw_settings as $row) {
                 $setting_map[$row->fields] = $row->value;
             }
-            if ($theme == 'restaurant') {
-                $this->load_view("webshop_restaurant_t1/sign_in", $this->data);
-            } else if ($theme == "nw") {
-                $this->load_view("nw_theme/login", $this->data);
-            } else if ($theme == "gulfpharmacy") {
-                $this->load_view("gulfpharmacy_theme/login", $this->data);
-            } else {
-                $this->load_view("login_registration", $this->data);
-            }
+            $this->load_view("flow/login", $this->data);
         }
     }
     public function logout()
@@ -3233,18 +3270,8 @@ XSL;
             foreach ($raw_settings as $row) {
                 $setting_map[$row->fields] = $row->value;
             }
-            if ($this->webshop_settings->webshop_theme == 'restaurant') {
-                $this->data['country'] = $this->webshop_model->getCountry();
-                $this->load_view("webshop_restaurant_t1/sign_up", $this->data);
-            } else if ($theme == "nw") {
-                $this->data['country'] = $this->webshop_model->getCountry();
-                $this->load_view("nw_theme/register", $this->data);
-            } else if ($theme == "gulfpharmacy") {
-                $this->data['country'] = $this->webshop_model->getCountry();
-                $this->load_view("gulfpharmacy_theme/register", $this->data);
-            } else {
-                $this->load_view("login_registration", $this->data);
-            }
+            $this->data['country'] = $this->webshop_model->getCountry();
+            $this->load_view("flow/register", $this->data);
         }
     }
     public function send_registration_email()

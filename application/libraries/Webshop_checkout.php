@@ -56,17 +56,17 @@ class Webshop_checkout {
                 }
             }
             $c->data['setting_map'] = $setting_map;
-            $c->load_view('webshop_restaurant_t1/checkout', $c->data);
+            $c->load_view('flow/checkout', $c->data);
             return;
         }
 
         if ($theme === 'nw') {
-            $c->load_view('nw_theme/checkout', $c->data);
+            $c->load_view('flow/checkout', $c->data);
             return;
         }
 
         if ($theme === 'gulfpharmacy') {
-            $c->load_view('gulfpharmacy_theme/checkout', $c->data);
+            $c->load_view('flow/checkout', $c->data);
             return;
         }
 
@@ -79,6 +79,6 @@ class Webshop_checkout {
             $c->data['customer_id'] = $customer_id;
             $c->data['addresses'] = $c->webshop_model->get_customer_address($customer_id);
         }
-        $c->load_view('checkout', $c->data);
+        $c->load_view('flow/checkout', $c->data);
     }
 }

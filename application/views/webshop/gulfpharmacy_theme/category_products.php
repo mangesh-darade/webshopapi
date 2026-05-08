@@ -175,64 +175,12 @@
             <div class="container">
                 <div class="main-row">
                     <div class="main-content  full-width">
-                        <div class="product-list-new">
-                            <div class="row">
-                                <?php
-                                $baseUrl = base_url('webshop/');
-                                $productsList = $this->data['listItems'];
-
-                                $selectedCategory;
-                                foreach ($this->data['categories']['main'] as $category) {
-                                    if ($category->id == $productsList[0]['category_id']) {
-                                        $selectedCategory = $category;
-                                        break;
-                                    }
-                                }
-
-                                if (!empty($productsList)) {
-                                    foreach ($productsList as $product) {
-
-                                        $productId =  $product['id'];
-                                        $image = $product['image'];
-                                        $uploads = $this->data['uploads'];
-                                        $productPrice = $product['price'];
-                                        $productTaxRate = $product['tax_rate'];
-                                        $productTaxMethod = $product['tax_method'];
-                                        $productPromoPrice = $product['promo_price'];
-                                        $formatedPrice = $product['formatedPrice'];
-                                        $productDesc = $product['product_details'];
-                                ?>
-                                        <div class="product-category-alt col-sm-6 col-md-4">
-                                            <form>
-                                                <!-- <input type="hidden" name="action" value="add_to_cart">
-                                            <input type="hidden" name="product_id" value="<?= $productId ?>">
-                                            <input type="hidden" name="variant_id" value="N438">
-                                            <input type="hidden" name="variant_price">
-                                            <input type="hidden" name="variant_unit_quantity" value="1">
-                                            <input type="hidden" name="product_price" value="<?= $productPrice ?>">
-                                            <input type="hidden" name="quantity" value="1">
-                                            <input type="hidden" name="tax_rate" value="<?= $productTaxRate ?>">
-                                            <input type="hidden" name="tax_method" value="<?= $productTaxMethod ?>">
-                                            <input type="hidden" name="price" value="<?= $productPrice ?>">
-                                            <input type="hidden" name="promotion_price" value="<?= $productPromoPrice ?>"> -->
-                                                <a href="<?= $baseUrl . 'product_details/' . $product['proudctIdHash'] ?>" class="image"><img src="<?= !empty($image) ? webshop_media_src($uploads, $image) : $thumbs . 'no_image.png' ?>" class="img-responsive" alt="<?= $product['name'] ?>"></a>
-                                                <div class="info">
-                                                    <h3><a href="<?= $baseUrl . 'product_details/' . $product['proudctIdHash'] ?>"><?= $product['name'] ?></a></h3>
-                                                    <span class="price <?php echo ($selectedCategory->name == 'Softgel Capsules' ||  $selectedCategory->name == 'Veterinary Nutraceuticals ') ? 'hide_price' : '' ?>" id="product_price"><?= $formatedPrice ?>
-                                                    </span>
-
-                                                    <p><?= $product['product_details'] ?> </p>
-                                                    <input type="submit" class="btn add-to-cart btn-morris" alt="Add to Cart" value="Add to Cart" product_id="<?= $productId ?>" quantity="1" tax_rate="<?= $productTaxRate ?>" tax_method="<?= $productTaxMethod ?>" price="<?= $productPrice ?>" promotion_price="<?= $productPromoPrice ?>" product_price="<?= $productPrice ?>" product_desc="<?= $productDesc ?>" imageurl='<?= webshop_media_src($uploads, $image) ?>' productname="<?= $product['name'] ?>" />
-                                                    <a href="<?= $baseUrl . 'product_details/' . $product['proudctIdHash'] ?>" class="btn btn-grey btn-morris" data-product="<?= $product['name'] ?>">View Full Details</a>
-                                                </div>
-                                            </form>
-                                        </div>
-                                <?php }
-                                } ?>
-
-
-                            </div>
-                        </div>
+                        <?= $this->load->view('webshop/components/category_products', array(
+                            'listItems' => $productsList,
+                            'selectedCategory' => isset($selectedCategory) ? $selectedCategory : null,
+                            'uploads' => $uploads,
+                            'thumbs' => isset($thumbs) ? $thumbs : '',
+                        ), true) ?>
 
                     </div>
                 </div>

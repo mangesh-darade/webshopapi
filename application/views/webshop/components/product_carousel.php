@@ -5,7 +5,9 @@ $cfg     = isset($config)  && is_array($config)  ? $config  : array();
 $dynData = isset($data)    && is_array($data)     ? $data    : array();
 $items   = isset($items)   && is_array($items)    ? $items
          : (isset($dynData['products']) && is_array($dynData['products']) ? $dynData['products'] : array());
-$title   = (isset($cfg['title']) && $cfg['title'] !== '') ? $cfg['title'] : 'Best Sellers';
+$title   = isset($title) ? trim((string) $title) : '';
+if ($title === '' && isset($cfg['title']) && $cfg['title'] !== '') $title = (string) $cfg['title'];
+if ($title === '') $title = 'Best Sellers';
 $uploadsB = isset($uploads) ? rtrim($uploads, '/') . '/' : '';
 $uid     = 'pc' . rand(1000, 9999);
 $currency = (isset($webshop_settings) && is_object($webshop_settings) && isset($webshop_settings->currency_symbol))
