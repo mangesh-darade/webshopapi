@@ -1516,6 +1516,18 @@ class Webshop_api_model extends CI_Model {
      * CUSTOMER
      * ================================================================ */
 
+    /* ================================================================
+     * CUSTOMER / AUTH
+     * ================================================================ */
+
+    public function authenticate_user_password($mobile, $password) {
+        $res = $this->api->login_customer($mobile, $password);
+        if ($res && isset($res->status) && strtoupper($res->status) === 'SUCCESS' && isset($res->customer)) {
+            return is_object($res->customer) ? $res->customer : (object) $res->customer;
+        }
+        return null;
+    }
+
     public function get_customer(array $filter) {
         $res = $this->api->get_customer($filter);
         if ($res && isset($res->status) && $res->status === 'SUCCESS') {
@@ -1559,6 +1571,20 @@ class Webshop_api_model extends CI_Model {
     }
 
     public function add_address(array $data) {
+        // ElintOm's addaddress handler reads 'customer_id' from POST, but the webshop
+        // controller builds address arrays with 'company_id'. Normalise here so the
+        // API receives the field name it expects.
+        if (!isset($data['customer_id']) && isset($data['company_id'])) {
+            $data['customer_id'] = $data['company_id'];
+            unset($data['company_id']);
+        }
+        // ElintOm stores the address email column as 'email', but the webshop array
+        // uses 'email_id' (matching the local DB column name). Map it here.
+        if (!isset($data['email']) && isset($data['email_id'])) {
+            $data['email'] = $data['email_id'];
+            unset($data['email_id']);
+        }
+
         $res = $this->api->add_address($data);
         if ($res && isset($res->status) && $res->status === 'SUCCESS') {
             return isset($res->address_id) ? $res->address_id : true;
@@ -1577,6 +1603,98 @@ class Webshop_api_model extends CI_Model {
         }
         // fallback to first if none matches explicitly
         return isset($addresses[0]->id) ? $addresses[0]->id : false;
+    }
+
+    /* ================================================================
+     * PRODUCT — individual lookup (used by submit_order)
+     * ================================================================ */
+
+    /**
+     * Fetch a single product by numeric ID.
+     *
+     * submit_order() calls: $data = get_product_by_id($id, $select)
+     * and expects:          $data[$id] = array of product fields
+     *
+     * We first try the catalogue API (get_products_list with byid=[id]),
+     * then fall back to the legacy hash-based endpoint.
+     * In DB-less mode the $select string is ignored — we return whatever
+     * the API provides, and submit_order already has isset() guards for
+     * every field it reads.
+     *
+     * @param  int|string $product_id  Numeric product ID
+     * @param  string     $select      Ignored in API mode
+     * @return array<int,array>        [$product_id => product_row] or [$product_id => []]
+     */
+    public function get_product_by_id($product_id, $select = '') {
+        $pid = (int) $product_id;
+        if ($pid < 1) {
+            return array($pid => array());
+        }
+
+        // Try bulk list API first (same path used by the cart enrichment).
+        $list = $this->get_products_list('products', array($pid), false, 1, 1);
+        if (is_array($list) && !empty($list['items'])) {
+            foreach ($list['items'] as $row) {
+                $a  = is_array($row) ? $row : (array) $row;
+                $id = isset($a['id']) ? (int) $a['id'] : 0;
+                if ($id === $pid) {
+                    return array($pid => $this->_flatten_product_for_order($a));
+                }
+            }
+        }
+
+        // Fall back to hash-based single-product endpoint.
+        $by_hash = $this->_legacy_fetch_products_by_numeric_ids(array($pid));
+        if (!empty($by_hash[$pid])) {
+            return array($pid => $this->_flatten_product_for_order($by_hash[$pid]));
+        }
+
+        // Product not found — return empty row; submit_order's isset() guards handle missing fields.
+        log_message('error', 'Webshop_api_model::get_product_by_id — product ' . $pid . ' not found via API.');
+        return array($pid => array());
+    }
+
+    /**
+     * Flatten a normalised product array into the flat key names submit_order expects
+     * (code, name, sale_unit_id, mrp, tax_id, tax_method, product_type, price, …).
+     *
+     * @param  array $a  Normalised product row from the API
+     * @return array     Flat product row
+     */
+    protected function _flatten_product_for_order(array $a) {
+        // API normalizer may nest the original data under 'raw' or return it flat.
+        $raw = (isset($a['raw']) && is_array($a['raw'])) ? array_merge($a, $a['raw']) : $a;
+        return array(
+            'id'           => isset($raw['id'])           ? $raw['id']          : (isset($a['id'])           ? $a['id']          : 0),
+            'code'         => isset($raw['code'])         ? $raw['code']        : (isset($a['code'])         ? $a['code']        : ''),
+            'article_code' => isset($raw['article_code']) ? $raw['article_code'] : '',
+            'name'         => isset($raw['name'])         ? $raw['name']        : (isset($a['name'])         ? $a['name']        : ''),
+            'price'        => isset($raw['price'])        ? $raw['price']       : (isset($a['eshop_price'])  ? $a['eshop_price'] : (isset($a['price']) ? $a['price'] : 0)),
+            'mrp'          => isset($raw['mrp'])          ? $raw['mrp']         : (isset($a['mrp'])          ? $a['mrp']         : 0),
+            'tax_id'       => isset($raw['tax_id'])       ? $raw['tax_id']      : (isset($a['tax_rate'])     ? $a['tax_rate']    : null),
+            'tax_method'   => isset($raw['tax_method'])   ? $raw['tax_method']  : (isset($a['tax_method'])   ? $a['tax_method']  : 0),
+            'product_type' => isset($raw['product_type']) ? $raw['product_type'] : (isset($a['type'])        ? $a['type']        : ''),
+            'sale_unit_id' => isset($raw['sale_unit_id']) ? $raw['sale_unit_id'] : (isset($a['sale_unit'])   ? $a['sale_unit']   : null),
+            'hsn_code'     => isset($raw['hsn_code'])     ? $raw['hsn_code']    : '',
+            'promotion'    => isset($raw['promotion'])    ? $raw['promotion']   : 0,
+            'promo_price'  => isset($raw['promo_price'])  ? $raw['promo_price'] : 0,
+            'weight'       => isset($raw['weight'])       ? $raw['weight']      : 0,
+            'storage_type' => isset($raw['storage_type']) ? $raw['storage_type'] : '',
+        );
+    }
+
+    /**
+     * Return a units map keyed by unit_id.
+     * In DB-less/API mode the unit code is not critical for order placement,
+     * so return an empty array — submit_order falls back to '' for the code.
+     *
+     * @return array
+     */
+    public function get_units() {
+        if ($this->has_local_db()) {
+            return $this->_fallback_webshop_model()->get_units();
+        }
+        return array();
     }
 
     /* ================================================================
@@ -1608,6 +1726,53 @@ class Webshop_api_model extends CI_Model {
         return $this->_fallback_webshop_model()->add_order($order, $items);
     }
 
+    /** In-request cache for gateway credentials (one API call per request). */
+    private $_gateway_credentials_cache = null;
+
+    /**
+     * Fetch payment gateway credentials + enabled flags from ElintOm.
+     * Returns an array keyed by gateway name, each with 'enabled' and credential keys.
+     */
+    public function get_gateway_credentials() {
+        if ($this->_gateway_credentials_cache !== null) {
+            return $this->_gateway_credentials_cache;
+        }
+        $res = $this->api->get_gateway_credentials();
+        if ($res && isset($res->status) && $res->status === 'SUCCESS' && isset($res->gateways)) {
+            $this->_gateway_credentials_cache = json_decode(json_encode($res->gateways), true);
+        } else {
+            $this->_gateway_credentials_cache = array();
+        }
+        return $this->_gateway_credentials_cache;
+    }
+
+    /** Cache to avoid double API calls for order + items in the same request. */
+    private $_order_cache = array();
+
+    public function get_order_by_id($order_id) {
+        $id = (int) $order_id;
+        if (isset($this->_order_cache[$id])) {
+            return $this->_order_cache[$id]['order'];
+        }
+        $res = $this->api->get_order($id);
+        if ($res && isset($res->status) && $res->status === 'SUCCESS' && isset($res->order)) {
+            $this->_order_cache[$id] = array(
+                'order' => (array) $res->order,
+                'items' => isset($res->items) ? array_map(function($i){ return (array) $i; }, (array) $res->items) : array(),
+            );
+            return $this->_order_cache[$id]['order'];
+        }
+        return null;
+    }
+
+    public function get_order_items_by_order_id($order_id) {
+        $id = (int) $order_id;
+        if (!isset($this->_order_cache[$id])) {
+            $this->get_order_by_id($id); // populates the cache
+        }
+        return isset($this->_order_cache[$id]['items']) ? $this->_order_cache[$id]['items'] : array();
+    }
+
     public function get_customer_sales($customer_id, $sale_status = '') {
         $res = $this->api->get_customer_sales($customer_id, $sale_status);
         if ($res && isset($res->status) && $res->status === 'SUCCESS') {
@@ -1635,17 +1800,26 @@ class Webshop_api_model extends CI_Model {
 
     public function get_wishlist($user_id) {
         $res = $this->api->get_wishlist($user_id);
-        if ($res && isset($res->status) && $res->status === 'SUCCESS') {
-            return ['wishlist' => $res->wishlist, 'count' => $res->count];
+        if ($res && isset($res->status) && $res->status === 'SUCCESS' && isset($res->wishlist)) {
+            $list = is_array($res->wishlist) ? $res->wishlist : (array) $res->wishlist;
+            $out = [];
+            foreach ($list as $item) {
+                $o = is_object($item) ? $item : (object) $item;
+                // Coerce standard fields if they are missing but aliases exist
+                if (!isset($o->product_id) && isset($o->id)) $o->product_id = $o->id;
+                if (!isset($o->option_id)) $o->option_id = 0;
+                $out[] = $o;
+            }
+            return $out;
         }
-        return ['wishlist' => [], 'count' => 0];
+        return [];
     }
 
     public function get_wishlist_count($user_id) {
         if ($this->api_mode || !$this->has_local_db()) {
             if (!$user_id) return 0;
             $res = $this->get_wishlist($user_id);
-            return isset($res['count']) ? $res['count'] : 0;
+            return count($res);
         }
         return $this->_fallback_webshop_model()->get_wishlist_count($user_id);
     }

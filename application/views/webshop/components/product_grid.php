@@ -64,6 +64,20 @@ if (empty($items)) return;
                 <?php endif; ?>
             </a>
             <div class="gp-product-info">
+                <?php 
+                $catName = '';
+                $catId = isset($p['category_id']) ? (int)$p['category_id'] : 0;
+                $subId = isset($p['subcategory_id']) ? (int)$p['subcategory_id'] : 0;
+                $cats = isset($categories) ? $categories : (isset($dynData['categories']) ? $dynData['categories'] : array());
+                
+                if ($subId > 0 && isset($cats[$catId][$subId])) {
+                    $catName = is_object($cats[$catId][$subId]) ? $cats[$catId][$subId]->name : (isset($cats[$catId][$subId]['name']) ? $cats[$catId][$subId]['name'] : '');
+                } elseif ($catId > 0 && isset($cats['main'][$catId])) {
+                    $catName = is_object($cats['main'][$catId]) ? $cats['main'][$catId]->name : (isset($cats['main'][$catId]['name']) ? $cats['main'][$catId]['name'] : '');
+                }
+                if ($catName !== ''): ?>
+                <div class="gp-product-cat"><?= htmlspecialchars($catName, ENT_QUOTES, 'UTF-8') ?></div>
+                <?php endif; ?>
                 <a href="<?= $url ?>" class="gp-product-name" data-product-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>"><?= $name ?></a>
                 <div class="gp-product-pricing">
                     <span class="gp-price-current"><?= $currency ?><?= number_format($price, 2) ?></span>
@@ -97,7 +111,8 @@ if (empty($items)) return;
 .gp-product-card:hover .gp-product-img{transform:scale(1.08);}
 .gp-product-img-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#f1f5f9;}
 .gp-product-badge{position:absolute;top:12px;left:12px;background:#ef4444;color:#fff;font-size:11px;font-weight:800;padding:4px 10px;border-radius:6px;text-transform:uppercase;letter-spacing:0.5px;box-shadow:0 4px 12px rgba(239,68,68,0.3);z-index:2;}
-.gp-product-info{padding:20px;display:flex;flex-direction:column;gap:10px;flex:1;}
+.gp-product-info{padding:20px;display:flex;flex-direction:column;gap:6px;flex:1;}
+.gp-product-cat{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;}
 .gp-product-name{font-size:15px;font-weight:700;color:#1a2e30;text-decoration:none;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:42px;}
 .gp-product-name:hover{color:#4caf89;}
 .gp-product-pricing{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}

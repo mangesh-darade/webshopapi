@@ -29,17 +29,7 @@ class Webshop_checkout {
         $theme = $c->webshop_settings->webshop_theme;
 
         if ($theme === 'restaurant') {
-            if (!isset($_SESSION['cart'])) {
-                redirect('webshop/index');
-                return;
-            }
-            $c->data['country'] = $c->webshop_model->getCountry();
             $c->data['areacharges'] = $c->webshop_model->getAreaCharges();
-            if (isset($c->session->webshop) && $c->session->webshop->user_id) {
-                $customer_id = (int) $c->session->webshop->user_id;
-                $c->data['customer_id'] = $customer_id;
-                $c->data['addresses'] = $c->webshop_model->get_customer_address($customer_id);
-            }
             if ($c->input->get('guest') == '1') {
                 unset($_SESSION['customer_register']);
             }
@@ -56,29 +46,9 @@ class Webshop_checkout {
                 }
             }
             $c->data['setting_map'] = $setting_map;
-            $c->load_view('flow/checkout', $c->data);
-            return;
         }
 
-        if ($theme === 'nw') {
-            $c->load_view('flow/checkout', $c->data);
-            return;
-        }
-
-        if ($theme === 'gulfpharmacy') {
-            $c->load_view('flow/checkout', $c->data);
-            return;
-        }
-
-        if (!isset($_SESSION['cart'])) {
-            redirect('webshop/index');
-            return;
-        }
-        if (isset($c->session->webshop) && $c->session->webshop->user_id) {
-            $customer_id = (int) $c->session->webshop->user_id;
-            $c->data['customer_id'] = $customer_id;
-            $c->data['addresses'] = $c->webshop_model->get_customer_address($customer_id);
-        }
-        $c->load_view('flow/checkout', $c->data);
+        // Resolved via auto-component fallback in resolve_webshop_view_path → components/checkout.
+        $c->load_view('checkout', $c->data);
     }
 }

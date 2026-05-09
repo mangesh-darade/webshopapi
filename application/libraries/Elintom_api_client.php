@@ -306,6 +306,14 @@ class Elintom_api_client {
         ));
     }
 
+    public function get_order($order_id) {
+        return $this->post('getorder', array('order_id' => (int) $order_id));
+    }
+
+    public function get_gateway_credentials() {
+        return $this->post('getgatewaycredentials', array());
+    }
+
     public function get_customer_sales($customer_id, $sale_status = '') {
         return $this->post('getcustomersales', array(
             'customer_id' => $customer_id,

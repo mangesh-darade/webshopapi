@@ -17,7 +17,6 @@ $selected_media_uploads_base_url = '';
 switch ($detected_host_for_api) {
 
     case 'localhost':
-    case '127.0.0.1':
         // API host matches how you open the shop (localhost vs 127.0.0.1).
         $selected_api_base_url = 'http://' . $detected_host_for_api . '/ElintOm/';
         $selected_api_private_key = '3e8676ed23c627117437c7e6a1bbd6e9';

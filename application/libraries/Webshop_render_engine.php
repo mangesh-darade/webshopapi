@@ -116,8 +116,19 @@ class Webshop_render_engine
 
         if (!empty($inspection['meta_html'])) {
             $existingMeta = isset($result['data']['meta_tags']) ? trim((string) $result['data']['meta_tags']) : '';
-            $dynamicMeta = trim((string) $inspection['meta_html']);
-            $result['data']['meta_tags'] = trim($existingMeta . "\n" . $dynamicMeta);
+            $dynamicMeta  = trim((string) $inspection['meta_html']);
+            if ($existingMeta !== '') {
+                // Avoid duplicating properties already set by entity/CMS tags.
+                // Strip <title>, meta name="description", and all og:* from dynamic
+                // model output before merging, so the entity-system values win.
+                $dynamicMeta = preg_replace('/<title\b[^>]*>.*?<\/title>/is', '', $dynamicMeta);
+                $dynamicMeta = preg_replace('/<meta\s[^>]*\bname\s*=\s*["\']description["\'][^>]*>/i', '', $dynamicMeta);
+                $dynamicMeta = preg_replace('/<meta\s[^>]*\bproperty\s*=\s*["\']og:[a-z_:]+["\'][^>]*>/i', '', $dynamicMeta);
+                $dynamicMeta = trim($dynamicMeta);
+            }
+            $result['data']['meta_tags'] = $dynamicMeta !== ''
+                ? trim($existingMeta . "\n" . $dynamicMeta)
+                : $existingMeta;
         }
 
         if (!empty($inspection['page_config']['page_name']) && empty($result['data']['page_title'])) {

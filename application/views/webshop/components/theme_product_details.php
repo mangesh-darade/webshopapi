@@ -23,6 +23,7 @@ $formattedMrp = $mrp > 0 ? (isset($this->sma) ? $this->sma->formatMoney($mrp) : 
 $discountPercent = ($mrp > $price && $price > 0) ? round((($mrp - $price) / $mrp) * 100) : 0;
 $productTaxRate = isset($product['tax_rate']) ? $product['tax_rate'] : 0;
 $productTaxMethod = isset($product['tax_method']) ? $product['tax_method'] : 0;
+$isLoggedIn = isset($this->session->webshop) && !empty($this->session->webshop->is_login) && !empty($this->session->webshop->user_id);
 $noImage = webshop_media_src($uploadsBase, 'no_image.png');
 $gallery = array();
 foreach ($galleryImages as $img) {
@@ -62,14 +63,16 @@ if (empty($gallery)) {
 .pd-off{background:#00A884;color:#fff;border-radius:999px;padding:4px 9px;font-size:12px;font-weight:600}
 .pd-stock{margin:10px 0;font-size:14px}
 .pd-stock.ok{color:#0a7c3f}.pd-stock.no{color:#b91c1c}
-.pd-short{font-size:16px;line-height:1.6;color:#374151;background:#F5F7FA;border-radius:10px;padding:12px}
-.pd-actions{display:grid;grid-template-columns:130px 1fr 1fr 46px;gap:8px;margin-top:14px}
+.pd-short{font-size:16px;line-height:1.6;color:#374151;background:#F5F7FA;border-radius:10px;padding:12px;position:relative;z-index:1}
+.pd-actions{display:grid;grid-template-columns:130px 1fr 1fr 46px;gap:8px;margin-top:14px;position:relative;z-index:2}
 .pd-qty{display:flex;border:1px solid #d5dde8;border-radius:10px;overflow:hidden}
 .pd-qty button{border:0;background:#f8fafc;width:34px}
 .pd-qty input{border:0;text-align:center;width:60px}
-.pd-btn{border:0;border-radius:10px;padding:11px 12px;color:#fff;font-size:15px;font-weight:600}
+.pd-btn{border:0;border-radius:10px;padding:11px 12px;color:#fff;font-size:15px;font-weight:600;cursor:pointer}
+.pd-btn:disabled{cursor:not-allowed;opacity:.72}
 .pd-cart{background:#0F4C81}.pd-buy{background:#00A884}
-.pd-wish{display:flex;align-items:center;justify-content:center;border:1px solid #d5dde8;border-radius:10px}
+.pd-wish{display:flex;align-items:center;justify-content:center;border:1px solid #d5dde8;border-radius:10px;background:#fff;cursor:pointer;font-size:20px;color:#6b7280}
+.pd-wish.active{color:#e11d48;border-color:#fda4af}
 .pd-tabs{margin-top:26px}
 .pd-tab-nav{display:flex;gap:8px;flex-wrap:wrap}
 .pd-tab-link{padding:9px 14px;border-radius:999px;background:#f1f5f9;font-size:13px;font-weight:600;cursor:pointer}
@@ -97,15 +100,35 @@ if (empty($gallery)) {
     </div>
     <div class="pd-card pd-summary">
       <h1 class="pd-title"><?= htmlspecialchars($productName, ENT_QUOTES, 'UTF-8'); ?></h1>
-      <div class="pd-meta"><span class="pd-rating"><?= str_repeat('★', (int) round($rating)); ?> <?= number_format($rating, 1); ?></span><span>(<?= (int) $reviews; ?> reviews)</span><?php if ($brandName !== '') { ?><span>Brand: <strong><?= htmlspecialchars($brandName, ENT_QUOTES, 'UTF-8'); ?></strong></span><?php } ?></div>
+      <div class="pd-meta">
+        <?php 
+        $catName = '';
+        $catId = isset($product['category_id']) ? (int)$product['category_id'] : 0;
+        $subId = isset($product['subcategory_id']) ? (int)$product['subcategory_id'] : 0;
+        $cats = isset($categories) ? $categories : array();
+        
+        if ($subId > 0 && isset($cats[$catId][$subId])) {
+            $catName = is_object($cats[$catId][$subId]) ? $cats[$catId][$subId]->name : (isset($cats[$catId][$subId]['name']) ? $cats[$catId][$subId]['name'] : '');
+        } elseif ($catId > 0 && isset($cats['main'][$catId])) {
+            $catName = is_object($cats['main'][$catId]) ? $cats['main'][$catId]->name : (isset($cats['main'][$catId]['name']) ? $cats['main'][$catId]['name'] : '');
+        }
+        ?>
+        <span class="pd-rating"><?= str_repeat('★', (int) round($rating)); ?> <?= number_format($rating, 1); ?></span>
+        <span>(<?= (int) $reviews; ?> reviews)</span>
+        <?php if (!empty($productId)): ?>
+          <span><a href="<?= base_url('webshop/product_reviews/' . md5((int) $productId)) ?>" style="color:#0F4C81;font-weight:600">Write a review</a></span>
+        <?php endif; ?>
+        <?php if ($catName !== '') { ?><span>Category: <strong><?= htmlspecialchars($catName, ENT_QUOTES, 'UTF-8'); ?></strong></span><?php } ?>
+        <?php if ($brandName !== '') { ?><span>Brand: <strong><?= htmlspecialchars($brandName, ENT_QUOTES, 'UTF-8'); ?></strong></span><?php } ?>
+      </div>
       <div class="pd-price"><span class="pd-price-now" id="price-current"><?= htmlspecialchars((string) $formattedPrice, ENT_QUOTES, 'UTF-8'); ?></span><?php if ($formattedMrp !== '') { ?><span class="pd-mrp"><?= htmlspecialchars((string) $formattedMrp, ENT_QUOTES, 'UTF-8'); ?></span><?php } ?><?php if ($discountPercent > 0) { ?><span class="pd-off"><?= (int) $discountPercent; ?>% OFF</span><?php } ?></div>
       <div class="pd-stock <?= $stockQty > 0 ? 'ok' : 'no'; ?>"><?= $stockQty > 0 ? 'In Stock' : 'Out of Stock'; ?></div>
       <div class="pd-short"><?= $productDescp !== '' ? $productDescp : '#N/A'; ?></div>
       <div class="pd-actions">
         <div class="pd-qty"><button type="button" id="qDec">-</button><input id="qVal" class="itemQty" type="number" min="1" value="1"><button type="button" id="qInc">+</button></div>
         <button class="pd-btn pd-cart add-to-cart" product_id="<?= (int) $productId; ?>" quantity="1" tax_rate="<?= htmlspecialchars((string) $productTaxRate, ENT_QUOTES, 'UTF-8'); ?>" tax_method="<?= htmlspecialchars((string) $productTaxMethod, ENT_QUOTES, 'UTF-8'); ?>" price="<?= htmlspecialchars((string) $price, ENT_QUOTES, 'UTF-8'); ?>" promotion_price="<?= htmlspecialchars((string) $promo, ENT_QUOTES, 'UTF-8'); ?>" product_price="<?= htmlspecialchars((string) $price, ENT_QUOTES, 'UTF-8'); ?>" product_desc="<?= htmlspecialchars((string) strip_tags($productDescp), ENT_QUOTES, 'UTF-8'); ?>" imageurl="<?= htmlspecialchars((string) $gallery[0]['full'], ENT_QUOTES, 'UTF-8'); ?>" productname="<?= htmlspecialchars((string) $productName, ENT_QUOTES, 'UTF-8'); ?>">Add To Cart</button>
-        <button class="pd-btn pd-buy" type="button">Buy Now</button>
-        <div class="pd-wish">♡</div>
+        <button class="pd-btn pd-buy buy-now" type="button">Buy Now</button>
+        <button type="button" class="pd-wish" id="pdWishlistBtn" data-in-wishlist="0" aria-label="Add to favourites">♡</button>
       </div>
     </div>
   </div>
@@ -122,8 +145,218 @@ if (empty($gallery)) {
     <div class="pd-tab" id="t6">Need help? Contact support for FAQ and product guidance.</div>
   </div>
 
-  
+<?php if (!empty($entityTagGroups)): ?>
+  <details class="pd-entity-panel" id="pdEntityPanel">
+    <summary class="pd-entity-toggle">
+      <span>Product Entity Tags</span>
+      <span class="pd-entity-badge"><?= array_sum(array_map('count', $entityTagGroups)) ?> tags</span>
+    </summary>
+    <div class="pd-entity-body">
+      <?php foreach ($entityTagGroups as $groupName => $rows): ?>
+        <?php if (!is_array($rows) || empty($rows)) { continue; } ?>
+        <div class="pd-entity-group">
+          <div class="pd-entity-group-name"><?= htmlspecialchars((string) $groupName, ENT_QUOTES, 'UTF-8') ?></div>
+          <?php foreach ($rows as $row): ?>
+            <?php
+            $tagLabel = isset($row['label']) ? (string) $row['label'] : '';
+            $tagValue = isset($row['value']) ? (string) $row['value'] : '';
+            if ($tagLabel === '' && $tagValue === '') { continue; }
+            ?>
+            <div class="pd-entity-row">
+              <span class="pd-entity-key"><?= htmlspecialchars($tagLabel, ENT_QUOTES, 'UTF-8') ?></span>
+              <span class="pd-entity-val"><?= htmlspecialchars($tagValue, ENT_QUOTES, 'UTF-8') ?></span>
+            </div>
+          <?php endforeach; ?>
+        </div>
+      <?php endforeach; ?>
+    </div>
+  </details>
+  <style>
+    .pd-entity-panel{margin-top:18px;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;font-size:14px}
+    .pd-entity-toggle{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;background:#f8fafc;list-style:none;user-select:none;font-weight:600;color:#374151}
+    .pd-entity-toggle::-webkit-details-marker{display:none}
+    .pd-entity-toggle::after{content:'▼';font-size:11px;color:#9ca3af;transition:transform .2s}
+    details[open] .pd-entity-toggle::after{transform:rotate(-180deg)}
+    .pd-entity-badge{background:#0F4C81;color:#fff;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;margin-left:8px}
+    .pd-entity-body{padding:12px 16px;background:#fff}
+    .pd-entity-group{margin-bottom:14px}
+    .pd-entity-group:last-child{margin-bottom:0}
+    .pd-entity-group-name{font-weight:700;color:#0F4C81;font-size:13px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #e5e7eb}
+    .pd-entity-row{display:grid;grid-template-columns:180px 1fr;gap:8px;padding:5px 0;border-bottom:1px dashed #f1f5f9}
+    .pd-entity-row:last-child{border-bottom:0}
+    .pd-entity-key{color:#6b7280;font-weight:600}
+    .pd-entity-val{color:#1f2937;word-break:break-word}
+    @media(max-width:600px){.pd-entity-row{grid-template-columns:1fr}}
+  </style>
+<?php endif; ?>
+
 </div>
 <script>
-(function(){var t=document.querySelectorAll('#pdThumbs .pd-thumb'),m=document.getElementById('pdMainImg');for(var i=0;i<t.length;i++){(function(ix){t[ix].addEventListener('click',function(){for(var j=0;j<t.length;j++)t[j].classList.remove('active');this.classList.add('active');m.style.opacity='0.25';var im=new Image();im.onload=function(){m.src=t[ix].getAttribute('data-full');m.style.opacity='1';};im.src=t[ix].getAttribute('data-full');});})(i);}var q=document.getElementById('qVal');document.getElementById('qInc').onclick=function(){q.value=parseInt(q.value||'1',10)+1;};document.getElementById('qDec').onclick=function(){var v=parseInt(q.value||'1',10);q.value=v>1?v-1:1;};function tabs(id){var n=document.getElementById(id);if(!n)return;var l=n.querySelectorAll('.pd-tab-link');for(var i=0;i<l.length;i++){l[i].onclick=function(){for(var j=0;j<l.length;j++)l[j].classList.remove('active');this.classList.add('active');var all=document.querySelectorAll('.pd-tab');for(var k=0;k<all.length;k++)all[k].classList.remove('active');var p=document.getElementById(this.getAttribute('data-tab'));if(p)p.classList.add('active');};}}tabs('pdTabNav');})();
+(function(){
+    var t=document.querySelectorAll('#pdThumbs .pd-thumb'),m=document.getElementById('pdMainImg');
+    for(var i=0;i<t.length;i++){
+        (function(ix){
+            t[ix].addEventListener('click',function(){
+                for(var j=0;j<t.length;j++) t[j].classList.remove('active');
+                this.classList.add('active');
+                m.style.opacity='0.25';
+                var im=new Image();
+                im.onload=function(){m.src=t[ix].getAttribute('data-full');m.style.opacity='1';};
+                im.src=t[ix].getAttribute('data-full');
+            });
+        })(i);
+    }
+
+    var q=document.getElementById('qVal');
+    document.getElementById('qInc').onclick=function(){q.value=parseInt(q.value||'1',10)+1;};
+    document.getElementById('qDec').onclick=function(){var v=parseInt(q.value||'1',10);q.value=v>1?v-1:1;};
+
+    function tabs(id){
+        var n=document.getElementById(id); if(!n) return;
+        var l=n.querySelectorAll('.pd-tab-link');
+        for(var i=0;i<l.length;i++){
+            l[i].onclick=function(){
+                for(var j=0;j<l.length;j++) l[j].classList.remove('active');
+                this.classList.add('active');
+                var all=document.querySelectorAll('.pd-tab');
+                for(var k=0;k<all.length;k++) all[k].classList.remove('active');
+                var p=document.getElementById(this.getAttribute('data-tab'));
+                if(p) p.classList.add('active');
+            };
+        }
+    }
+    tabs('pdTabNav');
+
+    var endpoint = (typeof baseUrl !== 'undefined' ? baseUrl : '<?= base_url('webshop/') ?>') + 'webshop_request';
+    var isLoggedIn = <?= $isLoggedIn ? 'true' : 'false' ?>;
+    var loginUrl = '<?= base_url('webshop/login') ?>';
+
+    function buildCartPayload(btn) {
+        var qty = parseInt((document.getElementById('qVal') || { value: '1' }).value, 10) || 1;
+        if (qty < 1) qty = 1;
+        return {
+            action: 'add_to_cart',
+            product_id: parseInt(btn.getAttribute('product_id'), 10) || 0,
+            product_price: Number(btn.getAttribute('product_price')) || 0,
+            quantity: qty,
+            tax_rate: Number(btn.getAttribute('tax_rate')) || 0,
+            tax_method: Number(btn.getAttribute('tax_method')) || 0,
+            price: Number(btn.getAttribute('price')) || 0,
+            promotion_price: Number(btn.getAttribute('promotion_price')) || 0
+        };
+    }
+
+    function postAction(payload) {
+        return fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+            body: new URLSearchParams(payload).toString(),
+            credentials: 'same-origin'
+        }).then(function(res){ return res.text(); });
+    }
+
+    function parseResponse(resText) {
+        try { return JSON.parse(resText); } catch (e) { return null; }
+    }
+
+    function toggleWishUi(inWishlist) {
+        var wish = document.getElementById('pdWishlistBtn');
+        if (!wish) { return; }
+        wish.classList.toggle('active', inWishlist);
+        wish.setAttribute('data-in-wishlist', inWishlist ? '1' : '0');
+        wish.textContent = inWishlist ? '♥' : '♡';
+    }
+
+    var addBtn = document.querySelector('.add-to-cart');
+    var buyBtn = document.querySelector('.buy-now');
+    var wishBtn = document.getElementById('pdWishlistBtn');
+
+    if (addBtn) {
+        addBtn.addEventListener('click', function(e){
+            e.preventDefault();
+            var btn = this;
+            var payload = buildCartPayload(btn);
+            if (!payload.product_id) {
+                alert('Invalid product.');
+                return;
+            }
+
+            var original = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Adding...';
+            postAction(payload)
+                .then(function(resText){
+                    var data = parseResponse(resText);
+                    if (data && data.status === 'SUCCESS') {
+                        btn.textContent = 'Added';
+                        setTimeout(function(){ btn.textContent = original; btn.disabled = false; }, 600);
+                        return;
+                    }
+                    btn.disabled = false;
+                    btn.textContent = original;
+                    alert('Unable to add item to cart. Please try again.');
+                })
+                .catch(function(){
+                    btn.disabled = false;
+                    btn.textContent = original;
+                    alert('Unable to add item to cart. Please try again.');
+                });
+        });
+    }
+
+    if (buyBtn) {
+        buyBtn.addEventListener('click', function(e){
+            e.preventDefault();
+            if (!addBtn) {
+                alert('Product action unavailable.');
+                return;
+            }
+            var payload = buildCartPayload(addBtn);
+            payload.action = 'buy_now';
+            if (!payload.product_id) {
+                alert('Invalid product.');
+                return;
+            }
+            postAction(payload)
+                .then(function(resText){
+                    var data = parseResponse(resText);
+                    if (data && data.status === 'SUCCESS') {
+                        window.location.href = (data.checkout_url ? data.checkout_url : '<?= base_url('webshop/checkout') ?>');
+                        return;
+                    }
+                    alert('Unable to proceed to checkout. Please try again.');
+                })
+                .catch(function(){
+                    alert('Unable to proceed to checkout. Please try again.');
+                });
+        });
+    }
+
+    if (wishBtn) {
+        wishBtn.addEventListener('click', function(e){
+            e.preventDefault();
+            if (!isLoggedIn) {
+                window.location.href = loginUrl + '?return_page=' + encodeURIComponent(window.location.href);
+                return;
+            }
+            var inWishlist = this.getAttribute('data-in-wishlist') === '1';
+            var payload = {
+                action: inWishlist ? 'remove_from_wishlist' : 'add_to_wishlist',
+                product_id: <?= (int) $productId ?>
+            };
+            postAction(payload)
+                .then(function(resText){
+                    var data = parseResponse(resText);
+                    if (data && data.status === 'SUCCESS') {
+                        toggleWishUi(!inWishlist);
+                        return;
+                    }
+                    alert('Unable to update favourites.');
+                })
+                .catch(function(){
+                    alert('Unable to update favourites.');
+                });
+        });
+    }
+})();
 </script>
