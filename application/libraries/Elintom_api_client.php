@@ -368,8 +368,12 @@ class Elintom_api_client {
         return $this->post('submitproductreview', $data);
     }
 
-    public function get_product_reviews($product_id) {
-        return $this->post('getproductreviews', array('product_id' => $product_id));
+    public function get_product_reviews($product_id, $limit = 200) {
+        $extra = array('product_id' => (int) $product_id);
+        if ($limit > 0) {
+            $extra['limit'] = (int) $limit;
+        }
+        return $this->post('getproductreviews', $extra);
     }
 
     public function get_product_rating($product_id) {

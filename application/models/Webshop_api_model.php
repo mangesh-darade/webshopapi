@@ -1337,6 +1337,53 @@ class Webshop_api_model extends CI_Model {
         return $out;
     }
 
+    /**
+     * Customer reviews for storefront product detail / product_reviews page.
+     * Rows match keys expected by views (reviews_rattings, reviews_title, reviews_details, reviews_date).
+     *
+     * @param int $product_id
+     * @param int $limit
+     * @return array
+     */
+    public function get_product_reviews($product_id, $limit = 100) {
+        $pid = (int) $product_id;
+        if ($pid <= 0) {
+            return array();
+        }
+        if ($this->use_elintom_api_catalogue()) {
+            $lim = max(1, min(500, (int) $limit));
+            $res = $this->api->get_product_reviews($pid, $lim);
+            if (!$res || !$this->elintom_response->api_status_ok($res)) {
+                return array();
+            }
+            $items = array();
+            if (isset($res->items) && is_array($res->items)) {
+                $items = $res->items;
+            }
+            $out = array();
+            foreach ($items as $row) {
+                $a = is_array($row) ? $row : (array) $row;
+                $rnum = isset($a['reviews_rattings']) ? (float) $a['reviews_rattings']
+                    : (isset($a['reviews_ratings']) ? (float) $a['reviews_ratings']
+                    : (isset($a['rating']) ? (float) $a['rating'] : 0));
+                $out[] = array(
+                    'reviews_rattings' => (int) round($rnum),
+                    'reviews_title' => isset($a['reviews_title']) ? (string) $a['reviews_title'] : (isset($a['title']) ? (string) $a['title'] : ''),
+                    'reviews_details' => isset($a['reviews_details']) ? (string) $a['reviews_details'] : (isset($a['review']) ? (string) $a['review'] : ''),
+                    'reviews_date' => isset($a['reviews_date']) ? (string) $a['reviews_date'] : (isset($a['created_at']) ? (string) $a['created_at'] : ''),
+                    'customer_name' => isset($a['customer_name']) ? (string) $a['customer_name'] : (isset($a['user']) ? (string) $a['user'] : 'Customer'),
+                );
+            }
+            return $out;
+        }
+        $wm = $this->_fallback_webshop_model();
+        if (method_exists($wm, 'get_product_reviews')) {
+            $r = $wm->get_product_reviews($pid, $limit);
+            return is_array($r) ? $r : array();
+        }
+        return array();
+    }
+
     public function search_products($keyword, $category_id = null) {
         if ($this->use_elintom_api_catalogue()) {
             $res = $this->api->search_products($keyword, $category_id);

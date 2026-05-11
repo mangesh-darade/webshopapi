@@ -147,16 +147,18 @@ $getCategory = function($item) {
     <nav class="cp-breadcrumb">
         <a href="<?= base_url('webshop') ?>">Home</a>
         <span>›</span>
-        <a href="<?= base_url('webshop') ?>">All Categories</a>
-        <span>›</span>
         <?= htmlspecialchars($categoryName, ENT_QUOTES, 'UTF-8') ?>
     </nav>
 
     <div class="cp-inner">
 
-        <!-- Sidebar -->
+        <?php
+        $cp_sidebar_subcats = !empty($subcategories);
+        $cp_sidebar_brands  = !empty($category_brands) && is_array($category_brands);
+        ?>
+        <?php if ($cp_sidebar_subcats || $cp_sidebar_brands): ?>
         <aside class="cp-sidebar">
-            <?php if (!empty($subcategories)): ?>
+            <?php if ($cp_sidebar_subcats): ?>
             <div class="cp-sidebar-box">
                 <h3 class="cp-sidebar-title">Subcategories</h3>
                 <?php foreach ($subcategories as $subId => $sub):
@@ -168,7 +170,7 @@ $getCategory = function($item) {
             </div>
             <?php endif; ?>
 
-            <?php if (!empty($category_brands) && is_array($category_brands)): ?>
+            <?php if ($cp_sidebar_brands): ?>
             <div class="cp-sidebar-box">
                 <h3 class="cp-sidebar-title">Brands</h3>
                 <?php foreach (array_slice($category_brands, 0, 10) as $brand):
@@ -181,21 +183,8 @@ $getCategory = function($item) {
                 <?php endforeach; ?>
             </div>
             <?php endif; ?>
-
-            <div class="cp-sidebar-box">
-                <h3 class="cp-sidebar-title">All Categories</h3>
-                <?php foreach (isset($main_categories) ? $main_categories : array() as $catId => $cat):
-                    $cName = is_object($cat) ? $cat->name : (isset($cat['name']) ? $cat['name'] : '');
-                    if (!$cName) continue;
-                    $isActive = ($catId == $selectedCatId);
-                ?>
-                    <a href="<?= base_url('webshop/category_products/' . $catId) ?>"
-                       class="cp-sidebar-link<?= $isActive ? ' active' : '' ?>">
-                        <?= htmlspecialchars($cName, ENT_QUOTES, 'UTF-8') ?>
-                    </a>
-                <?php endforeach; ?>
-            </div>
         </aside>
+        <?php endif; ?>
 
         <!-- Main -->
         <main class="cp-main">
@@ -307,8 +296,6 @@ $getCategory = function($item) {
                     </div>
                 <?php endforeach; ?>
                 </div>
-
-<?php // Product Catalog Data is available in $products array for API use but hidden from UI per request ?>
 
                 <!-- Pagination -->
                 <?php if ($totalPages > 1): ?>

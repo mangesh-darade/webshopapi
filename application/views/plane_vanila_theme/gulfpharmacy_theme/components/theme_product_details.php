@@ -5,6 +5,7 @@ $galleryImages = isset($gallary_images) && is_array($gallary_images) ? $gallary_
 $entityTagGroups = isset($entity_tag_groups) && is_array($entity_tag_groups) ? $entity_tag_groups : array();
 $relatedProducts = isset($related_products) && is_array($related_products) ? $related_products : array();
 $recentViewed = isset($recent_viewed) && is_array($recent_viewed) ? $recent_viewed : array();
+$productReviews = isset($product_reviews) && is_array($product_reviews) ? $product_reviews : array();
 $uploadsBase = isset($uploads) ? (string) $uploads : '';
 $thumbsBase = isset($thumbs) ? (string) $thumbs : '';
 $productId = isset($product['id']) ? (int) $product['id'] : 0;
@@ -79,6 +80,17 @@ if (empty($gallery)) {
 .pd-tab-link.active{background:#0F4C81;color:#fff}
 .pd-tab{display:none;margin-top:12px;border:1px solid #e6ecf4;border-radius:10px;padding:14px;line-height:1.7}
 .pd-tab.active{display:block}
+.pd-rev-summary{font-size:15px;font-weight:600;color:#0F4C81;margin-bottom:14px}
+.pd-rev-list{display:flex;flex-direction:column;gap:14px}
+.pd-rev-card{border:1px solid #e8edf3;border-radius:12px;padding:14px 16px;background:#fafbfc}
+.pd-rev-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:8px}
+.pd-rev-stars{color:#f59e0b;font-size:14px;letter-spacing:-1px}
+.pd-rev-title{font-weight:700;font-size:15px;color:#111827;margin:0}
+.pd-rev-meta{font-size:12px;color:#6b7280}
+.pd-rev-body{font-size:14px;color:#374151;margin:0}
+.pd-rev-empty{color:#6b7280;margin:0 0 12px}
+.pd-rev-write{display:inline-block;margin-top:4px;color:#0F4C81;font-weight:600;text-decoration:none}
+.pd-rev-write:hover{text-decoration:underline}
 .pd-section{margin-top:28px}
 .pd-list{display:flex;gap:12px;overflow:auto;padding-bottom:6px}
 .pd-item{min-width:210px;border:1px solid #e8edf3;border-radius:12px;padding:10px;text-decoration:none;color:inherit}
@@ -126,7 +138,7 @@ if (empty($gallery)) {
       </div>
       <div class="pd-price"><span class="pd-price-now" id="price-current"><?= htmlspecialchars((string) $formattedPrice, ENT_QUOTES, 'UTF-8'); ?></span><?php if ($formattedMrp !== '') { ?><span class="pd-mrp"><?= htmlspecialchars((string) $formattedMrp, ENT_QUOTES, 'UTF-8'); ?></span><?php } ?><?php if ($discountPercent > 0) { ?><span class="pd-off"><?= (int) $discountPercent; ?>% OFF</span><?php } ?></div>
       <div class="pd-stock <?= $stockQty > 0 ? 'ok' : 'no'; ?>"><?= $stockQty > 0 ? 'In Stock' : 'Out of Stock'; ?></div>
-      <div class="pd-short"><?= $productDescp !== '' ? $productDescp : '#N/A'; ?></div>
+      <div class="pd-short"><?= $productDescp !== '' ? $productDescp : '<span style="color:#9ca3af">No short description available.</span>'; ?></div>
       <div class="pd-actions">
         <div class="pd-qty"><button type="button" id="qDec">-</button><input id="qVal" class="itemQty" type="number" min="1" value="1"><button type="button" id="qInc">+</button></div>
         <button class="pd-btn pd-cart add-to-cart" product_id="<?= (int) $productId; ?>" quantity="1" tax_rate="<?= htmlspecialchars((string) $productTaxRate, ENT_QUOTES, 'UTF-8'); ?>" tax_method="<?= htmlspecialchars((string) $productTaxMethod, ENT_QUOTES, 'UTF-8'); ?>" price="<?= htmlspecialchars((string) $price, ENT_QUOTES, 'UTF-8'); ?>" promotion_price="<?= htmlspecialchars((string) $promo, ENT_QUOTES, 'UTF-8'); ?>" product_price="<?= htmlspecialchars((string) $price, ENT_QUOTES, 'UTF-8'); ?>" product_desc="<?= htmlspecialchars((string) strip_tags($productDescp), ENT_QUOTES, 'UTF-8'); ?>" imageurl="<?= htmlspecialchars((string) $gallery[0]['full'], ENT_QUOTES, 'UTF-8'); ?>" productname="<?= htmlspecialchars((string) $productName, ENT_QUOTES, 'UTF-8'); ?>">Add To Cart</button>
@@ -140,12 +152,46 @@ if (empty($gallery)) {
     <div class="pd-tab-nav" id="pdTabNav">
       <div class="pd-tab-link active" data-tab="t1">Description</div><div class="pd-tab-link" data-tab="t2">Supplement Facts</div><div class="pd-tab-link" data-tab="t3">Ingredients</div><div class="pd-tab-link" data-tab="t4">Usage</div><div class="pd-tab-link" data-tab="t5">Reviews</div><div class="pd-tab-link" data-tab="t6">FAQs</div>
     </div>
-    <div class="pd-tab active" id="t1"><?= !empty($product['cf1']) ? $product['cf1'] : ($productDescp !== '' ? $productDescp : '#N/A'); ?></div>
-    <div class="pd-tab" id="t2"><?= !empty($product['cf3']) ? $product['cf3'] : '#N/A'; ?></div>
-    <div class="pd-tab" id="t3"><?= !empty($product['cf2']) ? $product['cf2'] : '#N/A'; ?></div>
-    <div class="pd-tab" id="t4">Consult physician/pharmacist for personalized usage.</div>
-    <div class="pd-tab" id="t5"><?= $reviews > 0 ? ('Rated ' . number_format($rating, 1) . '/5 by ' . $reviews . ' customers') : 'No reviews yet.'; ?></div>
-    <div class="pd-tab" id="t6">Need help? Contact support for FAQ and product guidance.</div>
+    <div class="pd-tab active" id="t1"><?php
+      $t1 = !empty($product['cf1']) ? $product['cf1'] : ($productDescp !== '' ? $productDescp : '');
+      echo $t1 !== '' ? $t1 : '<p class="pd-rev-empty" style="margin:0">No description has been added for this product.</p>';
+    ?></div>
+    <div class="pd-tab" id="t2"><?= !empty($product['cf3']) ? $product['cf3'] : '<p class="pd-rev-empty" style="margin:0">No supplement facts available.</p>'; ?></div>
+    <div class="pd-tab" id="t3"><?= !empty($product['cf2']) ? $product['cf2'] : '<p class="pd-rev-empty" style="margin:0">No ingredients list available.</p>'; ?></div>
+    <div class="pd-tab" id="t4"><p class="pd-rev-empty" style="margin:0">Consult physician or pharmacist for personalized usage.</p></div>
+    <div class="pd-tab" id="t5">
+      <?php if (!empty($productReviews)): ?>
+        <div class="pd-rev-summary">Rated <?= number_format($rating, 1); ?>/5 average · <?= (int) $reviews; ?> review<?= (int) $reviews !== 1 ? 's' : ''; ?></div>
+        <div class="pd-rev-list">
+          <?php foreach ($productReviews as $r):
+            $r = is_array($r) ? $r : (array) $r;
+            $rt = isset($r['reviews_rattings']) ? max(0, min(5, (int) $r['reviews_rattings'])) : 0;
+            $ttl = isset($r['reviews_title']) ? trim((string) $r['reviews_title']) : '';
+            $det = isset($r['reviews_details']) ? trim((string) $r['reviews_details']) : '';
+            $dt = isset($r['reviews_date']) ? trim((string) $r['reviews_date']) : '';
+            $who = isset($r['customer_name']) ? trim((string) $r['customer_name']) : 'Customer';
+            $dtShow = ($dt !== '' && strtotime($dt) > 0) ? date('M j, Y', strtotime($dt)) : '';
+          ?>
+          <article class="pd-rev-card">
+            <div class="pd-rev-head">
+              <span class="pd-rev-stars"><?= str_repeat('★', $rt) . str_repeat('☆', 5 - $rt); ?></span>
+              <?php if ($ttl !== ''): ?><h3 class="pd-rev-title"><?= htmlspecialchars($ttl, ENT_QUOTES, 'UTF-8'); ?></h3><?php endif; ?>
+            </div>
+            <div class="pd-rev-meta"><?= htmlspecialchars($who, ENT_QUOTES, 'UTF-8'); ?><?= $dtShow !== '' ? ' · ' . htmlspecialchars($dtShow, ENT_QUOTES, 'UTF-8') : ''; ?></div>
+            <?php if ($det !== ''): ?><p class="pd-rev-body"><?= nl2br(htmlspecialchars($det, ENT_QUOTES, 'UTF-8')); ?></p><?php endif; ?>
+          </article>
+          <?php endforeach; ?>
+        </div>
+      <?php else: ?>
+        <p class="pd-rev-empty"><?= (int) $reviews > 0
+          ? 'Rating summary is available above, but no review text was returned. You can still write a review.'
+          : 'No customer reviews yet.'; ?></p>
+      <?php endif; ?>
+      <?php if (!empty($productId)): ?>
+        <p style="margin-top:14px"><a href="<?= base_url('webshop/product_reviews/' . md5((int) $productId)); ?>" class="pd-rev-write">Write a review</a></p>
+      <?php endif; ?>
+    </div>
+    <div class="pd-tab" id="t6"><p class="pd-rev-empty" style="margin:0">Need help? Contact support for FAQ and product guidance.</p></div>
   </div>
 
 <?php // Technical Specifications data is available in $technical_specs array for API use but hidden from UI per request ?>

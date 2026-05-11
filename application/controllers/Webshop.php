@@ -1950,6 +1950,12 @@ XSL;
         // Fetch and merge rating data for the product
         list($product['ratings_avarage'], $product['ratings_count']) = $this->resolve_product_rating_fields($product['id'], $product);
         $this->data['product'] = $product;
+        $this->data['product_reviews'] = ($productId > 0)
+            ? $this->webshop_model->get_product_reviews($productId, 150)
+            : array();
+        if (!is_array($this->data['product_reviews'])) {
+            $this->data['product_reviews'] = array();
+        }
 
         if ($this->input->get('format') === 'json' || $this->input->get('get_data') === '1') {
             $this->output->set_content_type('application/json')->set_output(json_encode($this->data));
