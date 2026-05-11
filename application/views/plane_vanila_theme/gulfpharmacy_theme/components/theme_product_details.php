@@ -113,7 +113,10 @@ if (empty($gallery)) {
             $catName = is_object($cats['main'][$catId]) ? $cats['main'][$catId]->name : (isset($cats['main'][$catId]['name']) ? $cats['main'][$catId]['name'] : '');
         }
         ?>
-        <span class="pd-rating"><?= str_repeat('★', (int) round($rating)); ?> <?= number_format($rating, 1); ?></span>
+        <span class="pd-rating">
+            <?= str_repeat('★', (int) round($rating)); ?><?= str_repeat('☆', 5 - (int) round($rating)); ?> 
+            <?= number_format($rating, 1); ?>
+        </span>
         <span>(<?= (int) $reviews; ?> reviews)</span>
         <?php if (!empty($productId)): ?>
           <span><a href="<?= base_url('webshop/product_reviews/' . md5((int) $productId)) ?>" style="color:#0F4C81;font-weight:600">Write a review</a></span>
@@ -145,50 +148,7 @@ if (empty($gallery)) {
     <div class="pd-tab" id="t6">Need help? Contact support for FAQ and product guidance.</div>
   </div>
 
-<?php if (!empty($entityTagGroups)): ?>
-  <details class="pd-entity-panel" id="pdEntityPanel">
-    <summary class="pd-entity-toggle">
-      <span>Product Entity Tags</span>
-      <span class="pd-entity-badge"><?= array_sum(array_map('count', $entityTagGroups)) ?> tags</span>
-    </summary>
-    <div class="pd-entity-body">
-      <?php foreach ($entityTagGroups as $groupName => $rows): ?>
-        <?php if (!is_array($rows) || empty($rows)) { continue; } ?>
-        <div class="pd-entity-group">
-          <div class="pd-entity-group-name"><?= htmlspecialchars((string) $groupName, ENT_QUOTES, 'UTF-8') ?></div>
-          <?php foreach ($rows as $row): ?>
-            <?php
-            $tagLabel = isset($row['label']) ? (string) $row['label'] : '';
-            $tagValue = isset($row['value']) ? (string) $row['value'] : '';
-            if ($tagLabel === '' && $tagValue === '') { continue; }
-            ?>
-            <div class="pd-entity-row">
-              <span class="pd-entity-key"><?= htmlspecialchars($tagLabel, ENT_QUOTES, 'UTF-8') ?></span>
-              <span class="pd-entity-val"><?= htmlspecialchars($tagValue, ENT_QUOTES, 'UTF-8') ?></span>
-            </div>
-          <?php endforeach; ?>
-        </div>
-      <?php endforeach; ?>
-    </div>
-  </details>
-  <style>
-    .pd-entity-panel{margin-top:18px;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;font-size:14px}
-    .pd-entity-toggle{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;background:#f8fafc;list-style:none;user-select:none;font-weight:600;color:#374151}
-    .pd-entity-toggle::-webkit-details-marker{display:none}
-    .pd-entity-toggle::after{content:'▼';font-size:11px;color:#9ca3af;transition:transform .2s}
-    details[open] .pd-entity-toggle::after{transform:rotate(-180deg)}
-    .pd-entity-badge{background:#0F4C81;color:#fff;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;margin-left:8px}
-    .pd-entity-body{padding:12px 16px;background:#fff}
-    .pd-entity-group{margin-bottom:14px}
-    .pd-entity-group:last-child{margin-bottom:0}
-    .pd-entity-group-name{font-weight:700;color:#0F4C81;font-size:13px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #e5e7eb}
-    .pd-entity-row{display:grid;grid-template-columns:180px 1fr;gap:8px;padding:5px 0;border-bottom:1px dashed #f1f5f9}
-    .pd-entity-row:last-child{border-bottom:0}
-    .pd-entity-key{color:#6b7280;font-weight:600}
-    .pd-entity-val{color:#1f2937;word-break:break-word}
-    @media(max-width:600px){.pd-entity-row{grid-template-columns:1fr}}
-  </style>
-<?php endif; ?>
+<?php // Technical Specifications data is available in $technical_specs array for API use but hidden from UI per request ?>
 
 </div>
 <script>
@@ -289,6 +249,11 @@ if (empty($gallery)) {
                     var data = parseResponse(resText);
                     if (data && data.status === 'SUCCESS') {
                         btn.textContent = 'Added';
+                        var badge = document.querySelector('.gp-cart-count, .cart-count');
+                        if (badge && data.cart_count !== undefined) {
+                            badge.textContent = data.cart_count;
+                            badge.style.display = data.cart_count > 0 ? '' : 'none';
+                        }
                         setTimeout(function(){ btn.textContent = original; btn.disabled = false; }, 600);
                         return;
                     }

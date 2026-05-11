@@ -1,6 +1,6 @@
-# Theme and Component Mapping (`plane_vanila_theme` -> `webshop/components`)
+# Theme and Component Mapping (`plane_vanila_theme` -> `plane_vanila_theme/<theme>/components`)
 
-This note explains how storefront themes in `application/views/plane_vanila_theme` use reusable components from `application/views/webshop/components`.
+This note explains how storefront themes in `application/views/plane_vanila_theme` use reusable components from theme-specific component directories.
 
 ## 1) View resolution flow
 
@@ -19,14 +19,14 @@ This note explains how storefront themes in `application/views/plane_vanila_them
 
 Implemented in `application/libraries/Webshop_section_engine.php`:
 
-- Section type to component view mapping:
-  - `html_block` -> `webshop/components/html_block`
-  - `product_grid` -> `webshop/components/product_grid`
-  - `product_carousel` -> `webshop/components/product_carousel`
-  - `category_grid` -> `webshop/components/category_grid`
-  - `category_carousel` -> `webshop/components/category_carousel`
-  - `banner` -> `webshop/components/banner`
-  - `hero_banner` -> `webshop/components/banner`
+- Section type to component view mapping (resolves to theme-specific path):
+  - `html_block` -> `components/html_block`
+  - `product_grid` -> `components/product_grid`
+  - `product_carousel` -> `components/product_carousel`
+  - `category_grid` -> `components/category_grid`
+  - `category_carousel` -> `components/category_carousel`
+  - `banner` -> `components/banner`
+  - `hero_banner` -> `components/banner`
 - Rendering path:
   - `render_components($sections, $data)` sorts sections by `sort_order` and renders each mapped component.
   - Unknown section types are skipped.

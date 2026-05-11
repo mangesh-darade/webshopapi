@@ -284,6 +284,30 @@ class Elintom_api_response {
                 'page'        => $page,
             ));
         }
+        // ElintOm Webshop_model::get_products_list(use_hash=false) nests rows under subcategory_id keys.
+        $numericBuckets = array();
+        foreach ($result as $k => $v) {
+            if ($k === 'page' || $k === 'items_total' || $k === 'items' || $k === 'products' || $k === 'status' || $k === 'msg') {
+                continue;
+            }
+            if (!is_numeric($k)) {
+                continue;
+            }
+            if (!is_array($v)) {
+                continue;
+            }
+            foreach ($v as $row) {
+                $numericBuckets[] = $row;
+            }
+        }
+        if ($numericBuckets !== array()) {
+            $itemsTotal = isset($result['items_total']) ? (int) $result['items_total'] : count($numericBuckets);
+            return $this->normalize_product_items_to_assoc(array(
+                'items'       => $numericBuckets,
+                'items_total' => $itemsTotal > 0 ? $itemsTotal : count($numericBuckets),
+                'page'        => isset($result['page']) ? $result['page'] : $page,
+            ));
+        }
         return $empty;
     }
 

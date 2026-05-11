@@ -121,7 +121,7 @@ elseif (!empty($legacyWelcome['page_text'])) { $bodyHtml = (string) $legacyWelco
                     <p>Best-selling and trending products</p>
                 </div>
                 <div class="panel">
-                    <?= $this->load->view('webshop/components/product_showcase', array(
+                    <?= $this->load->view('plane_vanila_theme/gulfpharmacy_theme/components/product_showcase', array(
                         'items' => $home_product_grid_items,
                         'uploads' => $uploads,
                         'thumbs' => $thumbs,
@@ -140,7 +140,7 @@ elseif (!empty($legacyWelcome['page_text'])) { $bodyHtml = (string) $legacyWelco
                     <p>Quickly explore medicine and wellness categories</p>
                 </div>
                 <div class="panel">
-                    <?= $this->load->view('webshop/components/category_grid', array(
+                    <?= $this->load->view('plane_vanila_theme/gulfpharmacy_theme/components/category_grid', array(
                         'items' => $catItems,
                         'uploads' => $uploads,
                         'thumbs' => $thumbs,
@@ -151,10 +151,10 @@ elseif (!empty($legacyWelcome['page_text'])) { $bodyHtml = (string) $legacyWelco
         <?php endif; ?>
 
         <?php if (!$isDynamic && !empty($legacyCert['page_text'])): ?>
-            <section class="section"><div class="panel"><?= $this->load->view('webshop/components/html_block', array('config' => array('content' => $legacyCert['page_text']), 'uploads' => $uploads), true) ?></div></section>
+            <section class="section"><div class="panel"><?= $this->load->view('plane_vanila_theme/gulfpharmacy_theme/components/html_block', array('config' => array('content' => $legacyCert['page_text']), 'uploads' => $uploads), true) ?></div></section>
         <?php endif; ?>
         <?php if (!$isDynamic && !empty($legacyUpdates['page_text'])): ?>
-            <section class="section"><div class="panel"><?= $this->load->view('webshop/components/html_block', array('config' => array('content' => $legacyUpdates['page_text']), 'uploads' => $uploads), true) ?></div></section>
+            <section class="section"><div class="panel"><?= $this->load->view('plane_vanila_theme/gulfpharmacy_theme/components/html_block', array('config' => array('content' => $legacyUpdates['page_text']), 'uploads' => $uploads), true) ?></div></section>
         <?php endif; ?>
     </main>
 

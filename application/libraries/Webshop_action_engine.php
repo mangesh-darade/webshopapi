@@ -22,7 +22,14 @@ class Webshop_action_engine
     public function add_to_cart($postData)
     {
         $product_id = $this->post_int($postData, 'product_id');
+        if ($product_id <= 0) {
+            $product_id = $this->post_int($postData, 'item_id');
+        }
+
         $variant_id = $this->post_int($postData, 'variant_id');
+        if ($variant_id <= 0) {
+            $variant_id = $this->post_int($postData, 'option_id');
+        }
         $variant_price = $this->post_float($postData, 'variant_price');
         $unit_quantity = max(1, $this->post_int($postData, 'variant_unit_quantity', 1));
         $product_unit_price = $this->post_float($postData, 'product_price');
@@ -86,7 +93,14 @@ class Webshop_action_engine
     public function add_to_wishlist($postData, $user_id)
     {
         $product_id = $this->post_int($postData, 'product_id');
+        if ($product_id <= 0) {
+            $product_id = $this->post_int($postData, 'item_id');
+        }
+
         $option_id = $this->post_int($postData, 'variant_id');
+        if ($option_id <= 0) {
+            $option_id = $this->post_int($postData, 'option_id');
+        }
         if ($product_id <= 0) {
             return array(
                 'status' => 'FAIL',
@@ -116,7 +130,14 @@ class Webshop_action_engine
     public function remove_from_wishlist($postData, $user_id)
     {
         $product_id = $this->post_int($postData, 'product_id');
+        if ($product_id <= 0) {
+            $product_id = $this->post_int($postData, 'item_id');
+        }
+
         $option_id = $this->post_int($postData, 'variant_id');
+        if ($option_id <= 0) {
+            $option_id = $this->post_int($postData, 'option_id');
+        }
         if ($product_id <= 0) {
             return array(
                 'status' => 'FAIL',

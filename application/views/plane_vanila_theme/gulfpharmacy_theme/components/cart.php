@@ -29,7 +29,7 @@ $theme = (isset($webshop_settings) && is_object($webshop_settings) && isset($web
     ?>
 
     <main class="cart-page-main">
-        <?php $this->load->view('webshop/components/cart_view', $this->data); ?>
+        <?php $this->load->view('plane_vanila_theme/' . $theme . '_theme/components/cart_view', $this->data); ?>
     </main>
 
     <?php

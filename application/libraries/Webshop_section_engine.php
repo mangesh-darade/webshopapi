@@ -489,6 +489,28 @@ class Webshop_section_engine
 
     private function resolve_component_view($type)
     {
+        $theme = 'default';
+        if (isset($this->CI->webshop_theme_engine)) {
+            $theme = $this->CI->webshop_theme_engine->resolve_active_theme(
+                isset($this->CI->webshop_settings) ? $this->CI->webshop_settings : null
+            );
+        }
+
+        // 1. Try active theme components first
+        if ($theme !== 'default') {
+            $themePath = 'plane_vanila_theme/' . $theme . '_theme/components/' . $type;
+            if (is_file(VIEWPATH . $themePath . '.php')) {
+                return $themePath;
+            }
+        }
+
+        // 2. Try gulfpharmacy_theme components (User request: use this path)
+        $gpPath = 'plane_vanila_theme/gulfpharmacy_theme/components/' . $type;
+        if (is_file(VIEWPATH . $gpPath . '.php')) {
+            return $gpPath;
+        }
+
+        // 3. Legacy fallback (webshop/components/ is currently missing in filesystem)
         $map = array(
             'html_block' => 'webshop/components/html_block',
             'product_grid' => 'webshop/components/product_grid',

@@ -181,3 +181,31 @@ foreach ($cart_items as $item) {
         margin-top: 20px;
     }
 </style>
+
+<script>
+function remove_cart_item(hash) {
+    if (!confirm('Are you sure you want to remove this item?')) return;
+    
+    const baseUrl = '<?= base_url() ?>';
+    const formData = new FormData();
+    formData.append('action', 'remove_cart_item');
+    formData.append('cart_item_key', hash);
+    formData.append('action_source', 'cart_page');
+
+    fetch(baseUrl + 'webshop/webshop_request', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.text())
+    .then(data => {
+        // Since the backend returns a partial view for 'cart_page', 
+        // we can either replace the content or just reload.
+        // For simplicity and to ensure all totals are synced, we reload.
+        location.reload();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to remove item. Please try again.');
+    });
+}
+</script>

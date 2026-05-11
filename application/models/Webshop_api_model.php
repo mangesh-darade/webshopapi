@@ -1296,6 +1296,47 @@ class Webshop_api_model extends CI_Model {
         return $this->_fallback_webshop_model()->get_product_by_hash($hash);
     }
 
+    /**
+     * Aggregate rating for a product (legacy views expect an object with ->average and ->count).
+     *
+     * @param int|string $product_id
+     * @return object { average: float, count: int }
+     */
+    public function get_product_rating($product_id) {
+        $pid = (int) $product_id;
+        $out = new stdClass();
+        $out->average = 0.0;
+        $out->count = 0;
+        if ($pid <= 0) {
+            return $out;
+        }
+        if ($this->use_elintom_api_catalogue()) {
+            $res = $this->api->get_product_rating($pid);
+            if ($res && $this->elintom_response->api_status_ok($res)) {
+                if (isset($res->average)) {
+                    $out->average = (float) $res->average;
+                }
+                if (isset($res->count)) {
+                    $out->count = (int) $res->count;
+                }
+            }
+            return $out;
+        }
+        $wm = $this->_fallback_webshop_model();
+        if (method_exists($wm, 'get_product_rating')) {
+            $r = $wm->get_product_rating($pid);
+            if (is_object($r)) {
+                return $r;
+            }
+            if (is_array($r)) {
+                $out->average = isset($r['average']) ? (float) $r['average'] : 0.0;
+                $out->count = isset($r['count']) ? (int) $r['count'] : 0;
+                return $out;
+            }
+        }
+        return $out;
+    }
+
     public function search_products($keyword, $category_id = null) {
         if ($this->use_elintom_api_catalogue()) {
             $res = $this->api->search_products($keyword, $category_id);

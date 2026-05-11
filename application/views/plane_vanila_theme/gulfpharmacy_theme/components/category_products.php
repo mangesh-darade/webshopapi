@@ -264,10 +264,16 @@ $getCategory = function($item) {
                                 <p class="pc-name"><?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?></p>
                             </a>
 
-                            <!-- Stars placeholder (real ratings can be wired if available) -->
+                            <!-- Dynamic Ratings -->
                             <div class="pc-rating">
-                                <span class="pc-stars">★★★★☆</span>
-                                <span style="font-size:11px;color:#007185"><?= isset($p['review_count']) ? (int) $p['review_count'] : 0 ?></span>
+                                <?php 
+                                $rAvg = isset($row['ratings_avarage']) ? (float)$row['ratings_avarage'] : 0;
+                                $rCount = isset($row['ratings_count']) ? (int)$row['ratings_count'] : 0;
+                                ?>
+                                <span class="pc-stars">
+                                    <?= str_repeat('★', (int) round($rAvg)) ?><?= str_repeat('☆', 5 - (int) round($rAvg)) ?>
+                                </span>
+                                <span style="font-size:11px;color:#007185">(<?= $rCount ?>)</span>
                             </div>
 
                             <!-- Price -->
@@ -301,6 +307,8 @@ $getCategory = function($item) {
                     </div>
                 <?php endforeach; ?>
                 </div>
+
+<?php // Product Catalog Data is available in $products array for API use but hidden from UI per request ?>
 
                 <!-- Pagination -->
                 <?php if ($totalPages > 1): ?>
@@ -347,7 +355,7 @@ function wsAddToCart(itemId, hash, btn) {
     fetch('<?= base_url('webshop/webshop_request') ?>', {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: 'action=add_to_cart&item_id=' + encodeURIComponent(itemId) + '&quantity=1&option_id=0'
+        body: 'action=add_to_cart&product_id=' + encodeURIComponent(itemId) + '&quantity=1&variant_id=0'
     })
     .then(function(r){ return r.json(); })
     .then(function(d) {
@@ -358,7 +366,10 @@ function wsAddToCart(itemId, hash, btn) {
             setTimeout(function(){ btn.innerHTML = orig; btn.style.background = ''; btn.style.color = ''; btn.disabled = false; }, 1800);
             // Update cart count badge if present
             var badge = document.querySelector('.gp-cart-count, .cart-count, [data-cart-count]');
-            if (badge && d.cart_count !== undefined) { badge.textContent = d.cart_count; }
+            if (badge && d.cart_count !== undefined) {
+                badge.textContent = d.cart_count;
+                badge.style.display = d.cart_count > 0 ? '' : 'none';
+            }
         } else {
             btn.innerHTML = '⚠️ Try Again';
             setTimeout(function(){ btn.innerHTML = orig; btn.disabled = false; }, 2000);

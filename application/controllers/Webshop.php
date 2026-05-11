@@ -342,9 +342,19 @@ XSL;
             return 'webshop/' . $method;
         }
 
-        // 4. Auto-resolve to webshop/components/ for pages migrated to the component system.
-        //    Allows load_view('cart'), load_view('login') etc. to find components/cart.php
-        //    without requiring every call site to be updated.
+        // 4. Auto-resolve to theme components if migrated
+        $theme_comp = 'plane_vanila_theme/' . $theme . '_theme/components/' . $method;
+        if (is_file(VIEWPATH . $theme_comp . '.php')) {
+            return $theme_comp;
+        }
+
+        // 5. Fallback to gulfpharmacy components (User request)
+        $gp_comp = 'plane_vanila_theme/gulfpharmacy_theme/components/' . $method;
+        if (is_file(VIEWPATH . $gp_comp . '.php')) {
+            return $gp_comp;
+        }
+
+        // 6. Fallback to default webshop/components/ (if it existed)
         $compPath = VIEWPATH . 'webshop/components/' . $method . '.php';
         if (is_file($compPath)) {
             return 'webshop/components/' . $method;
@@ -364,12 +374,45 @@ XSL;
             return '';
         }
 
+        $theme = isset($this->webshop_settings->webshop_theme) ? (string) $this->webshop_settings->webshop_theme : '';
+        $themeFolder = ($theme !== '') ? $theme . '_theme' : '';
+
+        // 1. Direct path check within plane_vanila_theme
+        $directPath = VIEWPATH . 'plane_vanila_theme/' . $method . '.php';
+        if (is_file($directPath)) {
+            return 'plane_vanila_theme/' . $method;
+        }
+
+        // 2. Theme-specific component resolution
+        if ($themeFolder !== '') {
+            // Handle both "components/foo" and just "foo"
+            $baseName = str_replace('components/', '', $method);
+            
+            $candidates = [
+                $themeFolder . '/components/' . $baseName,
+                $themeFolder . '/' . $baseName
+            ];
+
+            foreach ($candidates as $cand) {
+                $path = VIEWPATH . 'plane_vanila_theme/' . $cand . '.php';
+                if (is_file($path)) {
+                    return 'plane_vanila_theme/' . $cand;
+                }
+            }
+        }
+
+        // 3. Fallback to shared gulfpharmacy components
+        if ($theme !== 'gulfpharmacy') {
+            $baseName = str_replace('components/', '', $method);
+            $fallback = 'gulfpharmacy_theme/components/' . $baseName;
+            $path = VIEWPATH . 'plane_vanila_theme/' . $fallback . '.php';
+            if (is_file($path)) {
+                return 'plane_vanila_theme/' . $fallback;
+            }
+        }
+
+        // 4. Legacy allowed list check
         $allowed = array(
-            'restaurant/index',
-            'nw_theme/index',
-            'gulfpharmacy_theme/index',
-            'nw_theme/product_details',
-            'gulfpharmacy_theme/product_details',
             'category_products',
             'cart',
             'login',
@@ -380,14 +423,13 @@ XSL;
             'forgot_password',
             'payment_declined',
         );
-        if (!in_array($method, $allowed, true)) {
-            return '';
+        if (in_array($method, $allowed, true)) {
+            $path = VIEWPATH . 'plane_vanila_theme/' . $method . '.php';
+            if (is_file($path)) {
+                return 'plane_vanila_theme/' . $method;
+            }
         }
 
-        $path = VIEWPATH . 'plane_vanila_theme/' . $method . '.php';
-        if (is_file($path)) {
-            return 'plane_vanila_theme/' . $method;
-        }
         return '';
     }
 
@@ -466,6 +508,36 @@ XSL;
         } catch (Exception $e) {
             log_message('error', 'DynamicRenderProbe error: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Safe rating fields for views (handles null / array API shapes and list-row fallbacks).
+     *
+     * @param int|string $productId
+     * @param array      $rowFallback Optional product row with ratings_avarage / ratings_count
+     * @return array     [ ratings_average_for_display, ratings_count ]
+     */
+    private function resolve_product_rating_fields($productId, array $rowFallback = array())
+    {
+        $ratingInfo = $this->webshop_model->get_product_rating($productId);
+        $avg = 0.0;
+        $cnt = 0;
+        if (is_object($ratingInfo)) {
+            $avg = isset($ratingInfo->average) ? (float) $ratingInfo->average : 0.0;
+            $cnt = isset($ratingInfo->count) ? (int) $ratingInfo->count : 0;
+        } elseif (is_array($ratingInfo)) {
+            $avg = isset($ratingInfo['average']) ? (float) $ratingInfo['average'] : 0.0;
+            $cnt = isset($ratingInfo['count']) ? (int) $ratingInfo['count'] : 0;
+        }
+        if ($avg == 0.0 && $cnt === 0 && $rowFallback !== array()) {
+            if (isset($rowFallback['ratings_avarage']) && $rowFallback['ratings_avarage'] !== '' && $rowFallback['ratings_avarage'] !== null) {
+                $avg = (float) $rowFallback['ratings_avarage'];
+            }
+            if (isset($rowFallback['ratings_count'])) {
+                $cnt = (int) $rowFallback['ratings_count'];
+            }
+        }
+        return array($avg, $cnt);
     }
 
     public function _remap($method, $params = [])
@@ -1388,6 +1460,9 @@ XSL;
                 $this->data['recent_viewed'] = array();
             }
             $this->data['website_setting'] = $this->webshop_model->get_website_setting();
+            if (in_array($activeTheme, array('gulfpharmacy', 'nw'), true)) {
+                $this->ensure_plane_theme_home_catalog_data($cmsSections);
+            }
             $theme = $this->input->get('theme');
             if ($theme) {
                 $this->webshop_model->setTheme($theme);
@@ -1430,6 +1505,81 @@ XSL;
         foreach ($patch as $k => $v) {
             $this->data[$k] = $v;
         }
+    }
+
+    /**
+     * plane_vanila_theme (gulfpharmacy / nw): CMS home often ships banner/html only and disables native grids,
+     * while home_product_grid_items was never populated. Re-enable default blocks when CMS did not map catalog sections.
+     *
+     * @param array $cmsSections
+     */
+    private function ensure_plane_theme_home_catalog_data(array $cmsSections)
+    {
+        $mainCats = isset($this->data['main_categories']) && is_array($this->data['main_categories'])
+            ? $this->data['main_categories'] : array();
+        $hasCatSec = $this->cms_section_list_includes_types($cmsSections, array('category_grid', 'category_carousel'));
+        if (!$hasCatSec && !empty($mainCats)) {
+            $this->data['home_has_category_grid'] = true;
+        }
+        $hasProdSec = $this->cms_section_list_includes_types($cmsSections, array('product_grid', 'product_carousel'));
+        if (!$hasProdSec) {
+            $this->data['home_has_product_grid'] = true;
+        }
+        if (!empty($this->data['home_has_product_grid'])
+            && (empty($this->data['home_product_grid_items']) || !is_array($this->data['home_product_grid_items']))) {
+            $this->data['home_product_grid_items'] = $this->fetch_home_featured_product_items();
+        }
+    }
+
+    /**
+     * Featured home products for plane_vanila themes — first products from top-level categories.
+     *
+     * @return array
+     */
+    private function fetch_home_featured_product_items()
+    {
+        $out = array();
+        $seen = array();
+        $mainCats = isset($this->data['main_categories']) && is_array($this->data['main_categories'])
+            ? $this->data['main_categories'] : array();
+        foreach ($mainCats as $cidKey => $row) {
+            if (count($out) >= 16) {
+                break;
+            }
+            $cid = 0;
+            if (is_object($row)) {
+                $cid = isset($row->id) ? (int) $row->id : 0;
+            } elseif (is_array($row)) {
+                $cid = isset($row['id']) ? (int) $row['id'] : 0;
+            }
+            if ($cid < 1 && is_numeric($cidKey)) {
+                $cid = (int) $cidKey;
+            }
+            if ($cid < 1) {
+                continue;
+            }
+            $hash = md5((string) $cid);
+            $list = $this->webshop_model->get_products_list('category', $hash, true, 16, 1);
+            if (!is_array($list) || empty($list['items']) || !is_array($list['items'])) {
+                $list = $this->webshop_model->get_products_list('category', $cid, false, 16, 1);
+            }
+            if (!is_array($list) || empty($list['items']) || !is_array($list['items'])) {
+                continue;
+            }
+            foreach ($list['items'] as $p) {
+                $a = is_array($p) ? $p : (array) $p;
+                $pid = isset($a['id']) ? (int) $a['id'] : (isset($a['product_id']) ? (int) $a['product_id'] : 0);
+                if ($pid < 1 || isset($seen[$pid])) {
+                    continue;
+                }
+                $seen[$pid] = true;
+                $out[] = $a;
+                if (count($out) >= 16) {
+                    return $out;
+                }
+            }
+        }
+        return $out;
     }
 
     /**
@@ -1642,7 +1792,8 @@ XSL;
         // Home-type pages → theme index (with dynamic sections)
         $useThemeIndex = $isHomeType
             || $this->webshop_settings->webshop_theme === 'restaurant'
-            || $this->webshop_settings->webshop_theme === 'nw';
+            || $this->webshop_settings->webshop_theme === 'nw'
+            || $this->webshop_settings->webshop_theme === 'gulfpharmacy';
 
         if ($useThemeIndex) {
             if ($this->webshop_settings->webshop_theme == 'restaurant') {
@@ -1781,6 +1932,30 @@ XSL;
             $this->data['meta_tags'] = $entity_meta_tags;
         }
 
+        // Prepare technical specifications for the unified table view
+        $this->data['technical_specs'] = array(
+            'Basic Information' => array(
+                array('label' => 'Product Name', 'value' => isset($product['name']) ? $product['name'] : '-'),
+                array('label' => 'Product Code', 'value' => isset($product['code']) ? $product['code'] : '-'),
+                array('label' => 'SKU',          'value' => isset($product['article_code']) ? $product['article_code'] : '-'),
+                array('label' => 'Brand',        'value' => isset($product['brand_name']) ? $product['brand_name'] : (isset($product['brand']) ? $product['brand'] : '-')),
+                array('label' => 'Weight',       'value' => isset($product['weight']) ? $product['weight'] : '-'),
+            ),
+            'Pricing & Tax' => array(
+                array('label' => 'Price',    'value' => $this->sma->formatMoney(isset($product['price']) ? $product['price'] : 0)),
+                array('label' => 'MRP',      'value' => $this->sma->formatMoney(isset($product['mrp']) ? $product['mrp'] : 0)),
+                array('label' => 'Tax Rate', 'value' => (isset($product['tax_rate']) ? $product['tax_rate'] : '0') . '%'),
+            )
+        );
+        // Fetch and merge rating data for the product
+        list($product['ratings_avarage'], $product['ratings_count']) = $this->resolve_product_rating_fields($product['id'], $product);
+        $this->data['product'] = $product;
+
+        if ($this->input->get('format') === 'json' || $this->input->get('get_data') === '1') {
+            $this->output->set_content_type('application/json')->set_output(json_encode($this->data));
+            return;
+        }
+
         $this->load_view("components/product_details", $this->data);
     }
 
@@ -1796,37 +1971,70 @@ XSL;
             show_404();
             return;
         }
-        $reviewStore = $this->session->userdata('product_reviews');
-        $reviewStore = is_array($reviewStore) ? $reviewStore : array();
-        $this->data['product'] = is_object($productDetails['item']) ? (array) $productDetails['item'] : $productDetails['item'];
+        $product = is_object($productDetails['item']) ? (array) $productDetails['item'] : $productDetails['item'];
+        $reviews = $this->webshop_model->get_product_reviews($product['id']);
+
+        $this->data['product'] = $product;
         $this->data['product_hash'] = $product_hash;
-        $this->data['reviews'] = isset($reviewStore[$product_hash]) && is_array($reviewStore[$product_hash]) ? $reviewStore[$product_hash] : array();
+        $this->data['reviews'] = $reviews;
         $this->load_view("components/product_reviews", $this->data);
     }
 
     public function submit_product_review()
     {
         $product_hash = trim((string) $this->input->post('product_hash'));
-        $rating = (int) $this->input->post('rating');
-        $review = trim((string) $this->input->post('review'));
-        if ($product_hash === '' || $rating < 1 || $rating > 5 || $review === '') {
-            $this->session->set_flashdata('error', 'Please provide rating and review.');
+        $rating = (float) $this->input->post('rating');
+        $review_title = trim((string) $this->input->post('review_title'));
+        $review_details = trim((string) $this->input->post('review_details'));
+
+        if ($product_hash === '' || $rating < 1 || $rating > 5) {
+            $this->session->set_flashdata('error', 'Please provide a valid rating.');
             redirect('webshop/product_reviews/' . rawurlencode($product_hash));
             return;
         }
-        $store = $this->session->userdata('product_reviews');
-        $store = is_array($store) ? $store : array();
-        if (!isset($store[$product_hash]) || !is_array($store[$product_hash])) {
-            $store[$product_hash] = array();
+
+        $productDetails = $this->webshop_model->get_product_by_hash($product_hash);
+        if ($productDetails === false || !is_array($productDetails) || !isset($productDetails['item'])) {
+            $this->session->set_flashdata('error', 'Invalid product.');
+            redirect('webshop/index');
+            return;
         }
-        $store[$product_hash][] = array(
-            'rating' => $rating,
-            'review' => $review,
-            'created_at' => date('Y-m-d H:i:s'),
-            'user' => 'Customer',
+
+        $product = is_object($productDetails['item']) ? (array) $productDetails['item'] : $productDetails['item'];
+
+        $ws_sess = $this->session->userdata('webshop');
+        $customer_id = 0;
+        $customer_name = 'Guest';
+        if ($ws_sess) {
+            $customer_id = is_object($ws_sess) ? (isset($ws_sess->user_id) ? $ws_sess->user_id : 0) : (isset($ws_sess['user_id']) ? $ws_sess['user_id'] : 0);
+            $customer_name = is_object($ws_sess) ? (isset($ws_sess->name) ? $ws_sess->name : 'Customer') : (isset($ws_sess['name']) ? $ws_sess['name'] : 'Customer');
+        }
+
+        $reviewData = array(
+            'product_id'        => isset($product['id']) ? $product['id'] : 0,
+            'product_name'      => isset($product['name']) ? $product['name'] : 'Unknown Product',
+            'variant_id'        => 0,
+            'variant_name'      => '',
+            'customer_id'       => $customer_id,
+            'customer_name'     => $customer_name,
+            'reviews_date'      => date('Y-m-d H:i:s'),
+            'reviews_rattings'  => $rating,
+            'reviews_title'     => html_escape($review_title),
+            'reviews_details'   => html_escape($review_details),
+            'customer_images'   => '',
+            'like_count'        => 0,
+            'dislike_count'     => 0,
+            'is_active'         => 1,
+            'is_delete'         => 0,
+            'updated_at'        => date('Y-m-d H:i:s')
         );
-        $this->session->set_userdata('product_reviews', $store);
-        $this->session->set_flashdata('message', 'Review submitted successfully.');
+
+        if ($this->webshop_model->add_product_review($reviewData)) {
+            $this->session->set_flashdata('message', 'Review submitted successfully.');
+        } else {
+            $this->session->set_flashdata('error', 'Failed to submit review. Please try again.');
+        }
+
         redirect('webshop/product_reviews/' . rawurlencode($product_hash));
     }
 
@@ -1967,6 +2175,9 @@ XSL;
                 $item['restaurant_is_active'] = $restaurantOpen;
                 $item['restaurant_status_text'] = $restaurantStatusText;
 
+                // Fetch and merge rating for the item
+                list($item['ratings_avarage'], $item['ratings_count']) = $this->resolve_product_rating_fields($item['id'], $item);
+
                 if (!in_array($item['id'], $specialItemsId, $strict = false)) {
                     $products[] = $item;
                 } else {
@@ -2017,7 +2228,7 @@ XSL;
         $this->data['entity_meta_title'] = $this->resolve_entity_meta_title($categoryTagMap);
 
 
-        if ($this->webshop_settings->webshop_theme == 'restaurant') {
+        if ($this->input->get('format') === 'json' || $this->input->get('get_data') === '1' || $this->webshop_settings->webshop_theme == 'restaurant') {
 
             foreach ($this->data['listItems'] as &$item) {
                 $item['proudctIdHash'] = md5($item['id']);
@@ -2028,22 +2239,13 @@ XSL;
                 $special_item['proudctIdHash'] = md5($special_item['id']);
                 $special_item['formatedPrice'] = $this->sma->formatMoney($special_item['special_price']);
             }
-            echo json_encode($this->data);
-        } else if ($this->webshop_settings->webshop_theme == 'nw') {
-            foreach ($this->data['listItems'] as &$item) {
-                $item['proudctIdHash'] = md5($item['id']);
-                $item['formatedPrice'] = $this->sma->formatMoney($item['price']);
+            if ($this->input->get('format') === 'json' || $this->input->get('get_data') === '1' || $this->webshop_settings->webshop_theme == 'restaurant') {
+                $this->output->set_content_type('application/json')->set_output(json_encode($this->data));
+                return;
             }
-            $this->load_view("components/category_products", $this->data);
-        } else if ($this->webshop_settings->webshop_theme == 'gulfpharmacy') {
-            foreach ($this->data['listItems'] as &$item) {
-                $item['proudctIdHash'] = md5($item['id']);
-                $item['formatedPrice'] = $this->sma->formatMoney($item['price']);
-            }
-            $this->load_view("components/category_products", $this->data);
-        } else {
-            $this->load_view("components/category_products", $this->data);
         }
+        
+        $this->load_view("components/category_products", $this->data);
     }
 
     public function getTodaysSpecialItemsForGivenCategory($categoryId)

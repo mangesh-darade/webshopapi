@@ -171,9 +171,8 @@ if (!isset($config['elintom_catalog_source'])) {
 }
 
 // If the API call fails, try the local database model (needs MySQL in this app).
-if (!isset($config['elintom_catalog_fallback_database'])) {
-    $config['elintom_catalog_fallback_database'] = false;
-}
+/* If TRUE, will fall back to local MySQL when API is unreachable. Set to FALSE for DB-less. */
+$config['elintom_catalog_fallback_database'] = false;
 
 
 if (!isset($config['elintom_domain_theme_map'])) {

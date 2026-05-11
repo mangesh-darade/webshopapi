@@ -148,8 +148,12 @@ class Elintom_api_client {
      * CATALOGUE  (webshop_ endpoint, falls back to legacy api3 if needed)
      * ================================================================ */
 
-    public function get_categories() {
-        return $this->post('getcategories');
+    public function get_categories($customer_group_id = null) {
+        $extra = array();
+        if ($customer_group_id !== null && $customer_group_id !== '') {
+            $extra['customer_group_id'] = $customer_group_id;
+        }
+        return $this->post('getcategories', $extra);
     }
 
     public function get_sliders() {
@@ -354,6 +358,22 @@ class Elintom_api_client {
             'product_id' => $product_id,
             'option_id'  => $option_id,
         ));
+    }
+
+    /* ================================================================
+     * REVIEWS
+     * ================================================================ */
+
+    public function add_product_review(array $data) {
+        return $this->post('submitproductreview', $data);
+    }
+
+    public function get_product_reviews($product_id) {
+        return $this->post('getproductreviews', array('product_id' => $product_id));
+    }
+
+    public function get_product_rating($product_id) {
+        return $this->post('getproductrating', array('product_id' => $product_id));
     }
 
     /* ================================================================
