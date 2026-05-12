@@ -15,6 +15,7 @@ if ($imgFile !== '') {
 $bgColor  = isset($cfg['bg_color']) && $cfg['bg_color'] !== '' ? $cfg['bg_color'] : 'linear-gradient(135deg,#214548 0%,#2f6366 100%)';
 $textColor = isset($cfg['text_color']) && $cfg['text_color'] !== '' ? $cfg['text_color'] : '#ffffff';
 ?>
+<link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/components.css">
 <div class="gp-component gp-banner-section" style="background:<?= $bgColor ?>;color:<?= $textColor ?>;">
     <?php if ($imgSrc !== ''): ?>
     <img src="<?= $imgSrc ?>" alt="<?= $title ?>" class="gp-banner-bg-img" loading="lazy">
@@ -26,13 +27,3 @@ $textColor = isset($cfg['text_color']) && $cfg['text_color'] !== '' ? $cfg['text
         <a href="<?= $cta_link ?>" class="gp-banner-cta"><?= $cta_text ?></a>
     </div>
 </div>
-<style>
-.gp-banner-section{position:relative;border-radius:16px;overflow:hidden;min-height:260px;display:flex;align-items:center;justify-content:center;margin-bottom:28px;}
-.gp-banner-bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.55;}
-.gp-banner-overlay{position:absolute;inset:0;background:rgba(0,0,0,.35);}
-.gp-banner-content{position:relative;z-index:2;text-align:center;padding:40px 24px;display:flex;flex-direction:column;align-items:center;gap:14px;}
-.gp-banner-title{font-size:clamp(22px,4vw,44px);font-weight:800;margin:0;text-shadow:0 2px 12px rgba(0,0,0,.3);}
-.gp-banner-sub{font-size:16px;opacity:.9;margin:0;}
-.gp-banner-cta{background:#4caf89;color:#fff;padding:12px 32px;border-radius:10px;font-weight:700;text-decoration:none;transition:background .2s;}
-.gp-banner-cta:hover{background:#3a9974;}
-</style>

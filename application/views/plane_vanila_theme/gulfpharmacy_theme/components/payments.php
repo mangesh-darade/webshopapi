@@ -22,27 +22,8 @@ $formattedTotal = $symbol . ' ' . number_format($grandTotal, 2);
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Payment | <?= htmlspecialchars($shopName, ENT_QUOTES, 'UTF-8') ?></title>
     <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/common.css">
-    <style>
-        .pay-shell{min-height:100vh;background:#f8fafc;display:flex;flex-direction:column}
-        .pay-main{flex:1;max-width:640px;margin:0 auto;padding:40px 20px;width:100%}
-        .pay-card{background:#fff;border-radius:20px;padding:36px;box-shadow:0 8px 28px rgba(0,0,0,.07)}
-        .pay-title{font-size:24px;font-weight:800;color:#1f2937;margin:0 0 4px}
-        .pay-sub{color:#6b7280;font-size:14px;margin:0 0 28px}
-        .pay-summary{background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:16px 20px;margin-bottom:28px}
-        .pay-summary-row{display:flex;justify-content:space-between;font-size:15px;color:#374151;padding:4px 0}
-        .pay-summary-total{font-weight:800;font-size:17px;color:#111827;border-top:1px solid #e5e7eb;padding-top:10px;margin-top:8px}
-        .pay-gateways{display:flex;flex-direction:column;gap:12px;margin-bottom:24px}
-        .pay-gateway-option label{display:flex;align-items:center;gap:14px;border:2px solid #e5e7eb;border-radius:12px;padding:14px 18px;cursor:pointer;transition:border-color .2s,background .2s}
-        .pay-gateway-option input[type=radio]{display:none}
-        .pay-gateway-option input[type=radio]:checked + label{border-color:#0F4C81;background:#f0f7ff}
-        .pay-gateway-name{font-weight:600;color:#1f2937;font-size:15px}
-        .pay-gateway-desc{font-size:13px;color:#6b7280}
-        .pay-btn{width:100%;background:#0F4C81;color:#fff;border:none;border-radius:10px;padding:14px;font-size:16px;font-weight:700;cursor:pointer;transition:background .2s}
-        .pay-btn:hover{background:#0c3d69}
-        .pay-gateway-unconfigured label{border-color:#e5e7eb;opacity:.75}
-        .pay-gw-badge{font-size:11px;font-weight:700;background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:6px;padding:2px 8px;white-space:nowrap;flex-shrink:0}
-        @media(max-width:600px){.pay-card{padding:22px 16px}}
-    </style>
+    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css">
+    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/payments.css">
 </head>
 <body>
 <div class="pay-shell">
@@ -72,9 +53,7 @@ $formattedTotal = $symbol . ' ' . number_format($grandTotal, 2);
 
             <?php $flashErr = $this->session->flashdata('error_message'); ?>
             <?php if ($flashErr): ?>
-                <div style="background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:14px;">
-                    ⚠️ <?= htmlspecialchars($flashErr, ENT_QUOTES, 'UTF-8') ?>
-                </div>
+                <div class="pay-error">⚠️ <?= htmlspecialchars($flashErr, ENT_QUOTES, 'UTF-8') ?></div>
             <?php endif; ?>
 
             <form action="<?= base_url('webshop/payments') ?>?order=<?= urlencode((string) $orderId) ?>&customer=<?= urlencode((string) $customerId) ?>" method="post">
@@ -124,7 +103,7 @@ $formattedTotal = $symbol . ' ' . number_format($grandTotal, 2);
                         <div class="pay-gateway-option<?= !$configured ? ' pay-gateway-unconfigured' : '' ?>">
                             <input type="radio" name="payment_gatway" id="gw_<?= $gwKey ?>" value="<?= $gwKey ?>" <?= $first ? 'checked' : '' ?>>
                             <label for="gw_<?= $gwKey ?>">
-                                <div style="flex:1">
+                                <div class="pay-gateway-text">
                                     <div class="pay-gateway-name"><?= htmlspecialchars($gw['label'], ENT_QUOTES, 'UTF-8') ?></div>
                                     <div class="pay-gateway-desc"><?= htmlspecialchars($gw['desc'], ENT_QUOTES, 'UTF-8') ?></div>
                                 </div>
@@ -147,20 +126,6 @@ $formattedTotal = $symbol . ' ' . number_format($grandTotal, 2);
     }
     ?>
 </div>
-
-<script>
-(function(){
-    var opts = document.querySelectorAll('.pay-gateway-option input[type=radio]');
-    for (var i = 0; i < opts.length; i++) {
-        opts[i].addEventListener('change', function(){
-            var labels = document.querySelectorAll('.pay-gateway-option label');
-            for (var j = 0; j < labels.length; j++) {
-                labels[j].style.borderColor = '';
-                labels[j].style.background = '';
-            }
-        });
-    }
-})();
-</script>
+<script defer src="<?= $assets ?>gulfpharmacy_theme/js/payments.js"></script>
 </body>
 </html>

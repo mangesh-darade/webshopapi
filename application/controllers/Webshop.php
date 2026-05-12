@@ -65,7 +65,10 @@ class Webshop extends MY_Controller
 
         $this->data['webshop_pos_settings'] = $this->webshop_model->get_webshop_pos_settings();
 
-        $category_id = isset($_GET['catid']) && $_GET['catid'] != '' ? $_GET['catid'] : (($this->uri->segment(2) == "category_products" && !empty($this->uri->segment(3))) ? $this->uri->segment(3) : null);
+        $catidParam = $this->input->get('catid');
+        $category_id = ($catidParam !== null && $catidParam !== '')
+            ? $catidParam
+            : (($this->uri->segment(2) == 'category_products' && !empty($this->uri->segment(3))) ? $this->uri->segment(3) : null);
 
         $this->data['category_brands'] = $this->webshop_model->get_category_brands($category_id);
 
@@ -1290,8 +1293,11 @@ XSL;
 
     public function webshop_request()
     {
-        $action = isset($_POST['action']) ? trim((string) $_POST['action']) : '';
-        $postData = is_array($_POST) ? $_POST : array();
+        $postData = $this->input->post(null, true);
+        if (!is_array($postData)) {
+            $postData = array();
+        }
+        $action = isset($postData['action']) ? trim((string) $postData['action']) : '';
         if ($action === '') {
             $this->json_response(array(
                 'status' => 'FAIL',
@@ -1652,11 +1658,16 @@ XSL;
     public function products()
     {
 
-        $page = (isset($_GET['page']) && !empty($_GET['page'])) ? $_GET['page'] : 1;
+        $page = (int) $this->input->get('page', true);
+        if ($page < 1) {
+            $page = 1;
+        }
         $limit = 12;
+        $idHash = '';
+        $q = $this->input->get('q', true);
 
-        if ($_GET['q'] == "cetegory") {
-            $idHash = $_GET['id'];
+        if ($q == "cetegory") {
+            $idHash = $this->input->get('id', true);
             $data = $this->webshop_model->get_products_list('category', $idHash, $usedHash = TRUE, $limit, $page);
 
             $this->data['items_total'] = $data['items_total'];
@@ -1664,8 +1675,8 @@ XSL;
             //$this->data['product_variants']   = $data['product_variants'];
         }
 
-        if ($_GET['q'] == "brand") {
-            $idHash = $_GET['id'];
+        if ($q == "brand") {
+            $idHash = $this->input->get('id', true);
             $data = $this->webshop_model->get_products_list('brand', $idHash, $usedHash = TRUE, $limit, $page);
 
             $this->data['items_total'] = $data['items_total'];
@@ -2213,7 +2224,10 @@ XSL;
         }
         $this->data['special_item_text'] = $special_text;
 
-        $page = (isset($_GET['page']) && !empty($_GET['page'])) ? (int) $_GET['page'] : 1;
+        $page = (int) $this->input->get('page', true);
+        if ($page < 1) {
+            $page = 1;
+        }
         $limit = 12;
         $data = $this->webshop_model->get_products_list('category', $idHash, $usedHash = TRUE, $limit, $page);
 
@@ -2357,8 +2371,6 @@ XSL;
      */
     public function search_suggest()
     {
-        $this->output->set_content_type('application/json');
-
         $keyword = trim((string) $this->input->get('q'));
         if ($keyword === '') {
             $keyword = trim((string) $this->input->get('search'));
@@ -2370,7 +2382,7 @@ XSL;
         }
 
         if (function_exists('mb_strlen') ? mb_strlen($keyword) < 2 : strlen($keyword) < 2) {
-            echo json_encode(array('status' => 'OK', 'q' => $keyword, 'items' => array()));
+            $this->json_response(array('status' => 'OK', 'q' => $keyword, 'items' => array()));
             return;
         }
 
@@ -2381,7 +2393,7 @@ XSL;
         }
         $cacheKey = (function_exists('mb_strtolower') ? mb_strtolower($keyword) : strtolower($keyword)) . '|' . $limit;
         if (isset($sess[$cacheKey]) && is_array($sess[$cacheKey]) && isset($sess[$cacheKey]['exp']) && $sess[$cacheKey]['exp'] > time()) {
-            echo json_encode($sess[$cacheKey]['payload']);
+            $this->json_response($sess[$cacheKey]['payload']);
             return;
         }
 
@@ -2437,7 +2449,7 @@ XSL;
         }
         $this->session->set_userdata('webshop_search_suggest_cache', $sess);
 
-        echo json_encode($payload);
+        $this->json_response($payload);
     }
 
     public function wishlist()
@@ -2503,7 +2515,7 @@ XSL;
             $this->data['setting_map'] = $setting_map;
             // if($this->input->get("getCart") == "1"){
             // print_r($this->data);
-            //     echo json_encode($this->data);
+            //     $this->json_response($this->data);
             //     return;
             // }
             $this->load_view("cart", $this->data);
@@ -2566,7 +2578,7 @@ XSL;
 
                     $shipping_address_id = $billing_address_id = $address_id;
                 } else {
-                    if (isset($_POST['billing_address_1'])) {
+                    if ($this->input->post('billing_address_1') !== false && $this->input->post('billing_address_1') !== null) {
                         $billing_state_raw = $this->input->post('billing_state');
                         $billing_stateData = (strpos($billing_state_raw, '~') !== false) ? explode('~', $billing_state_raw) : array($billing_state_raw, '');
 
@@ -2580,7 +2592,7 @@ XSL;
                             if (!empty($this->input->post('account_password'))) {
                                 $account_password = md5($this->input->post('account_password'));
                             }
-                            $country_code_raw = $_POST['billing_country'];
+                            $country_code_raw = $this->input->post('billing_country', true);
                             if ($country_code_raw) {
                                 $country_parts = explode('~', $country_code_raw);
                                 $country = $country_parts[1];
@@ -2628,8 +2640,8 @@ XSL;
                     if (!empty($this->input->post('billing_address_id'))) {
                         $billing_address_id = $this->input->post('billing_address_id');
                     } else {
-                        if (isset($_POST['billing_address_1'])) {
-                            $country_code_raw = $_POST['billing_country'];
+                        if ($this->input->post('billing_address_1') !== false && $this->input->post('billing_address_1') !== null) {
+                            $country_code_raw = $this->input->post('billing_country', true);
                             if ($country_code_raw) {
                                 $country_parts = explode('~', $country_code_raw);
                                 $country = $country_parts[1];
@@ -2668,7 +2680,7 @@ XSL;
 
                             $shipping_address_id = $billing_address_id;
                         } else {
-                            if (isset($_POST['shipping_address_1'])) {
+                            if ($this->input->post('shipping_address_1') !== false && $this->input->post('shipping_address_1') !== null) {
                                 $shipping_state_raw = $this->input->post('shipping_state');
                                 $shipping_stateData = (strpos($shipping_state_raw, '~') !== false) ? explode('~', $shipping_state_raw) : array($shipping_state_raw, '');
                                 $country_code_raw = $this->input->post('shipping_country');
@@ -3452,12 +3464,24 @@ XSL;
         } //end foreach
     }
 
-    private function json_response($payload)
+    /**
+     * JSON response via CI output (avoids raw echo per codeigniter3-conventions).
+     *
+     * @param array|object $payload
+     * @param int          $http_code HTTP status (default 200)
+     */
+    private function json_response($payload, $http_code = 200)
     {
-        if (!is_array($payload)) {
+        if (!is_array($payload) && !is_object($payload)) {
             $payload = array('status' => 'FAIL', 'error' => 'Invalid response payload');
         }
-        echo json_encode($payload);
+        $code = (int) $http_code;
+        if ($code !== 200) {
+            $this->output->set_status_header($code);
+        }
+        $this->output
+            ->set_content_type('application/json', 'UTF-8')
+            ->set_output(json_encode($payload));
     }
 
     private function post_int($data, $key, $default = 0)
@@ -3836,7 +3860,7 @@ XSL;
                 'customer_group_name' => 'General',
             );
 
-            $country_code_raw = isset($_POST['country_code']) ? $_POST['country_code'] : '';
+            $country_code_raw = (string) $this->input->post('country_code', true);
             if ($country_code_raw) {
                 $country_parts = explode('~', $country_code_raw);
                 if (isset($country_parts[1])) {
@@ -4009,20 +4033,20 @@ XSL;
     //         }
     //     }
 
-    //     echo json_encode($data);
+    //     $this->json_response($data);
     // }
     public function apply_coupon($postData)
     {
         $coupon_code = isset($postData['coupon_code']) ? trim((string) $postData['coupon_code']) : '';
         $cart_amount = isset($postData['cart_amount']) ? (float) $postData['cart_amount'] : 0;
         if ($coupon_code === '') {
-            echo json_encode(array('status' => 'failed', 'msg' => 'Coupon code is required.'));
+            $this->json_response(array('status' => 'failed', 'msg' => 'Coupon code is required.'));
             return;
         }
 
         $apiResult = $this->webshop_model->apply_coupon($coupon_code, $cart_amount);
         if (!empty($apiResult) && is_array($apiResult)) {
-            echo json_encode(array(
+            $this->json_response(array(
                 'status' => 'success',
                 'msg' => 'Coupon applied successfully.',
                 'coupon_data' => (object) $apiResult,
@@ -4030,7 +4054,7 @@ XSL;
             return;
         }
 
-        echo json_encode(array(
+        $this->json_response(array(
             'status' => 'failed',
             'msg' => 'Invalid coupon code.',
         ));
@@ -4110,7 +4134,7 @@ XSL;
             $this->data['customer_id'] = $customer_id;
             $this->data['addresses'] = $this->webshop_model->get_customer_address($customer_id);
             if ($theme == 'restaurant' || $theme == "nw") {
-                echo json_encode($this->data);
+                $this->json_response($this->data);
                 return;
             }
             $this->load_view("your_address", $this->data);
@@ -4187,7 +4211,7 @@ XSL;
         $input = json_decode($inputJSON, true);
         $userId = $this->_get_webshop_session_user_id();
         if (!$userId) {
-            echo json_encode(['statusMessage' => "unauthorized"]);
+            $this->json_response(['statusMessage' => "unauthorized"]);
             return;
         }
         $address_id = isset($input['address_id']) ? $input['address_id'] : null;
@@ -4223,7 +4247,7 @@ XSL;
             if ($is_default == 1) {
                 $this->webshop_model->set_address_default($userId, $address_id);
             }
-            echo json_encode(['statusMessage' => "success"]);
+            $this->json_response(['statusMessage' => "success"]);
             return;
         } elseif ($addressAction == "add") {
             if ($address_id = $this->webshop_model->set_customer_address($data)) {
@@ -4231,7 +4255,7 @@ XSL;
                     $this->webshop_model->set_address_default($userId, $address_id);
                 }
             }
-            echo json_encode(['statusMessage' => "success"]);
+            $this->json_response(['statusMessage' => "success"]);
             return;
         }
     }
@@ -4281,7 +4305,7 @@ XSL;
 
             if ($theme == 'restaurant' || $theme == "nw") {
                 $this->data['addresses'] = $this->webshop_model->get_customer_address($customer_id);
-                echo json_encode($this->data);
+                $this->json_response($this->data);
                 return;
             }
             $this->load_view("your_orders", $this->data);
@@ -4326,7 +4350,7 @@ XSL;
         $this->load->library('form_validation');
         $this->form_validation->set_error_delimiters('<div class="text-danger">', '</div>');
 
-        if (isset($_POST['upload_image'])) {
+        if ($this->input->post('upload_image') !== false && $this->input->post('upload_image') !== null) {
 
             $upload_path = './assets/images/customers/';
             if (!file_exists($upload_path)) {
@@ -4361,7 +4385,7 @@ XSL;
                     redirect("webshop/your_profile");
                 }
             }
-        } else if (isset($_POST['submitProfle'])) {
+        } else if ($this->input->post('submitProfle') !== false && $this->input->post('submitProfle') !== null) {
 
             $this->form_validation->set_rules('name', 'Your Name', 'trim|required|alpha_numeric_spaces');
             // $this->form_validation->set_rules('phone',  'Phone Number', 'trim|required|numeric|exact_length[10]|is_unique[companies.phone]');
@@ -4375,7 +4399,17 @@ XSL;
                 $this->session->set_flashdata('error', 'Validation Errors!');
                 $this->your_profile('edit');
             } else {
-                extract($_POST);
+                $name = (string) $this->input->post('name', true);
+                $email = (string) $this->input->post('email', true);
+                $country = (string) $this->input->post('country', true);
+                $state = (string) $this->input->post('state', true);
+                $city = (string) $this->input->post('city', true);
+                $pincode = (string) $this->input->post('pincode', true);
+                $address = (string) $this->input->post('address', true);
+                $pan_card = (string) $this->input->post('pan_card', true);
+                $gstn_no = (string) $this->input->post('gstn_no', true);
+                $vat_no = (string) $this->input->post('vat_no', true);
+                $company = (string) $this->input->post('company', true);
 
                 $company = $company == '' ? '-' : $company;
 
@@ -4436,10 +4470,10 @@ XSL;
                     $ws_sess['email'] = $email;
                 }
                 $this->session->set_userdata('webshop', $ws_sess);
-                echo json_encode(['statusMessage' => "success"]);
+                $this->json_response(['statusMessage' => "success"]);
                 return;
             }
-            echo json_encode(["statusMessage" => "failed"]);
+            $this->json_response(["statusMessage" => "failed"]);
             return;
         }
     }
@@ -4506,7 +4540,7 @@ XSL;
             $this->data['images'] = base_url("assets/images/customers/");
             $this->data['action'] = $action;
             if ($theme == 'restaurant' || $theme == "nw") {
-                echo json_encode($this->data);
+                $this->json_response($this->data);
                 return;
             }
             $this->load_view("your_profile", $this->data);
@@ -4526,7 +4560,7 @@ XSL;
         $userId = $this->_get_webshop_session_user_id();
         if ($userId) {
 
-            if (isset($_POST['changePassword'])) {
+            if ($this->input->post('changePassword') !== false && $this->input->post('changePassword') !== null) {
 
                 $this->load->library('form_validation');
                 $this->form_validation->set_error_delimiters('<div class="text-danger">', '</div>');
@@ -4577,7 +4611,7 @@ XSL;
         }
 
         // ── Step 1: deliver OTP ────────────────────────────────────────
-        if (isset($_POST['send_otp'])) {
+        if ($this->input->post('send_otp') !== false && $this->input->post('send_otp') !== null) {
             $mobile = $this->_normalize_mobile($this->input->post('mobile'));
             if ($mobile === '' || !$this->_is_valid_mobile($mobile)) {
                 $this->session->set_flashdata('error', 'Please enter a valid mobile number (10-15 digits).');
@@ -4654,7 +4688,7 @@ XSL;
         }
 
         // ── Step 2: verify OTP and reset password ──────────────────────
-        if (isset($_POST['reset_password'])) {
+        if ($this->input->post('reset_password') !== false && $this->input->post('reset_password') !== null) {
             $mobile           = $this->_normalize_mobile($this->input->post('mobile'));
             $otp              = preg_replace('/\D/', '', (string) $this->input->post('otp'));
             $new_password     = (string) $this->input->post('new_password');
@@ -5254,7 +5288,7 @@ XSL;
             ];
         }
 
-        echo json_encode($response);
+        $this->json_response($response);
     }
 
 
@@ -5275,7 +5309,7 @@ XSL;
                 'charges' => '0',
             ];
         }
-        echo json_encode($response);
+        $this->json_response($response);
     }
     public function about_us()
     {
@@ -5620,7 +5654,7 @@ XSL;
         $this->load->model('Whatsapp_model');
         $order_id = $this->input->post('order_id');
         if (!$order_id) {
-            echo json_encode(['status' => 'error', 'message' => 'Missing order ID']);
+            $this->json_response(['status' => 'error', 'message' => 'Missing order ID']);
             return;
         }
         $trackingData = $this->webshop_model->getFullOrderDatahashkey($order_id);
@@ -5629,9 +5663,9 @@ XSL;
         // var_dump($fulladdress);
         $trackingData['order']['deliver_to'] = $fulladdress;
         if ($trackingData) {
-            echo json_encode(['status' => 'success', 'tracking' => $trackingData]);
+            $this->json_response(['status' => 'success', 'tracking' => $trackingData]);
         } else {
-            echo json_encode(['status' => 'error', 'message' => 'No tracking data found']);
+            $this->json_response(['status' => 'error', 'message' => 'No tracking data found']);
         }
     }
     // every order status trigger below function 
@@ -5652,9 +5686,9 @@ XSL;
             $response = $this->call_whatsapp_cheerio($phone, $order_id, $order_status);
         }
         if ($response) {
-            echo json_encode(['status' => 'success', 'tracking' => $trackingData]);
+            $this->json_response(['status' => 'success', 'tracking' => $trackingData]);
         } else {
-            echo json_encode(['status' => 'success', 'tracking' => $trackingData]);
+            $this->json_response(['status' => 'success', 'tracking' => $trackingData]);
         }
     }
 
@@ -5676,7 +5710,7 @@ XSL;
         $charges = 0;
         $total = $this->sma->formatMoney(0);
         if (!is_array($cart)) {
-            echo json_encode(['total' => $total, 'charges' => $this->sma->formatMoney($charges)]);
+            $this->json_response(['total' => $total, 'charges' => $this->sma->formatMoney($charges)]);
             return;
         }
         foreach ($cart as $item) {
@@ -5686,15 +5720,14 @@ XSL;
             $total = $this->sma->formatMoney($carttotal);
             $charges = isset($item['charges']) ? (float) $item['charges'] : $charges;
         }
-        echo json_encode(['total' => $total, 'charges' => $this->sma->formatMoney($charges)]);
+        $this->json_response(['total' => $total, 'charges' => $this->sma->formatMoney($charges)]);
     }
     public function get_order_reply()
     {
         $json = file_get_contents('php://input');
         $data = json_decode($json, true);
         if (json_last_error() !== JSON_ERROR_NONE) {
-            http_response_code(400);
-            echo json_encode(['status' => 'error', 'message' => 'Invalid JSON format.']);
+            $this->json_response(['status' => 'error', 'message' => 'Invalid JSON format.'], 400);
             return;
         }
 
@@ -5709,7 +5742,7 @@ XSL;
             $this->load->model('Whatsapp_model');
             $response = $this->Whatsapp_model->send_order_whatsapp_message($mobile, $order_id, $status);
         } else {
-            echo json_encode(['status' => 'error', 'message' => 'Invalid status.']);
+            $this->json_response(['status' => 'error', 'message' => 'Invalid status.']);
             return;
         }
     }
@@ -5719,9 +5752,9 @@ XSL;
         $mobile = $this->input->post('mobile');
         $exists = $this->webshop_model->authenticate_user_mobile($mobile);
         if ($exists) {
-            echo json_encode(['status' => 'success', 'exists' => $exists, 'mobile' => $mobile]);
+            $this->json_response(['status' => 'success', 'exists' => $exists, 'mobile' => $mobile]);
         } else {
-            echo json_encode(['status' => 'error', 'exists' => $exists]);
+            $this->json_response(['status' => 'error', 'exists' => $exists]);
         }
     }
     public function ajax_login()
@@ -5755,12 +5788,12 @@ XSL;
                 $redirect_url = site_url('webshop/index');
             }
 
-            echo json_encode([
+            $this->json_response([
                 'status' => 'success',
                 'redirect' => $redirect_url,
             ]);
         } else {
-            echo json_encode([
+            $this->json_response([
                 'status' => 'error',
                 'message' => 'Invalid login credentials',
             ]);
@@ -5771,11 +5804,11 @@ XSL;
         $phone = $this->input->post('phone');
         if (empty($phone)) {
             $this->session->unset_userdata('phone_error');
-            echo json_encode([
+            $this->json_response([
                 'status' => 'success',
             ]);
         } else {
-            echo json_encode([
+            $this->json_response([
                 'status' => 'error',
             ]);
         }
@@ -5786,9 +5819,9 @@ XSL;
         $password = md5($this->input->post('password'));
         $exists = $this->webshop_model->authenticate_user_mobile($mobile, $password);
         if ($exists && $exists->password === $password) {
-            echo json_encode(['exists' => true]);
+            $this->json_response(['exists' => true]);
         } else {
-            echo json_encode(['exists' => false]);
+            $this->json_response(['exists' => false]);
         }
     }
     ///////////////////////////////////// Send Whatsapp OTP ////////////////////////////////////////
@@ -5798,7 +5831,7 @@ XSL;
         $MobileNo = $this->input->post('MobileNo', true);
         // You can also fetch the token if needed: $token = $this->input->post('token', true);
         if (!$MobileNo) {
-            echo json_encode(['status' => 'error', 'message' => 'Mobile number is required']);
+            $this->json_response(['status' => 'error', 'message' => 'Mobile number is required']);
             return;
         }
         // Generate OTP
@@ -5812,7 +5845,7 @@ XSL;
             'url' => $urlpass
         ];
 
-        echo json_encode($response);
+        $this->json_response($response);
     }
 
     public function submit_contact()

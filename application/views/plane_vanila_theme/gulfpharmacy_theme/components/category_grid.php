@@ -12,7 +12,9 @@ $cols     = (isset($cfg['columns_desktop']) && (int)$cfg['columns_desktop'] > 0)
 $uploadsB = isset($uploads) ? rtrim($uploads, '/') . '/' : '';
 if (empty($items)) return;
 $uid = 'cg' . rand(1000, 9999);
+$cg_assets = isset($assets) ? $assets : base_url('assets/webshop/');
 ?>
+<link rel="stylesheet" href="<?= $cg_assets ?>gulfpharmacy_theme/css/category-grid.css">
 <section class="gp-component category-grid-section" aria-labelledby="<?= $uid ?>">
     <?php if ($title !== ''): ?>
     <h2 class="section-title" id="<?= $uid ?>"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h2>
@@ -44,19 +46,3 @@ $uid = 'cg' . rand(1000, 9999);
         <?php endforeach; ?>
     </div>
 </section>
-<style>
-.gp-cg-grid{display:grid;gap:20px;margin-top:12px;}
-.gp-cg-grid-3col{grid-template-columns:repeat(3,1fr);}
-.gp-cg-grid-4col{grid-template-columns:repeat(4,1fr);}
-.gp-cg-grid-5col{grid-template-columns:repeat(5,1fr);}
-.gp-cg-grid-6col{grid-template-columns:repeat(6,1fr);}
-@media(max-width:900px){.gp-cg-grid{grid-template-columns:repeat(3,1fr) !important;}}
-@media(max-width:480px){.gp-cg-grid{grid-template-columns:repeat(2,1fr) !important;}}
-.gp-cg-card{text-decoration:none;color:inherit;}
-.gp-cg-card>div{background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;text-align:center;transition:transform .3s,box-shadow .3s,border-color .3s;display:-webkit-box;display:flex;-webkit-box-orient:vertical;flex-direction:column;}
-.gp-cg-card:hover>div{transform:translateY(-8px);box-shadow:0 20px 40px rgba(33,69,72,.1);border-color:#214548;}
-.gp-cg-card img{width:100%;height:130px;object-fit:cover;transition:transform .4s;display:block;}
-.gp-cg-card:hover img{transform:scale(1.06);}
-.gp-cg-no-img{height:130px;background:#f8fafc;display:-webkit-box;display:flex;-webkit-box-align:center;align-items:center;-webkit-box-pack:center;justify-content:center;}
-.gp-cg-card h5{padding:14px 12px;margin:0;font-size:13px;font-weight:700;color:#214548;border-top:1px solid #f1f5f9;min-height:44px;display:-webkit-box;display:flex;-webkit-box-align:center;align-items:center;-webkit-box-pack:center;justify-content:center;}
-</style>

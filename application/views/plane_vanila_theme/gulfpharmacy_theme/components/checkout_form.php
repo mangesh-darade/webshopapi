@@ -15,6 +15,8 @@ foreach ($cart_items as $ci) {
     $subtotal += $ci_up * (float) (isset($ci['quantity']) ? $ci['quantity'] : 1);
 }
 ?>
+<?php $co_assets = isset($assets) ? $assets : base_url('assets/webshop/'); ?>
+<link rel="stylesheet" href="<?= $co_assets ?>gulfpharmacy_theme/css/checkout-form.css">
 <div class="checkout-container">
     <form id="checkoutForm" action="<?= base_url('webshop/submit_order') ?>" method="post">
 
@@ -207,97 +209,4 @@ foreach ($cart_items as $ci) {
 
     </form>
 </div><!-- /.checkout-container -->
-
-<style>
-    :root {
-        --co-primary: #0F4C81;
-        --co-accent: #00A884;
-        --co-bg: #ffffff;
-        --co-text: #1f2937;
-        --co-muted: #6b7280;
-        --co-border: #e2e8f0;
-    }
-    .checkout-container { font-family: 'Inter', system-ui, sans-serif; color: var(--co-text); max-width: 1200px; margin: 40px auto; padding: 0 20px; }
-    .checkout-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 40px; }
-    @media (max-width: 992px) { .checkout-grid { grid-template-columns: 1fr; } }
-    .section-title { font-size: 1.3rem; font-weight: 700; margin: 0 0 20px; padding-bottom: 10px; border-bottom: 2px solid var(--co-border); color: var(--co-primary); }
-    .form-row { display: flex; gap: 16px; flex-wrap: wrap; }
-    .form-group { margin-bottom: 18px; flex: 1; min-width: 180px; }
-    .form-group label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.875rem; color: var(--co-text); }
-    /* Terms row: label is not a field caption — reset block label rules and use flex row. */
-    .terms-group > label.checkbox-container {
-        display: flex;
-        align-items: flex-start;
-        gap: 12px;
-        margin-bottom: 0;
-        font-weight: 500;
-        font-size: 0.9375rem;
-        line-height: 1.5;
-        cursor: pointer;
-        width: 100%;
-        max-width: 100%;
-        padding: 14px 16px;
-        border: 1px solid var(--co-border);
-        border-radius: 10px;
-        background: #f8fafc;
-        box-sizing: border-box;
-    }
-    .terms-group > label.checkbox-container:focus-within {
-        border-color: var(--co-primary);
-        box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.08);
-    }
-    /* Scope text-field styling so checkbox/radio inputs keep their native widget. */
-    .form-group input:not([type="checkbox"]):not([type="radio"]),
-    .form-group select { width: 100%; padding: 10px 14px; border: 1.5px solid var(--co-border); border-radius: 8px; font-size: 0.95rem; transition: border-color .2s; box-sizing: border-box; }
-    .form-group input:not([type="checkbox"]):not([type="radio"]):focus,
-    .form-group select:focus { outline: none; border-color: var(--co-primary); box-shadow: 0 0 0 3px rgba(15,76,129,.08); }
-    .form-group input[type="checkbox"],
-    .form-group input[type="radio"] { width: 18px; height: 18px; margin: 0; padding: 0; flex-shrink: 0; accent-color: var(--co-primary); cursor: pointer; }
-    .address-selector { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin-bottom: 16px; }
-    .address-card { border: 2px solid var(--co-border); border-radius: 12px; padding: 14px; cursor: pointer; display: flex; gap: 12px; align-items: flex-start; transition: border-color .2s; }
-    .address-card:has(input:checked) { border-color: var(--co-primary); background: rgba(15,76,129,.04); }
-    .address-card input { margin-top: 3px; accent-color: var(--co-primary); }
-    .address-details { font-size: 14px; line-height: 1.6; }
-    .summary-card { background: #fff; border: 1px solid var(--co-border); border-radius: 16px; padding: 24px; box-shadow: 0 4px 16px rgba(0,0,0,.06); position: sticky; top: 20px; }
-    .summary-item { display: flex; justify-content: space-between; font-size: 14px; padding: 7px 0; border-bottom: 1px dashed #f1f5f9; }
-    .summary-item:last-child { border-bottom: 0; }
-    .summary-totals { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--co-border); }
-    .total-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 6px; }
-    .grand-total { font-size: 17px; font-weight: 800; color: var(--co-primary); margin-top: 10px; }
-    .payment-methods { margin-top: 24px; border-top: 1px solid var(--co-border); padding-top: 18px; }
-    .mini-title { font-weight: 700; font-size: 15px; margin: 0 0 12px; }
-    .payment-option { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 14px; }
-    .payment-option input { accent-color: var(--co-primary); }
-    .place-order-btn { width: 100%; margin-top: 20px; background: var(--co-primary); color: #fff; border: none; padding: 14px; border-radius: 10px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: background .2s; }
-    .place-order-btn:hover { background: #0c3d69; }
-    .terms-group {
-        margin-top: 28px;
-        margin-bottom: 0;
-        padding-top: 20px;
-        border-top: 1px solid var(--co-border);
-        flex: 1 1 100%;
-        min-width: 100%;
-    }
-    .terms-group .checkbox-container { margin-bottom: 0; }
-    .terms-group input[type="checkbox"] {
-        width: 20px;
-        height: 20px;
-        margin: 2px 0 0 0;
-        flex-shrink: 0;
-        align-self: flex-start;
-    }
-    .terms-group > label.checkbox-container .checkbox-text { flex: 1; min-width: 0; padding-top: 1px; }
-    .terms-group > label.checkbox-container a { color: var(--co-primary); text-decoration: underline; }
-</style>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    var billingCountry = document.getElementById('billing_country');
-    var shippingCountry = document.getElementById('shipping_country');
-    if (billingCountry && shippingCountry) {
-        shippingCountry.value = billingCountry.value;
-        billingCountry.addEventListener('change', function () {
-            shippingCountry.value = billingCountry.value;
-        });
-    }
-});
-</script>
+<script defer src="<?= $co_assets ?>gulfpharmacy_theme/js/checkout-form.js"></script>

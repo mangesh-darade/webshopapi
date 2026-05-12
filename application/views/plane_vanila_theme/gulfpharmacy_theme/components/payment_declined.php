@@ -15,19 +15,8 @@ $orderId      = isset($order_id) ? $order_id : (isset($order['id']) ? $order['id
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Payment Declined | <?= htmlspecialchars($shopName, ENT_QUOTES, 'UTF-8') ?></title>
     <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/common.css">
-    <style>
-        .pd-shell{min-height:100vh;background:#fef2f2;display:flex;flex-direction:column}
-        .pd-main{flex:1;max-width:600px;margin:0 auto;padding:48px 20px;width:100%}
-        .pd-card{background:#fff;border-radius:20px;padding:40px 36px;box-shadow:0 10px 32px rgba(0,0,0,.07);text-align:center}
-        .pd-icon{font-size:64px;margin-bottom:16px}
-        .pd-title{font-size:26px;font-weight:800;color:#991b1b;margin:0 0 10px}
-        .pd-msg{color:#6b7280;font-size:15px;margin:0 0 28px;line-height:1.6}
-        .pd-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
-        .pd-btn{padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;cursor:pointer;border:none;display:inline-block}
-        .pd-btn-primary{background:#0F4C81;color:#fff}
-        .pd-btn-secondary{background:#f3f4f6;color:#374151}
-        @media(max-width:500px){.pd-card{padding:24px 16px}.pd-actions{flex-direction:column}}
-    </style>
+    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css">
+    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/payment-declined.css">
 </head>
 <body>
 <div class="pd-shell">

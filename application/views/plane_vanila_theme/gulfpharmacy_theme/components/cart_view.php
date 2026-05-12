@@ -13,7 +13,8 @@ foreach ($cart_items as $item) {
     $subtotal += ($price * $item['quantity']);
 }
 ?>
-
+<?php $cv_assets = isset($assets) ? $assets : base_url('assets/webshop/'); ?>
+<link rel="stylesheet" href="<?= $cv_assets ?>gulfpharmacy_theme/css/cart.css">
 <div class="cart-container">
     <h2 class="cart-title">Your Shopping Cart</h2>
     
@@ -43,7 +44,7 @@ foreach ($cart_items as $item) {
                         <div class="item-total">
                             <?= $Settings->symbol ?> <?= number_format($price * $item['quantity'], 2) ?>
                         </div>
-                        <button class="remove-item-btn" onclick="remove_cart_item('<?= $hash ?>')">×</button>
+                        <button type="button" class="remove-item-btn" data-cart-remove="<?= html_escape($hash) ?>" aria-label="Remove item">×</button>
                     </div>
                 <?php endforeach; ?>
             </div>
@@ -65,147 +66,5 @@ foreach ($cart_items as $item) {
         </div>
     <?php endif; ?>
 </div>
-
-<style>
-    .cart-container {
-        font-family: 'Outfit', sans-serif;
-        max-width: 1200px;
-        margin: 40px auto;
-        padding: 0 20px;
-    }
-
-    .cart-title {
-        font-size: 2rem;
-        margin-bottom: 30px;
-        color: #1a1a1a;
-    }
-
-    .cart-grid {
-        display: grid;
-        grid-template-columns: 1fr 350px;
-        gap: 30px;
-    }
-
-    @media (max-width: 992px) {
-        .cart-grid {
-            grid-template-columns: 1fr;
-        }
-    }
-
-    .cart-item-card {
-        background: #fff;
-        border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 15px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        border: 1px solid #e2e8f0;
-        position: relative;
-    }
-
-    .item-details { flex: 1; }
-    .item-name { margin: 0 0 5px 0; font-size: 1.1rem; }
-    .item-meta { color: #718096; font-size: 0.9rem; }
-    .item-total { font-weight: 700; font-size: 1.1rem; color: #fa8507; }
-
-    .remove-item-btn {
-        background: none;
-        border: none;
-        color: #cbd5e1;
-        font-size: 1.5rem;
-        cursor: pointer;
-        margin-left: 20px;
-        transition: color 0.2s;
-    }
-
-    .remove-item-btn:hover { color: #ef4444; }
-
-    .cart-summary-sidebar .summary-card {
-        background: #f8fafc;
-        border-radius: 16px;
-        padding: 25px;
-        border: 1px solid #e2e8f0;
-        position: sticky;
-        top: 20px;
-    }
-
-    .summary-row {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 15px;
-    }
-
-    .summary-row.total {
-        margin-top: 20px;
-        padding-top: 20px;
-        border-top: 2px solid #e2e8f0;
-        font-weight: 700;
-        font-size: 1.25rem;
-        color: #fa8507;
-    }
-
-    .checkout-btn {
-        display: block;
-        width: 100%;
-        background: #fa8507;
-        color: #fff;
-        text-align: center;
-        padding: 15px;
-        border-radius: 8px;
-        text-decoration: none;
-        font-weight: 700;
-        margin-top: 25px;
-        transition: background 0.2s;
-    }
-
-    .checkout-btn:hover { background: #e67700; }
-
-    .empty-cart-message {
-        text-align: center;
-        padding: 60px 20px;
-        background: #fff;
-        border-radius: 20px;
-        border: 1px solid #e2e8f0;
-    }
-
-    .empty-icon { font-size: 4rem; margin-bottom: 20px; }
-    .continue-shopping-btn {
-        display: inline-block;
-        background: #1a1a1a;
-        color: #fff;
-        padding: 12px 30px;
-        border-radius: 50px;
-        text-decoration: none;
-        margin-top: 20px;
-    }
-</style>
-
-<script>
-function remove_cart_item(hash) {
-    if (!confirm('Are you sure you want to remove this item?')) return;
-    
-    const baseUrl = '<?= base_url() ?>';
-    const formData = new FormData();
-    formData.append('action', 'remove_cart_item');
-    formData.append('cart_item_key', hash);
-    formData.append('action_source', 'cart_page');
-
-    fetch(baseUrl + 'webshop/webshop_request', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.text())
-    .then(data => {
-        // Since the backend returns a partial view for 'cart_page', 
-        // we can either replace the content or just reload.
-        // For simplicity and to ensure all totals are synced, we reload.
-        location.reload();
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Failed to remove item. Please try again.');
-    });
-}
-</script>
+<script>window.GP_CART_CTX=<?= json_encode(array('request_url' => base_url('webshop/webshop_request')), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+<script defer src="<?= $cv_assets ?>gulfpharmacy_theme/js/cart.js"></script>

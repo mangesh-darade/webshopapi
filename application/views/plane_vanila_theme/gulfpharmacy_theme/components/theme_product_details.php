@@ -42,155 +42,9 @@ if (empty($gallery)) {
     $main = webshop_product_image_src($uploadsBase, $thumbsBase, $product);
     $gallery[] = array('full' => $main, 'thumb' => $main);
 }
+$pd_assets = isset($assets) ? $assets : base_url('assets/webshop/');
 ?>
-<style>
-.pd-wrap{font-family:Inter,sans-serif;max-width:1280px;margin:0 auto;padding:18px}
-.pd-main{display:grid;grid-template-columns:1fr 1fr;gap:24px}
-.pd-card{background:#fff;border:1px solid #e7edf5;border-radius:16px;box-shadow:0 8px 24px rgba(15,76,129,.08)}
-.pd-gallery{padding:14px;display:grid;grid-template-columns:90px 1fr;gap:12px}
-.pd-thumbs{display:flex;flex-direction:column;gap:8px;max-height:520px;overflow:auto}
-.pd-thumb{border:2px solid transparent;border-radius:10px;padding:2px;cursor:pointer}
-.pd-thumb.active,.pd-thumb:hover{border-color:#0F4C81}
-.pd-thumb img{width:100%;height:72px;object-fit:contain;background:#F5F7FA;border-radius:8px}
-.pd-mainimg{min-height:460px;background:#F5F7FA;border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden}
-.pd-mainimg img{max-width:95%;max-height:430px;transition:.25s}
-.pd-mainimg:hover img{transform:scale(1.14)}
-.pd-summary{padding:22px;position:sticky;top:88px}
-.pd-title{font-size:34px;font-weight:700;line-height:1.2;margin:0 0 8px}
-.pd-meta{font-size:14px;color:#4b5563;display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
-.pd-rating{color:#f59e0b;font-weight:700}
-.pd-price{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.pd-price-now{font-size:32px;font-weight:600;color:#0F4C81}
-.pd-mrp{text-decoration:line-through;color:#6b7280}
-.pd-off{background:#00A884;color:#fff;border-radius:999px;padding:4px 9px;font-size:12px;font-weight:600}
-.pd-stock{margin:10px 0;font-size:14px}
-.pd-stock.ok{color:#0a7c3f}.pd-stock.no{color:#b91c1c}
-.pd-short{font-size:16px;line-height:1.6;color:#374151;background:#F5F7FA;border-radius:10px;padding:12px;position:relative;z-index:1}
-.pd-actions{display:grid;grid-template-columns:130px 1fr 1fr 46px;gap:8px;margin-top:14px;position:relative;z-index:2}
-.pd-qty{display:flex;border:1px solid #d5dde8;border-radius:10px;overflow:hidden}
-.pd-qty button{border:0;background:#f8fafc;width:34px}
-.pd-qty input{border:0;text-align:center;width:60px}
-.pd-btn{border:0;border-radius:10px;padding:11px 12px;color:#fff;font-size:15px;font-weight:600;cursor:pointer}
-.pd-btn:disabled{cursor:not-allowed;opacity:.72}
-.pd-cart{background:#0F4C81}.pd-buy{background:#00A884}
-.pd-wish{display:flex;align-items:center;justify-content:center;border:1px solid #d5dde8;border-radius:10px;background:#fff;cursor:pointer;font-size:20px;color:#6b7280}
-.pd-wish.active{color:#e11d48;border-color:#fda4af}
-.pd-tabs{margin-top:26px}
-.pd-tab-nav{display:flex;gap:8px;flex-wrap:wrap}
-.pd-tab-link{padding:9px 14px;border-radius:999px;background:#f1f5f9;font-size:13px;font-weight:600;cursor:pointer}
-.pd-tab-link.active{background:#0F4C81;color:#fff}
-.pd-tab{display:none;margin-top:12px;border:1px solid #e6ecf4;border-radius:10px;padding:14px;line-height:1.7}
-.pd-tab.active{display:block}
-.pd-rev-summary{font-size:15px;font-weight:600;color:#0F4C81;margin-bottom:14px}
-.pd-rev-list{display:flex;flex-direction:column;gap:14px}
-.pd-rev-card{border:1px solid #e8edf3;border-radius:12px;padding:14px 16px;background:#fafbfc}
-.pd-rev-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:8px}
-.pd-rev-stars{color:#f59e0b;font-size:14px;letter-spacing:-1px}
-.pd-rev-title{font-weight:700;font-size:15px;color:#111827;margin:0}
-.pd-rev-meta{font-size:12px;color:#6b7280}
-.pd-rev-body{font-size:14px;color:#374151;margin:0}
-.pd-rev-empty{color:#6b7280;margin:0 0 12px}
-.pd-rev-write{display:inline-block;margin-top:4px;color:#0F4C81;font-weight:600;text-decoration:none}
-.pd-rev-write:hover{text-decoration:underline}
-.pd-section{margin-top:28px}
-.pd-list{display:flex;gap:12px;overflow:auto;padding-bottom:6px}
-.pd-item{min-width:210px;border:1px solid #e8edf3;border-radius:12px;padding:10px;text-decoration:none;color:inherit}
-.pd-item img{width:100%;height:140px;object-fit:contain;background:#f8fafc;border-radius:8px}
-.pd-item h4{font-size:14px;height:38px;overflow:hidden}
-.pd-item .p{font-weight:700;color:#0F4C81}
-
-/* Tablet & mobile — keep gallery and cart card from blowing up vertically */
-@media (max-width: 992px) {
-    .pd-wrap { padding: 12px; }
-    .pd-main { grid-template-columns: 1fr; gap: 14px; }
-
-    /* Gallery: main image first, thumb strip scrolls horizontally underneath */
-    .pd-gallery { grid-template-columns: 1fr; padding: 10px; gap: 10px; }
-    .pd-mainimg { order: 1; min-height: 0; aspect-ratio: 1 / 1; }
-    .pd-mainimg img { max-width: 100%; max-height: 100%; }
-    .pd-mainimg:hover img { transform: none; }
-    .pd-thumbs {
-        order: 2;
-        flex-direction: row;
-        max-height: none;
-        gap: 8px;
-        overflow-x: auto;
-        overflow-y: hidden;
-        scroll-snap-type: x mandatory;
-        -webkit-overflow-scrolling: touch;
-        padding-bottom: 2px;
-    }
-    .pd-thumb { flex: 0 0 auto; scroll-snap-align: start; padding: 2px; }
-    .pd-thumb img { width: 60px; height: 60px; }
-
-    /* Summary card — relative so the wish heart can float top-right */
-    .pd-summary { position: relative; top: auto; padding: 16px; }
-    .pd-title { font-size: 22px; line-height: 1.25; margin-bottom: 6px; padding-right: 52px; }
-    .pd-meta { font-size: 12px; gap: 6px 10px; margin-bottom: 10px; }
-    .pd-price { gap: 8px; }
-    .pd-price-now { font-size: 26px; }
-    .pd-mrp { font-size: 14px; }
-    .pd-off { font-size: 11px; padding: 3px 8px; }
-    .pd-stock { font-size: 13px; margin: 8px 0; }
-    .pd-short { font-size: 14px; padding: 10px 12px; line-height: 1.5; }
-
-    /* Action row: qty | cart | buy ; heart floats in card corner */
-    .pd-actions {
-        grid-template-columns: minmax(110px, 130px) 1fr 1fr;
-        gap: 8px;
-        position: static;
-        margin-top: 12px;
-    }
-    .pd-qty button { width: 36px; height: 44px; font-size: 18px; }
-    .pd-qty input { width: 100%; min-width: 0; height: 44px; }
-    .pd-btn { padding: 11px 10px; font-size: 14px; min-height: 44px; line-height: 1.15; }
-    .pd-wish {
-        position: absolute;
-        top: 14px;
-        right: 14px;
-        width: 42px;
-        height: 42px;
-        border-radius: 50%;
-        font-size: 22px;
-        background: #fff;
-        box-shadow: 0 2px 8px rgba(15,76,129,.08);
-    }
-
-    /* Tabs scroll instead of wrapping into 3 ugly rows */
-    .pd-tab-nav { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; gap: 6px; }
-    .pd-tab-link { flex: 0 0 auto; font-size: 12px; padding: 7px 12px; white-space: nowrap; }
-    .pd-tab { padding: 12px; font-size: 14px; line-height: 1.6; }
-
-    /* Related/recent carousels stay scrollable */
-    .pd-item { min-width: 160px; }
-    .pd-item img { height: 110px; }
-}
-
-/* Phones (≤ 480px): reduce hierarchy further so layout breathes */
-@media (max-width: 480px) {
-    .pd-wrap { padding: 8px; }
-    .pd-mainimg { aspect-ratio: 4 / 3; }
-    .pd-title { font-size: 19px; padding-right: 48px; }
-    .pd-price-now { font-size: 22px; }
-    /* Keep qty + Add To Cart + Buy Now on a single row even on phones. */
-    .pd-actions {
-        grid-template-columns: minmax(96px, 116px) 1fr 1fr;
-        gap: 6px;
-    }
-    .pd-qty button { width: 30px; }
-    .pd-qty input { font-size: 14px; }
-    .pd-btn { padding: 10px 8px; font-size: 13px; white-space: nowrap; }
-    .pd-thumb img { width: 56px; height: 56px; }
-}
-
-/* Very narrow phones (≤ 360px) — shave a bit more so labels never wrap. */
-@media (max-width: 360px) {
-    .pd-actions { grid-template-columns: 94px 1fr 1fr; gap: 5px; }
-    .pd-qty button { width: 26px; font-size: 16px; }
-    .pd-qty input { font-size: 13px; }
-    .pd-btn { padding: 10px 6px; font-size: 12px; }
-}
-</style>
+<link rel="stylesheet" href="<?= $pd_assets ?>gulfpharmacy_theme/css/theme-product-details.css">
 
 <div class="pd-wrap">
   <div class="pd-main">
@@ -223,14 +77,14 @@ if (empty($gallery)) {
         </span>
         <span>(<?= (int) $reviews; ?> reviews)</span>
         <?php if (!empty($productId)): ?>
-          <span><a href="<?= base_url('webshop/product_reviews/' . md5((int) $productId)) ?>" style="color:#0F4C81;font-weight:600">Write a review</a></span>
+          <span><a href="<?= base_url('webshop/product_reviews/' . md5((int) $productId)) ?>" class="pd-meta-write">Write a review</a></span>
         <?php endif; ?>
         <?php if ($catName !== '') { ?><span>Category: <strong><?= htmlspecialchars($catName, ENT_QUOTES, 'UTF-8'); ?></strong></span><?php } ?>
         <?php if ($brandName !== '') { ?><span>Brand: <strong><?= htmlspecialchars($brandName, ENT_QUOTES, 'UTF-8'); ?></strong></span><?php } ?>
       </div>
       <div class="pd-price"><span class="pd-price-now" id="price-current"><?= htmlspecialchars((string) $formattedPrice, ENT_QUOTES, 'UTF-8'); ?></span><?php if ($formattedMrp !== '') { ?><span class="pd-mrp"><?= htmlspecialchars((string) $formattedMrp, ENT_QUOTES, 'UTF-8'); ?></span><?php } ?><?php if ($discountPercent > 0) { ?><span class="pd-off"><?= (int) $discountPercent; ?>% OFF</span><?php } ?></div>
       <div class="pd-stock <?= $stockQty > 0 ? 'ok' : 'no'; ?>"><?= $stockQty > 0 ? 'In Stock' : 'Out of Stock'; ?></div>
-      <div class="pd-short"><?= $productDescp !== '' ? $productDescp : '<span style="color:#9ca3af">No short description available.</span>'; ?></div>
+      <div class="pd-short"><?= $productDescp !== '' ? $productDescp : '<span class="pd-short-empty">No short description available.</span>'; ?></div>
       <div class="pd-actions">
         <div class="pd-qty"><button type="button" id="qDec">-</button><input id="qVal" class="itemQty" type="number" min="1" value="1"><button type="button" id="qInc">+</button></div>
         <button class="pd-btn pd-cart add-to-cart" product_id="<?= (int) $productId; ?>" quantity="1" tax_rate="<?= htmlspecialchars((string) $productTaxRate, ENT_QUOTES, 'UTF-8'); ?>" tax_method="<?= htmlspecialchars((string) $productTaxMethod, ENT_QUOTES, 'UTF-8'); ?>" price="<?= htmlspecialchars((string) $price, ENT_QUOTES, 'UTF-8'); ?>" promotion_price="<?= htmlspecialchars((string) $promo, ENT_QUOTES, 'UTF-8'); ?>" product_price="<?= htmlspecialchars((string) $price, ENT_QUOTES, 'UTF-8'); ?>" product_desc="<?= htmlspecialchars((string) strip_tags($productDescp), ENT_QUOTES, 'UTF-8'); ?>" imageurl="<?= htmlspecialchars((string) $gallery[0]['full'], ENT_QUOTES, 'UTF-8'); ?>" productname="<?= htmlspecialchars((string) $productName, ENT_QUOTES, 'UTF-8'); ?>">Add To Cart</button>
@@ -246,11 +100,11 @@ if (empty($gallery)) {
     </div>
     <div class="pd-tab active" id="t1"><?php
       $t1 = !empty($product['cf1']) ? $product['cf1'] : ($productDescp !== '' ? $productDescp : '');
-      echo $t1 !== '' ? $t1 : '<p class="pd-rev-empty" style="margin:0">No description has been added for this product.</p>';
+      echo $t1 !== '' ? $t1 : '<p class="pd-rev-empty pd-rev-empty-tab">No description has been added for this product.</p>';
     ?></div>
-    <div class="pd-tab" id="t2"><?= !empty($product['cf3']) ? $product['cf3'] : '<p class="pd-rev-empty" style="margin:0">No supplement facts available.</p>'; ?></div>
-    <div class="pd-tab" id="t3"><?= !empty($product['cf2']) ? $product['cf2'] : '<p class="pd-rev-empty" style="margin:0">No ingredients list available.</p>'; ?></div>
-    <div class="pd-tab" id="t4"><p class="pd-rev-empty" style="margin:0">Consult physician or pharmacist for personalized usage.</p></div>
+    <div class="pd-tab" id="t2"><?= !empty($product['cf3']) ? $product['cf3'] : '<p class="pd-rev-empty pd-rev-empty-tab">No supplement facts available.</p>'; ?></div>
+    <div class="pd-tab" id="t3"><?= !empty($product['cf2']) ? $product['cf2'] : '<p class="pd-rev-empty pd-rev-empty-tab">No ingredients list available.</p>'; ?></div>
+    <div class="pd-tab" id="t4"><p class="pd-rev-empty pd-rev-empty-tab">Consult physician or pharmacist for personalized usage.</p></div>
     <div class="pd-tab" id="t5">
       <?php if (!empty($productReviews)): ?>
         <div class="pd-rev-summary">Rated <?= number_format($rating, 1); ?>/5 average · <?= (int) $reviews; ?> review<?= (int) $reviews !== 1 ? 's' : ''; ?></div>
@@ -280,188 +134,21 @@ if (empty($gallery)) {
           : 'No customer reviews yet.'; ?></p>
       <?php endif; ?>
       <?php if (!empty($productId)): ?>
-        <p style="margin-top:14px"><a href="<?= base_url('webshop/product_reviews/' . md5((int) $productId)); ?>" class="pd-rev-write">Write a review</a></p>
+        <p class="pd-rev-cta"><a href="<?= base_url('webshop/product_reviews/' . md5((int) $productId)); ?>" class="pd-rev-write">Write a review</a></p>
       <?php endif; ?>
     </div>
-    <div class="pd-tab" id="t6"><p class="pd-rev-empty" style="margin:0">Need help? Contact support for FAQ and product guidance.</p></div>
+    <div class="pd-tab" id="t6"><p class="pd-rev-empty pd-rev-empty-tab">Need help? Contact support for FAQ and product guidance.</p></div>
   </div>
 
 <?php // Technical Specifications data is available in $technical_specs array for API use but hidden from UI per request ?>
 
 </div>
-<script>
-(function(){
-    var pdNoImageSrc=<?= json_encode($noImgSrc, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
-    var t=document.querySelectorAll('#pdThumbs .pd-thumb'),m=document.getElementById('pdMainImg');
-    for(var i=0;i<t.length;i++){
-        (function(ix){
-            t[ix].addEventListener('click',function(){
-                for(var j=0;j<t.length;j++) t[j].classList.remove('active');
-                this.classList.add('active');
-                m.style.opacity='0.25';
-                var im=new Image();
-                im.onload=function(){m.src=t[ix].getAttribute('data-full');m.style.opacity='1';};
-                im.onerror=function(){m.src=pdNoImageSrc;m.style.opacity='1';};
-                im.src=t[ix].getAttribute('data-full');
-            });
-        })(i);
-    }
-
-    var q=document.getElementById('qVal');
-    document.getElementById('qInc').onclick=function(){q.value=parseInt(q.value||'1',10)+1;};
-    document.getElementById('qDec').onclick=function(){var v=parseInt(q.value||'1',10);q.value=v>1?v-1:1;};
-
-    function tabs(id){
-        var n=document.getElementById(id); if(!n) return;
-        var l=n.querySelectorAll('.pd-tab-link');
-        for(var i=0;i<l.length;i++){
-            l[i].onclick=function(){
-                for(var j=0;j<l.length;j++) l[j].classList.remove('active');
-                this.classList.add('active');
-                var all=document.querySelectorAll('.pd-tab');
-                for(var k=0;k<all.length;k++) all[k].classList.remove('active');
-                var p=document.getElementById(this.getAttribute('data-tab'));
-                if(p) p.classList.add('active');
-            };
-        }
-    }
-    tabs('pdTabNav');
-
-    var endpoint = (typeof baseUrl !== 'undefined' ? baseUrl : '<?= base_url('webshop/') ?>') + 'webshop_request';
-    var isLoggedIn = <?= $isLoggedIn ? 'true' : 'false' ?>;
-    var loginUrl = '<?= base_url('webshop/login') ?>';
-
-    function buildCartPayload(btn) {
-        var qty = parseInt((document.getElementById('qVal') || { value: '1' }).value, 10) || 1;
-        if (qty < 1) qty = 1;
-        return {
-            action: 'add_to_cart',
-            product_id: parseInt(btn.getAttribute('product_id'), 10) || 0,
-            product_price: Number(btn.getAttribute('product_price')) || 0,
-            quantity: qty,
-            tax_rate: Number(btn.getAttribute('tax_rate')) || 0,
-            tax_method: Number(btn.getAttribute('tax_method')) || 0,
-            price: Number(btn.getAttribute('price')) || 0,
-            promotion_price: Number(btn.getAttribute('promotion_price')) || 0
-        };
-    }
-
-    function postAction(payload) {
-        return fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-            body: new URLSearchParams(payload).toString(),
-            credentials: 'same-origin'
-        }).then(function(res){ return res.text(); });
-    }
-
-    function parseResponse(resText) {
-        try { return JSON.parse(resText); } catch (e) { return null; }
-    }
-
-    function toggleWishUi(inWishlist) {
-        var wish = document.getElementById('pdWishlistBtn');
-        if (!wish) { return; }
-        wish.classList.toggle('active', inWishlist);
-        wish.setAttribute('data-in-wishlist', inWishlist ? '1' : '0');
-        wish.textContent = inWishlist ? '♥' : '♡';
-    }
-
-    var addBtn = document.querySelector('.add-to-cart');
-    var buyBtn = document.querySelector('.buy-now');
-    var wishBtn = document.getElementById('pdWishlistBtn');
-
-    if (addBtn) {
-        addBtn.addEventListener('click', function(e){
-            e.preventDefault();
-            var btn = this;
-            var payload = buildCartPayload(btn);
-            if (!payload.product_id) {
-                alert('Invalid product.');
-                return;
-            }
-
-            var original = btn.textContent;
-            btn.disabled = true;
-            btn.textContent = 'Adding...';
-            postAction(payload)
-                .then(function(resText){
-                    var data = parseResponse(resText);
-                    if (data && data.status === 'SUCCESS') {
-                        btn.textContent = 'Added';
-                        var badge = document.querySelector('.gp-cart-count, .cart-count');
-                        if (badge && data.cart_count !== undefined) {
-                            badge.textContent = data.cart_count;
-                            badge.style.display = data.cart_count > 0 ? '' : 'none';
-                        }
-                        setTimeout(function(){ btn.textContent = original; btn.disabled = false; }, 600);
-                        return;
-                    }
-                    btn.disabled = false;
-                    btn.textContent = original;
-                    alert('Unable to add item to cart. Please try again.');
-                })
-                .catch(function(){
-                    btn.disabled = false;
-                    btn.textContent = original;
-                    alert('Unable to add item to cart. Please try again.');
-                });
-        });
-    }
-
-    if (buyBtn) {
-        buyBtn.addEventListener('click', function(e){
-            e.preventDefault();
-            if (!addBtn) {
-                alert('Product action unavailable.');
-                return;
-            }
-            var payload = buildCartPayload(addBtn);
-            payload.action = 'buy_now';
-            if (!payload.product_id) {
-                alert('Invalid product.');
-                return;
-            }
-            postAction(payload)
-                .then(function(resText){
-                    var data = parseResponse(resText);
-                    if (data && data.status === 'SUCCESS') {
-                        window.location.href = (data.checkout_url ? data.checkout_url : '<?= base_url('webshop/checkout') ?>');
-                        return;
-                    }
-                    alert('Unable to proceed to checkout. Please try again.');
-                })
-                .catch(function(){
-                    alert('Unable to proceed to checkout. Please try again.');
-                });
-        });
-    }
-
-    if (wishBtn) {
-        wishBtn.addEventListener('click', function(e){
-            e.preventDefault();
-            if (!isLoggedIn) {
-                window.location.href = loginUrl + '?return_page=' + encodeURIComponent(window.location.href);
-                return;
-            }
-            var inWishlist = this.getAttribute('data-in-wishlist') === '1';
-            var payload = {
-                action: inWishlist ? 'remove_from_wishlist' : 'add_to_wishlist',
-                product_id: <?= (int) $productId ?>
-            };
-            postAction(payload)
-                .then(function(resText){
-                    var data = parseResponse(resText);
-                    if (data && data.status === 'SUCCESS') {
-                        toggleWishUi(!inWishlist);
-                        return;
-                    }
-                    alert('Unable to update favourites.');
-                })
-                .catch(function(){
-                    alert('Unable to update favourites.');
-                });
-        });
-    }
-})();
-</script>
+<script>window.GP_PD_CTX=<?= json_encode(array(
+    'no_image_src'  => $noImgSrc,
+    'base_url'      => base_url('webshop/'),
+    'checkout_url'  => base_url('webshop/checkout'),
+    'login_url'     => base_url('webshop/login'),
+    'is_logged_in'  => (bool) $isLoggedIn,
+    'product_id'    => (int) $productId,
+), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+<script defer src="<?= $pd_assets ?>gulfpharmacy_theme/js/theme-product-details.js"></script>

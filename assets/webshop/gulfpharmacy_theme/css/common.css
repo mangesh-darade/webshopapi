@@ -1,3 +1,28 @@
+/* Gulf Pharmacy storefront — shared CSS variables (header, category, components). */
+:root {
+  --gp-primary: #0F766E;
+  --gp-primary-light: #0d9488;
+  --gp-secondary: #f59e0b;
+  --gp-accent: #14b8a6;
+  --gp-text: #111827;
+  --gp-muted: #6b7280;
+  --gp-border: #e5e7eb;
+  --gp-bg: #fff;
+  --gp-page-bg: #f8fafc;
+  --gp-header-h: 70px;
+  /* Category listing page (cp-) — aliases so one palette drives shell + PLP */
+  --cp-page: var(--gp-page-bg);
+  --cp-card: var(--gp-bg);
+  --cp-primary: var(--gp-primary);
+  --cp-primary-hover: var(--gp-primary-light);
+  --cp-secondary: var(--gp-secondary);
+  --cp-text: var(--gp-text);
+  --cp-muted: var(--gp-muted);
+  --cp-border: var(--gp-border);
+  --cp-price: #dc2626;
+  --cp-star: var(--gp-secondary);
+}
+
 body {
   font-family: "Inter", sans-serif;
 }

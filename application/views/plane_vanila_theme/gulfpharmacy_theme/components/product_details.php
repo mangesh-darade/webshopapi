@@ -24,21 +24,8 @@ if (isset($entity_meta_title) && trim((string) $entity_meta_title) !== '') {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/common.css">
-    <style>
-        /* GLOBAL LAYOUT RESET - Fix for shrinking issue */
-        html, body { 
-            width: 100% !important; 
-            max-width: 100% !important; 
-            margin: 0 !important; 
-            padding: 0 !important; 
-            overflow-x: hidden !important; 
-            background: #f1f5f9;
-        }
-        body { display: block !important; transform: none !important; zoom: 1 !important; min-height: 100vh; }
-        .gp-site-wrapper { width: 100%; max-width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #fff; margin: 0 auto; }
-        .gp-main { flex: 1; padding: 40px 0; background: #fff; }
-        @media (max-width: 768px) { .gp-main { padding: 20px 0; } }
-    </style>
+    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css">
+    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/product-details-shell.css">
 </head>
 <body>
 <div class="gp-site-wrapper">
@@ -67,43 +54,10 @@ if (isset($entity_meta_title) && trim((string) $entity_meta_title) !== '') {
 <script src="<?= $assets ?>gulfpharmacy_theme/js/main.js"></script>
 <script src="<?= $assets ?>gulfpharmacy_theme/js/jquery.responsiveTabs.min.js"></script>
 <script src="//cdn.jsdelivr.net/jquery.slick/1.5.9/slick.min.js"></script>
-<script>
-    baseUrl = "<?= base_url('webshop/') ?>";
-    const currencySymbol = "<?= isset($this->data['Settings']->symbol) ? $this->data['Settings']->symbol : 'Rs.' ?>";
-    function initProductDetailsUi() {
-        if (window.jQuery && jQuery.fn && jQuery.fn.slick) {
-            var $slider = jQuery('.slider-product');
-            if ($slider.length && !$slider.hasClass('slick-initialized')) {
-                $slider.slick({autoplay:false,dots:false,speed:500,slidesToShow:1,adaptiveHeight:true,arrows:false});
-            }
-            $slider.on('beforeChange', function(event, slick, currentSlide, nextSlide) {
-                jQuery(".slider-product-contain .thumbs a").removeClass("selected").eq(nextSlide).addClass("selected");
-            });
-            jQuery(".slider-product-contain .thumbs a").off('click').on('click', function() {
-                jQuery(".slider-product-contain .thumbs a").removeClass("selected");
-                jQuery(this).addClass("selected");
-                jQuery('.slider-product').slick('slickGoTo', jQuery(this).index());
-            });
-        }
-        if (window.jQuery && jQuery.fn && jQuery.fn.responsiveTabs && jQuery('#product-tabs').length) {
-            jQuery('#product-tabs').responsiveTabs({startCollapsed:false,scrollToAccordion:false,setHash:false});
-        }
-        if (window.jQuery) {
-            jQuery(document).off('click.pqtyinc').on('click.pqtyinc', '.btn-increase', function() {
-                var $input = jQuery(this).siblings('.itemQty');
-                var qty = parseInt($input.val(), 10) || 1;
-                $input.val(qty + 1);
-            });
-            jQuery(document).off('click.pqtydec').on('click.pqtydec', '.btn-decrease', function() {
-                var $input = jQuery(this).siblings('.itemQty');
-                var qty = parseInt($input.val(), 10) || 1;
-                if (qty > 1) { $input.val(qty - 1); }
-            });
-        }
-    }
-    jQuery(document).ready(function() {
-        initProductDetailsUi();
-    });
-</script>
+<script>window.GP_PRODUCT_DETAILS_CTX=<?= json_encode(array(
+    'base_url'        => base_url('webshop/'),
+    'currency_symbol' => isset($this->data['Settings']->symbol) ? $this->data['Settings']->symbol : 'Rs.',
+), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+<script defer src="<?= $assets ?>gulfpharmacy_theme/js/product-details.js"></script>
 </body>
 </html>

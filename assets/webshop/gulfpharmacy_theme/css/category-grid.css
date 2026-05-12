@@ -1,0 +1,15 @@
+/* Category grid (.gp-cg-*) — tokens from common.css :root */
+.gp-cg-grid{display:grid;gap:20px;margin-top:12px}
+.gp-cg-grid-3col{grid-template-columns:repeat(3,1fr)}
+.gp-cg-grid-4col{grid-template-columns:repeat(4,1fr)}
+.gp-cg-grid-5col{grid-template-columns:repeat(5,1fr)}
+.gp-cg-grid-6col{grid-template-columns:repeat(6,1fr)}
+@media(max-width:900px){.gp-cg-grid{grid-template-columns:repeat(3,1fr) !important}}
+@media(max-width:480px){.gp-cg-grid{grid-template-columns:repeat(2,1fr) !important}}
+.gp-cg-card{text-decoration:none;color:inherit}
+.gp-cg-card>div{background:var(--gp-bg);border:1px solid var(--gp-border);border-radius:16px;overflow:hidden;text-align:center;transition:transform .3s,box-shadow .3s,border-color .3s;display:flex;flex-direction:column}
+.gp-cg-card:hover>div{transform:translateY(-8px);box-shadow:0 20px 40px rgba(33,69,72,.1);border-color:#214548}
+.gp-cg-card img{width:100%;height:130px;object-fit:cover;transition:transform .4s;display:block}
+.gp-cg-card:hover img{transform:scale(1.06)}
+.gp-cg-no-img{height:130px;background:var(--gp-page-bg);display:flex;align-items:center;justify-content:center}
+.gp-cg-card h5{padding:14px 12px;margin:0;font-size:13px;font-weight:700;color:#214548;border-top:1px solid #f1f5f9;min-height:44px;display:flex;align-items:center;justify-content:center}

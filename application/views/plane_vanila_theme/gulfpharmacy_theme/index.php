@@ -57,42 +57,8 @@ elseif (!empty($legacyWelcome['page_text'])) { $bodyHtml = (string) $legacyWelco
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/common.css">
-    <style>
-        :root{--pri:#0F4C81;--sec:#00A884;--bg:#F5F7FA;--text:#1A1A1A;--muted:#6b7280;--card:#fff;--line:#e5e7eb}
-        *{box-sizing:border-box}
-        body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text)}
-        .home-shell{min-height:100vh;background:linear-gradient(180deg,#f8fbff 0,#f5f7fa 100%)}
-        .home-container{max-width:1360px;margin:0 auto;padding:0 20px}
-        .home-flash{margin:16px 0;padding:12px 14px;border-radius:10px;background:#ecfeff;border:1px solid #bae6fd;color:#075985}
-        .hero{position:relative;overflow:hidden;border-radius:22px;background:#0F4C81;min-height:360px;margin:18px 0 20px;box-shadow:0 14px 34px rgba(15,76,129,.22)}
-        .hero img{width:100%;height:100%;min-height:360px;object-fit:cover;display:block}
-        .hero-overlay{position:absolute;inset:0;background:linear-gradient(90deg,rgba(8,34,57,.75),rgba(8,34,57,.15));display:flex;align-items:center}
-        .hero-content{padding:32px 36px;max-width:620px;color:#fff}
-        .hero h1{margin:0 0 8px;font-size:clamp(28px,4vw,52px);font-weight:800;line-height:1.1}
-        .hero p{margin:0 0 20px;font-size:17px;opacity:.95}
-        .hero-actions{display:flex;gap:12px;flex-wrap:wrap}
-        .btn-main,.btn-alt{padding:12px 22px;border-radius:12px;text-decoration:none;font-weight:700}
-        .btn-main{background:#00A884;color:#fff}
-        .btn-alt{background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.4)}
-        .trust-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:0 0 24px}
-        .trust-item{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:0 6px 16px rgba(15,76,129,.06);font-size:13px}
-        .trust-item strong{display:block;color:var(--pri);font-size:14px;margin-bottom:4px}
-        .section{margin:18px 0 26px}
-        .section-head{display:flex;justify-content:space-between;align-items:end;margin-bottom:12px}
-        .section h2{margin:0;font-size:clamp(22px,2vw,30px);font-weight:800;color:var(--pri)}
-        .section p{margin:0;color:var(--muted);font-size:14px}
-        .panel{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 10px 24px rgba(15,76,129,.06)}
-        .panel :is(img){max-width:100%;height:auto}
-        .panel .gp-cms-section img,.panel .gp-body-content img{border-radius:12px}
-        .section .gp-section{padding:0}
-        .section .container{max-width:none;padding:0}
-        .section .gp-section-title{font-size:28px}
-        .section .gp-section-divider{margin:10px auto 18px}
-        .section .gp-cat-card,.section .gp-pc-card,.section .gp-grid-card{transition:transform .25s,box-shadow .25s}
-        .section .gp-cat-card:hover,.section .gp-pc-card:hover,.section .gp-grid-card:hover{transform:translateY(-4px);box-shadow:0 16px 24px rgba(15,76,129,.14)}
-        @media(max-width:992px){.trust-strip{grid-template-columns:repeat(2,1fr)}}
-        @media(max-width:700px){.home-container{padding:0 12px}.hero{min-height:280px;border-radius:16px}.hero img{min-height:280px}.hero-content{padding:20px}.trust-strip{grid-template-columns:1fr}}
-    </style>
+    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css">
+    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/index-home.css">
 </head>
 <body>
 <div class="home-shell">
@@ -162,6 +128,6 @@ elseif (!empty($legacyWelcome['page_text'])) { $bodyHtml = (string) $legacyWelco
 </div>
 <script src="<?= $assets ?>gulfpharmacy_theme/js/main.js?ver=200406"></script>
 <script src="<?= $assets ?>gulfpharmacy_theme/js/index.js" defer></script>
-<script>const baseUrl="<?= base_url('webshop') ?>";const assets="<?= $assets ?>";</script>
+<script>window.GP_INDEX_CTX=<?= json_encode(array('baseUrl' => base_url('webshop'), 'assets' => $assets), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;const baseUrl=window.GP_INDEX_CTX.baseUrl;const assets=window.GP_INDEX_CTX.assets;</script>
 </body>
 </html>

@@ -1,0 +1,99 @@
+/* Checkout form (.co-* / .checkout-* / .summary-*) — tokens from common.css :root */
+.checkout-container { font-family: 'Inter', system-ui, sans-serif; color: var(--gp-text); max-width: 1200px; margin: 40px auto; padding: 0 20px; }
+.checkout-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 40px; }
+@media (max-width: 992px) { .checkout-grid { grid-template-columns: 1fr; } }
+.checkout-container .section-title { font-size: 1.3rem; font-weight: 700; margin: 0 0 20px; padding-bottom: 10px; border-bottom: 2px solid var(--gp-border); color: var(--gp-primary); }
+.checkout-container .form-row { display: flex; gap: 16px; flex-wrap: wrap; }
+.checkout-container .form-group { margin-bottom: 18px; flex: 1; min-width: 180px; }
+.checkout-container .form-group label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.875rem; color: var(--gp-text); }
+
+/* Terms row: label is not a field caption — reset block label rules and use flex row. */
+.terms-group > label.checkbox-container {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 0;
+    font-weight: 500;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    cursor: pointer;
+    width: 100%;
+    max-width: 100%;
+    padding: 14px 16px;
+    border: 1px solid var(--gp-border);
+    border-radius: 10px;
+    background: var(--gp-page-bg);
+    box-sizing: border-box;
+}
+.terms-group > label.checkbox-container:focus-within {
+    border-color: var(--gp-primary);
+    box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.08);
+}
+
+/* Scope text-field styling so checkbox/radio inputs keep their native widget. */
+.checkout-container .form-group input:not([type="checkbox"]):not([type="radio"]),
+.checkout-container .form-group select {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1.5px solid var(--gp-border);
+    border-radius: 8px;
+    font-size: 0.95rem;
+    transition: border-color .2s, box-shadow .2s;
+    box-sizing: border-box;
+}
+.checkout-container .form-group input:not([type="checkbox"]):not([type="radio"]):focus,
+.checkout-container .form-group select:focus {
+    outline: none;
+    border-color: var(--gp-primary);
+    box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.08);
+}
+.checkout-container .form-group input[type="checkbox"],
+.checkout-container .form-group input[type="radio"] {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    padding: 0;
+    flex-shrink: 0;
+    accent-color: var(--gp-primary);
+    cursor: pointer;
+}
+
+.address-selector { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin-bottom: 16px; }
+.address-card { border: 2px solid var(--gp-border); border-radius: 12px; padding: 14px; cursor: pointer; display: flex; gap: 12px; align-items: flex-start; transition: border-color .2s, background .2s; }
+.address-card:has(input:checked) { border-color: var(--gp-primary); background: rgba(15, 118, 110, .04); }
+.address-card input { margin-top: 3px; accent-color: var(--gp-primary); }
+.address-details { font-size: 14px; line-height: 1.6; }
+
+.summary-card { background: var(--gp-bg); border: 1px solid var(--gp-border); border-radius: 16px; padding: 24px; box-shadow: 0 4px 16px rgba(0, 0, 0, .06); position: sticky; top: 20px; }
+.summary-item { display: flex; justify-content: space-between; font-size: 14px; padding: 7px 0; border-bottom: 1px dashed #f1f5f9; }
+.summary-item:last-child { border-bottom: 0; }
+.summary-totals { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--gp-border); }
+.total-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 6px; }
+.grand-total { font-size: 17px; font-weight: 800; color: var(--gp-primary); margin-top: 10px; }
+
+.payment-methods { margin-top: 24px; border-top: 1px solid var(--gp-border); padding-top: 18px; }
+.payment-methods .mini-title { font-weight: 700; font-size: 15px; margin: 0 0 12px; }
+.payment-option { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 14px; }
+.payment-option input { accent-color: var(--gp-primary); }
+
+.place-order-btn { width: 100%; margin-top: 20px; background: var(--gp-primary); color: #fff; border: none; padding: 14px; border-radius: 10px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: background .2s; min-height: 44px; }
+.place-order-btn:hover { background: var(--gp-primary-light); }
+
+.terms-group {
+    margin-top: 28px;
+    margin-bottom: 0;
+    padding-top: 20px;
+    border-top: 1px solid var(--gp-border);
+    flex: 1 1 100%;
+    min-width: 100%;
+}
+.terms-group .checkbox-container { margin-bottom: 0; }
+.terms-group input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    margin: 2px 0 0 0;
+    flex-shrink: 0;
+    align-self: flex-start;
+}
+.terms-group > label.checkbox-container .checkbox-text { flex: 1; min-width: 0; padding-top: 1px; }
+.terms-group > label.checkbox-container a { color: var(--gp-primary); text-decoration: underline; }

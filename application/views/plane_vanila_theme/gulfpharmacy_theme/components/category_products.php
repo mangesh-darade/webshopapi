@@ -17,7 +17,9 @@ if (isset($entity_meta_title) && trim((string) $entity_meta_title) !== '') {
 $products      = isset($listItems) && is_array($listItems) ? $listItems : array();
 $subcategories = isset($subcategories) && is_array($subcategories) ? $subcategories : array();
 $totalItems    = isset($items_total) ? (int) $items_total : count($products);
-$currentPage   = isset($_GET['page']) ? max(1, (int) $_GET['page']) : 1;
+$_cp_ci =& get_instance();
+$_cp_page = $_cp_ci->input->get('page');
+$currentPage = ($_cp_page !== null && $_cp_page !== '') ? max(1, (int) $_cp_page) : 1;
 $perPage       = 12;
 $totalPages    = $totalItems > 0 ? (int) ceil($totalItems / $perPage) : 1;
 
@@ -82,93 +84,8 @@ if (isset($webshop_settings) && is_object($webshop_settings)) {
     <title><?= htmlspecialchars($categoryName, ENT_QUOTES, 'UTF-8') ?> | <?= htmlspecialchars($shopName, ENT_QUOTES, 'UTF-8') ?></title>
     <?= isset($meta_tags) ? $meta_tags : '' ?>
     <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/common.css">
-    <style>
-    :root{
-        --cp-page:#F8FAFC;
-        --cp-card:#fff;
-        --cp-primary:#0F766E;
-        --cp-primary-hover:#0d9488;
-        --cp-secondary:#F59E0B;
-        --cp-text:#111827;
-        --cp-muted:#6B7280;
-        --cp-border:#E5E7EB;
-        --cp-price:#DC2626;
-        --cp-star:#F59E0B;
-    }
-    *,*::before,*::after{box-sizing:border-box}
-    .cp-shell{background:var(--cp-page);min-height:100vh}
-    .cp-inner{max-width:1440px;margin:0 auto;padding:16px;display:flex;gap:16px;align-items:flex-start}
-    .cp-breadcrumb{background:var(--cp-card);padding:12px 18px;font-size:15px;font-weight:500;color:var(--cp-muted);border-bottom:1px solid var(--cp-border)}
-    .cp-breadcrumb a{color:var(--cp-primary);text-decoration:none;font-weight:600}
-    .cp-breadcrumb a:hover{text-decoration:underline;color:var(--cp-primary-hover)}
-    .cp-breadcrumb span{margin:0 8px;color:#9ca3af}
-    .cp-sidebar{width:220px;flex-shrink:0}
-    .cp-sidebar-box{background:var(--cp-card);border:1px solid var(--cp-border);border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.04)}
-    .cp-sidebar-title{font-size:15px;font-weight:700;color:var(--cp-text);margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid var(--cp-border)}
-    .cp-sidebar-link{display:block;padding:6px 0;font-size:14px;color:var(--cp-primary);text-decoration:none;border-radius:6px}
-    .cp-sidebar-link:hover{color:var(--cp-primary-hover);text-decoration:underline}
-    .cp-sidebar-link.active{font-weight:700;color:var(--cp-secondary)}
-    .cp-main{flex:1;min-width:0}
-    .cp-header-bar{background:var(--cp-card);border:1px solid var(--cp-border);border-radius:16px;padding:16px 18px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;box-shadow:0 2px 10px rgba(0,0,0,.05)}
-    .cp-header-title{font-size:22px;font-weight:700;color:var(--cp-text);margin:0;letter-spacing:-.02em}
-    .cp-header-count{font-size:14px;color:var(--cp-muted)}
-    .cp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
-    .pc-card{background:var(--cp-card);border:1px solid var(--cp-border);border-radius:16px;padding:16px;display:flex;flex-direction:column;position:relative;transition:transform .2s,box-shadow .2s;border-color:var(--cp-border);box-shadow:0 2px 10px rgba(0,0,0,.05)}
-    .pc-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(15,23,42,.08)}
-    .pc-media{display:block;text-decoration:none;color:inherit;margin-bottom:12px}
-    .pc-img-frame{position:relative;width:100%;padding-top:100%;background:#fff;border:1px solid var(--cp-border);border-radius:12px;overflow:hidden}
-    .pc-img-frame.is-loading::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,#f1f5f9 0%,#e2e8f0 50%,#f1f5f9 100%);background-size:200% 100%;animation:cp-shimmer 1.1s ease-in-out infinite}
-    @keyframes cp-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-    .pc-img-frame img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:12px}
-    .pc-badges-tl{position:absolute;top:10px;left:10px;z-index:2;display:flex;flex-direction:column;align-items:flex-start;gap:6px;pointer-events:none}
-    .pc-badges-tr{position:absolute;top:10px;right:10px;z-index:2;display:flex;flex-direction:column;align-items:flex-end;gap:6px;pointer-events:none}
-    .pc-pill{font-size:9px;font-weight:800;letter-spacing:.06em;padding:4px 8px;border-radius:6px;line-height:1.2;text-transform:uppercase}
-    .pc-pill-off{background:#fee2e2;color:#b91c1c}
-    .pc-pill-bs{background:#0f766e;color:#fff}
-    .pc-pill-new{background:#dbeafe;color:#1d4ed8}
-    .pc-pill-rx{background:#fef3c7;color:#92400e}
-    .pc-pill-stock{background:#ffedd5;color:#9a3412}
-    .pc-body{flex:1;display:flex;flex-direction:column;gap:0;min-width:0}
-    .pc-cat{font-size:11px;font-weight:700;color:var(--cp-primary);text-transform:uppercase;letter-spacing:.04em;margin:0 0 6px}
-    .pc-title{font-size:15px;font-weight:600;line-height:1.4;color:var(--cp-text);margin:0 0 10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-decoration:none}
-    .pc-title:hover{color:var(--cp-primary)}
-    .pc-rating{display:flex;align-items:center;gap:8px;margin:0 0 12px;flex-wrap:wrap}
-    .pc-stars{color:var(--cp-star);font-size:14px;letter-spacing:1px;line-height:1}
-    .pc-rating-meta{font-size:12px;color:var(--cp-muted);font-weight:500}
-    .pc-price-row{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px 12px;margin:0 0 10px}
-    .pc-price{font-size:22px;font-weight:700;color:var(--cp-price);letter-spacing:-.02em}
-    .pc-mrp{font-size:14px;color:#9ca3af;text-decoration:line-through;font-weight:500}
-    .pc-pct-off{font-size:12px;font-weight:700;color:#059669;background:#d1fae5;padding:2px 8px;border-radius:6px}
-    .pc-price-zero{font-size:15px;color:var(--cp-muted);font-style:italic;margin:0 0 10px}
-    .pc-delivery{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--cp-muted);margin:0 0 14px;line-height:1.35}
-    .pc-delivery svg{flex-shrink:0;color:var(--cp-primary);opacity:.85}
-    .pc-actions{margin-top:auto;display:flex;flex-direction:column;gap:10px}
-    .pc-btn{width:100%;min-height:44px;padding:0 14px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;text-align:center;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;border:2px solid transparent;transition:background .15s,color .15s,border-color .15s,box-shadow .15s,transform .1s;font-family:inherit;line-height:1.2}
-    .pc-btn:active{transform:scale(.98)}
-    .pc-btn-cart{background:var(--cp-primary);color:#fff;border-color:var(--cp-primary)}
-    .pc-btn-cart:hover{background:var(--cp-primary-hover);border-color:var(--cp-primary-hover);box-shadow:0 4px 14px rgba(15,118,110,.35)}
-    .pc-btn-buy{background:transparent;color:var(--cp-text);border-color:var(--cp-secondary);font-weight:600}
-    .pc-btn-buy:hover{background:#fffbeb;border-color:#d97706;color:#92400e}
-    .pc-unavailable{font-size:13px;color:#b45309;text-align:center;padding:8px 0;font-weight:600}
-    .pc-actions-inactive .pc-btn-view{background:#f3f4f6;color:var(--cp-text);border-color:var(--cp-border)}
-    .cp-empty{background:var(--cp-card);border:1px solid var(--cp-border);border-radius:16px;padding:48px 24px;text-align:center;color:var(--cp-muted);box-shadow:0 2px 10px rgba(0,0,0,.05)}
-    .cp-empty-icon{font-size:48px;margin-bottom:12px}
-    .cp-pagination{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:24px;flex-wrap:wrap}
-    .cp-page-btn{padding:8px 14px;border:1px solid var(--cp-border);border-radius:10px;font-size:14px;background:var(--cp-card);color:var(--cp-primary);font-weight:600;text-decoration:none;cursor:pointer;transition:background .15s,border-color .15s}
-    .cp-page-btn:hover{background:#f0fdfa;border-color:var(--cp-primary)}
-    .cp-page-btn.active{background:var(--cp-primary);color:#fff;border-color:var(--cp-primary);cursor:default}
-    .cp-page-btn.disabled{color:#cbd5e1;pointer-events:none;border-color:var(--cp-border)}
-    @media(max-width:1100px){.cp-grid{grid-template-columns:repeat(3,1fr)}}
-    @media(max-width:900px){.cp-sidebar{display:none}.cp-inner{padding:12px}}
-    @media(max-width:700px){.cp-grid{grid-template-columns:repeat(2,1fr)}}
-    @media(max-width:420px){.cp-grid{grid-template-columns:1fr}}
-    @media(max-width:768px){
-        .cp-breadcrumb{font-size:14px;padding:10px 14px}
-        .pc-title{font-size:14px}
-        .pc-price{font-size:20px}
-        .pc-actions{flex-direction:column;gap:10px}
-    }
-    </style>
+    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css">
+    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/category-products.css">
 </head>
 <body>
 <div class="gp-site-wrapper cp-shell">
@@ -238,9 +155,9 @@ if (isset($webshop_settings) && is_object($webshop_settings)) {
             <?php if (empty($products)): ?>
                 <div class="cp-empty">
                     <div class="cp-empty-icon">📦</div>
-                    <p style="font-size:18px;font-weight:600;margin:0 0 8px">No products found</p>
-                    <p style="margin:0 0 16px;font-size:14px">This category has no products yet.</p>
-                    <a href="<?= base_url('webshop') ?>" style="color:#0F766E;font-size:15px;font-weight:600;text-decoration:none">← Back to Home</a>
+                    <p class="cp-empty-title">No products found</p>
+                    <p class="cp-empty-desc">This category has no products yet.</p>
+                    <a href="<?= base_url('webshop') ?>" class="cp-empty-back">← Back to Home</a>
                 </div>
             <?php else: ?>
                 <div class="cp-grid">

@@ -17,7 +17,9 @@ if ($appBasePath === '/' || $appBasePath === '\\' || $appBasePath === '.') {
     $appBasePath = '';
 }
 if (empty($items)) return;
+$pc_assets = isset($assets) ? $assets : base_url('assets/webshop/');
 ?>
+<link rel="stylesheet" href="<?= $pc_assets ?>gulfpharmacy_theme/css/product-carousel.css">
 <section class="gp-component dynamic-product-carousel">
     <?php if ($title !== ''): ?>
     <h2 class="cms-pc-title"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h2>
@@ -73,51 +75,4 @@ if (empty($items)) return;
         </button>
     </div>
 </section>
-<style>
-.gp-carousel-wrap{position:relative;display:flex;align-items:center;gap:12px;margin:0 -20px;padding:0 20px;}
-.gp-carousel{display:flex;gap:20px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;padding:12px 4px 24px;scrollbar-width:none;-ms-overflow-style:none;}
-.gp-carousel::-webkit-scrollbar{display:none;}
-.gp-carousel-item{flex:0 0 240px;scroll-snap-align:start;}
-@media(max-width:600px){.gp-carousel-item{flex:0 0 190px;}}
-.gp-pc-card{display:flex;flex-direction:column;background:#fff;border:1px solid #e2e8f0;border-radius:18px;overflow:hidden;text-decoration:none;color:inherit;transition:all .3s ease;height:100%;}
-.gp-pc-card:hover{transform:translateY(-5px);box-shadow:0 12px 32px rgba(33,69,72,.15);border-color:#4caf89;}
-.gp-pc-img-wrap{height:160px;overflow:hidden;background:#f8fafc;}
-.gp-pc-img{width:100%;height:100%;object-fit:contain;transition:transform .4s;}
-.gp-pc-card:hover .gp-pc-img{transform:scale(1.08);}
-.gp-pc-img-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;}
-.gp-pc-info{padding:16px;display:flex;flex-direction:column;gap:8px;}
-.gp-carousel-btn{flex-shrink:0;width:42px;height:42px;border-radius:50%;border:none;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,.1);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;color:var(--gp-primary);z-index:10;}
-.gp-carousel-btn:hover{background:var(--gp-primary);color:#fff;transform:scale(1.1);}
-.gp-carousel-prev{position:absolute;left:5px;}
-.gp-carousel-next{position:absolute;right:5px;}
-.cms-pc-title{font-size:24px;font-weight:800;color:#214548;margin:0 0 20px;}
-.gp-pc-pricing{display:flex;align-items:center;gap:6px;}
-/* Auto-hide arrows at scroll boundaries — works on all sizes once JS toggles classes. */
-.gp-carousel-wrap.is-at-start .gp-carousel-prev,
-.gp-carousel-wrap.is-at-end .gp-carousel-next{opacity:0;pointer-events:none;visibility:hidden;}
-@media(max-width:768px){
-    .gp-carousel-btn{width:34px;height:34px;background:rgba(255,255,255,.94);box-shadow:0 4px 14px rgba(0,0,0,.18);}
-    .gp-carousel-btn svg{width:16px;height:16px;}
-    .gp-carousel-prev{left:2px;}
-    .gp-carousel-next{right:2px;}
-    .cms-pc-title{font-size:20px;margin:0 0 14px;}
-}
-</style>
-<script>
-function gpc_scroll(id,dir){var el=document.getElementById(id);if(el)el.scrollBy({left:dir*(window.innerWidth < 600 ? 200 : 260),behavior:'smooth'});}
-(function(){
-    var car = document.getElementById('<?= $uid ?>');
-    if (!car) return;
-    var wrap = car.parentElement;
-    if (!wrap) return;
-    function updateEdges(){
-        var atStart = car.scrollLeft <= 4;
-        var atEnd = car.scrollLeft + car.clientWidth >= car.scrollWidth - 4;
-        wrap.classList.toggle('is-at-start', atStart);
-        wrap.classList.toggle('is-at-end', atEnd);
-    }
-    car.addEventListener('scroll', updateEdges, { passive: true });
-    window.addEventListener('resize', updateEdges);
-    setTimeout(updateEdges, 50);
-})();
-</script>
+<script defer src="<?= $pc_assets ?>gulfpharmacy_theme/js/product-carousel.js"></script>

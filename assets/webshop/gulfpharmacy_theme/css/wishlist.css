@@ -1,0 +1,24 @@
+/* Wishlist component (.wishlist-*) — tokens from common.css :root */
+.wishlist-container{padding:40px 0;max-width:1200px;margin:0 auto}
+.wishlist-header{margin-bottom:40px;text-align:center}
+.wishlist-header .section-title{font-size:2rem;font-weight:700;color:var(--gp-text);margin-bottom:8px}
+.wishlist-header .section-subtitle{color:var(--gp-muted);font-size:1rem}
+.empty-wishlist{text-align:center;padding:60px 20px;background:var(--gp-page-bg);border-radius:16px;border:2px dashed var(--gp-border)}
+.empty-icon{font-size:4rem;margin-bottom:20px}
+.wishlist-container .btn-primary{display:inline-block;background:var(--gp-primary);color:#fff;padding:12px 30px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:20px;transition:background .2s}
+.wishlist-container .btn-primary:hover{background:var(--gp-primary-light)}
+.wishlist-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:30px}
+.wishlist-card{background:var(--gp-bg);border-radius:12px;overflow:hidden;box-shadow:0 4px 6px -1px rgba(0,0,0,.1);transition:transform .2s,box-shadow .2s;border:1px solid var(--gp-border);display:flex;flex-direction:column}
+.wishlist-card:hover{transform:translateY(-5px);box-shadow:0 10px 15px -3px rgba(0,0,0,.1)}
+.wishlist-item-image{position:relative;padding-top:100%;background:#f7fafc}
+.wishlist-item-image img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;padding:20px}
+.wishlist-card .remove-btn{position:absolute;top:10px;right:10px;background:var(--gp-bg);border:none;width:30px;height:30px;border-radius:50%;font-size:1.2rem;color:#e53e3e;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,.1);transition:background .2s}
+.wishlist-card .remove-btn:hover{background:#fff5f5}
+.wishlist-item-info{padding:20px;flex-grow:1;display:flex;flex-direction:column}
+.wishlist-card .product-name{font-size:1.1rem;font-weight:600;margin-bottom:10px;color:#2d3748}
+.wishlist-card .product-name a{text-decoration:none;color:inherit}
+.wishlist-card .product-name a:hover{color:var(--gp-primary)}
+.wishlist-card .product-price{margin-top:auto;margin-bottom:15px}
+.wishlist-card .price-val{font-size:1.25rem;font-weight:700;color:var(--gp-primary)}
+.wishlist-card .add-to-cart-btn{width:100%;background:var(--gp-text);color:#fff;border:none;padding:10px;border-radius:6px;font-weight:600;cursor:pointer;transition:background .2s}
+.wishlist-card .add-to-cart-btn:hover{background:#1a202c}
