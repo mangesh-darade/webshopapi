@@ -67,10 +67,22 @@ $webshop_url = base_url('webshop');
     <!-- Search Bar (hidden by default) -->
     <div class="gp-search-bar" id="gp-search-bar" hidden>
         <div class="container">
-            <form action="<?= $webshop_url ?>/search_products" method="GET" class="gp-search-form" role="search">
-                <input type="search" name="q" class="gp-search-input" placeholder="Search products…" aria-label="Search products" autocomplete="off">
-                <button type="submit" class="gp-search-submit">Search</button>
-            </form>
+            <div class="gp-search-form" role="search">
+                <div class="gp-search-field">
+                    <span class="gp-search-icon" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    </span>
+                    <input type="search" name="search" id="gp-search-input" class="gp-search-input"
+                           placeholder="Search products…" aria-label="Search products"
+                           aria-autocomplete="list" aria-controls="gp-suggest-list"
+                           aria-expanded="false" autocomplete="off" spellcheck="false">
+                    <button type="button" class="gp-search-clear" id="gp-search-clear" aria-label="Clear search" hidden>&times;</button>
+                    <div class="gp-suggest" id="gp-suggest" hidden>
+                        <ul class="gp-suggest-list" id="gp-suggest-list" role="listbox"></ul>
+                        <div class="gp-suggest-empty" id="gp-suggest-empty" hidden>No matching products</div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </header>
@@ -111,11 +123,29 @@ body { margin: 0; font-family: 'Inter', system-ui, sans-serif; color: var(--gp-t
 .gp-icon-btn:hover { background: #f0faf6; color: var(--gp-primary); }
 .gp-badge { position: absolute; top: 4px; right: 4px; min-width: 18px; height: 18px; background: var(--gp-accent); color: #fff; font-size: 10px; font-weight: 700; border-radius: 9px; display: flex; align-items: center; justify-content: center; padding: 0 4px; }
 .gp-search-bar { background: var(--gp-bg); border-top: 1px solid var(--gp-border); padding: 12px 0; }
-.gp-search-form { display: flex; gap: 8px; }
-.gp-search-input { flex: 1; border: 1.5px solid var(--gp-border); border-radius: 10px; padding: 10px 16px; font-size: 15px; outline: none; transition: border-color .2s; }
-.gp-search-input:focus { border-color: var(--gp-primary); }
-.gp-search-submit { background: var(--gp-primary); color: #fff; border: none; border-radius: 10px; padding: 10px 22px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background .2s; }
-.gp-search-submit:hover { background: var(--gp-primary-light); }
+.gp-search-form { display: flex; align-items: stretch; }
+.gp-search-field { position: relative; flex: 1; min-width: 0; }
+.gp-search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--gp-muted); display: inline-flex; pointer-events: none; }
+.gp-search-input { width: 100%; border: 1.5px solid var(--gp-border); border-radius: 10px; padding: 10px 40px 10px 42px; font-size: 15px; outline: none; transition: border-color .2s, box-shadow .2s; background: #fff; }
+.gp-search-input:focus { border-color: var(--gp-primary); box-shadow: 0 0 0 3px rgba(33,69,72,.12); }
+.gp-search-clear { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; border: none; background: transparent; color: var(--gp-muted); font-size: 22px; line-height: 1; cursor: pointer; border-radius: 50%; padding: 0; }
+.gp-search-clear:hover { background: #f1f5f9; color: var(--gp-text); }
+
+/* Suggestions dropdown */
+.gp-suggest { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: #fff; border: 1px solid var(--gp-border); border-radius: 12px; box-shadow: 0 16px 40px rgba(15,23,42,.14); z-index: 1100; max-height: 70vh; overflow: hidden; display: flex; flex-direction: column; }
+.gp-suggest-list { list-style: none; margin: 0; padding: 6px; overflow-y: auto; max-height: calc(70vh - 48px); -webkit-overflow-scrolling: touch; }
+.gp-suggest-item { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 8px; cursor: pointer; text-decoration: none; color: var(--gp-text); transition: background .15s; min-height: 44px; }
+.gp-suggest-item:hover, .gp-suggest-item.is-active { background: #f0faf6; }
+.gp-suggest-thumb { width: 44px; height: 44px; flex-shrink: 0; border-radius: 8px; background: #f1f5f9; object-fit: cover; }
+.gp-suggest-body { flex: 1; min-width: 0; }
+.gp-suggest-name { font-size: 14px; font-weight: 500; line-height: 1.3; margin: 0 0 2px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.gp-suggest-name mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; }
+.gp-suggest-price { font-size: 13px; color: var(--gp-primary); font-weight: 700; }
+.gp-suggest-mrp { font-size: 12px; color: var(--gp-muted); text-decoration: line-through; margin-left: 6px; font-weight: 400; }
+.gp-suggest-empty { padding: 18px 16px; text-align: center; color: var(--gp-muted); font-size: 14px; }
+.gp-suggest-loading { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 18px; color: var(--gp-muted); font-size: 13px; }
+.gp-suggest-spinner { width: 14px; height: 14px; border: 2px solid #e2e8f0; border-top-color: var(--gp-primary); border-radius: 50%; animation: gp-spin .8s linear infinite; }
+@keyframes gp-spin { to { transform: rotate(360deg); } }
 .gp-hamburger { display: none; flex-direction: column; gap: 5px; background: none; border: none; cursor: pointer; padding: 8px; border-radius: 8px; }
 .gp-hamburger span { display: block; width: 22px; height: 2px; background: var(--gp-text); border-radius: 2px; transition: .3s; }
 @media (max-width: 768px) {
@@ -125,18 +155,190 @@ body { margin: 0; font-family: 'Inter', system-ui, sans-serif; color: var(--gp-t
     .gp-nav-list { flex-direction: column; padding: 20px; gap: 4px; }
     .gp-nav-link { font-size: 17px; padding: 12px 16px; }
     .gp-dropdown { display: none !important; }
+    .gp-suggest { max-height: 75vh; }
+    .gp-suggest-list { max-height: calc(75vh - 48px); }
+    .gp-suggest-item { padding: 10px; }
+    .gp-suggest-thumb { width: 48px; height: 48px; }
 }
 </style>
 <script>
 (function(){
     var tog = document.getElementById('gp-search-toggle');
     var bar = document.getElementById('gp-search-bar');
-    if (tog && bar) tog.addEventListener('click', function(){ bar.hidden = !bar.hidden; if (!bar.hidden) bar.querySelector('input').focus(); });
+    var input = document.getElementById('gp-search-input');
+    var clearBtn = document.getElementById('gp-search-clear');
+    var box = document.getElementById('gp-suggest');
+    var list = document.getElementById('gp-suggest-list');
+    var emptyEl = document.getElementById('gp-suggest-empty');
     var ham = document.getElementById('gp-hamburger');
     var nav = document.getElementById('gp-nav');
     if (ham && nav) ham.addEventListener('click', function(){
         var open = nav.classList.toggle('open');
         ham.setAttribute('aria-expanded', open);
     });
+
+    if (!tog || !bar || !input || !box) return;
+
+    var searchBase = <?= json_encode($webshop_url, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    var suggestUrl = searchBase + '/search_suggest';
+    var DEBOUNCE_MS = 220;
+    var MIN_CHARS = 2;
+
+    var cache = Object.create(null); // in-memory cache for the page session
+    var inflight = null;              // AbortController for the live request
+    var debounceTimer = null;
+    var activeIndex = -1;
+    var lastItems = [];
+
+    tog.addEventListener('click', function(){
+        bar.hidden = !bar.hidden;
+        if (!bar.hidden) {
+            setTimeout(function(){ input.focus(); }, 0);
+        } else {
+            hideSuggest();
+        }
+    });
+
+    input.addEventListener('input', function(){
+        var q = input.value.trim();
+        clearBtn.hidden = q.length === 0;
+        if (debounceTimer) clearTimeout(debounceTimer);
+        if (q.length < MIN_CHARS) {
+            cancelInflight();
+            hideSuggest();
+            return;
+        }
+        debounceTimer = setTimeout(function(){ fetchSuggestions(q); }, DEBOUNCE_MS);
+    });
+
+    input.addEventListener('focus', function(){
+        if (lastItems.length && input.value.trim().length >= MIN_CHARS) showSuggest();
+    });
+
+    input.addEventListener('keydown', function(e){
+        if (box.hidden) {
+            if (e.key === 'ArrowDown' && lastItems.length) { e.preventDefault(); showSuggest(); setActive(0); }
+            return;
+        }
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setActive(Math.min(activeIndex + 1, lastItems.length - 1));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setActive(Math.max(activeIndex - 1, 0));
+        } else if (e.key === 'Enter') {
+            // No standalone results page — Enter only opens the highlighted suggestion.
+            e.preventDefault();
+            if (activeIndex >= 0 && lastItems[activeIndex]) {
+                window.location.href = lastItems[activeIndex].url;
+            } else if (lastItems.length) {
+                window.location.href = lastItems[0].url;
+            }
+        } else if (e.key === 'Escape') {
+            hideSuggest();
+        }
+    });
+
+    clearBtn.addEventListener('click', function(){
+        input.value = '';
+        clearBtn.hidden = true;
+        lastItems = [];
+        hideSuggest();
+        input.focus();
+    });
+
+    document.addEventListener('click', function(e){
+        if (!bar.contains(e.target) && !tog.contains(e.target)) hideSuggest();
+    });
+
+    function cancelInflight() {
+        if (inflight) { try { inflight.abort(); } catch (e) {} inflight = null; }
+    }
+
+    function fetchSuggestions(q) {
+        var key = q.toLowerCase();
+        if (cache[key]) {
+            render(q, cache[key]);
+            return;
+        }
+        renderLoading();
+        cancelInflight();
+        inflight = ('AbortController' in window) ? new AbortController() : null;
+        var opts = { credentials: 'same-origin', headers: { 'Accept': 'application/json' } };
+        if (inflight) opts.signal = inflight.signal;
+        fetch(suggestUrl + '?q=' + encodeURIComponent(q), opts)
+            .then(function(r){ return r.ok ? r.json() : { items: [] }; })
+            .then(function(data){
+                var items = (data && Array.isArray(data.items)) ? data.items : [];
+                cache[key] = items;
+                if (input.value.trim().toLowerCase() === key) render(q, items);
+            })
+            .catch(function(){ /* aborted or network error — silent */ });
+    }
+
+    function renderLoading() {
+        list.innerHTML = '<li class="gp-suggest-loading"><span class="gp-suggest-spinner"></span>Searching…</li>';
+        emptyEl.hidden = true;
+        showSuggest();
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, function(c){
+            return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+        });
+    }
+
+    function highlight(name, q) {
+        var safe = escapeHtml(name);
+        if (!q) return safe;
+        var pat = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        try { return safe.replace(new RegExp('(' + pat + ')', 'ig'), '<mark>$1</mark>'); }
+        catch (e) { return safe; }
+    }
+
+    function render(q, items) {
+        lastItems = items || [];
+        activeIndex = -1;
+        if (!lastItems.length) {
+            list.innerHTML = '';
+            emptyEl.hidden = false;
+            showSuggest();
+            return;
+        }
+        emptyEl.hidden = true;
+        var html = '';
+        for (var i = 0; i < lastItems.length; i++) {
+            var it = lastItems[i];
+            var priceHtml = '';
+            if (typeof it.price === 'number' && it.price > 0) {
+                priceHtml = '<div class="gp-suggest-price">' + escapeHtml(it.price.toFixed(2));
+                if (it.mrp && it.mrp > it.price) priceHtml += '<span class="gp-suggest-mrp">' + escapeHtml(Number(it.mrp).toFixed(2)) + '</span>';
+                priceHtml += '</div>';
+            }
+            html += '<li role="option"><a class="gp-suggest-item" href="' + escapeHtml(it.url) + '" data-idx="' + i + '">' +
+                    '<img class="gp-suggest-thumb" src="' + escapeHtml(it.image || '') + '" alt="" loading="lazy" onerror="this.style.visibility=\'hidden\'">' +
+                    '<div class="gp-suggest-body"><div class="gp-suggest-name">' + highlight(it.name, q) + '</div>' + priceHtml + '</div>' +
+                    '</a></li>';
+        }
+        list.innerHTML = html;
+        // Track hover so keyboard & mouse share the same active state.
+        Array.prototype.forEach.call(list.querySelectorAll('.gp-suggest-item'), function(el){
+            el.addEventListener('mouseenter', function(){ setActive(parseInt(el.getAttribute('data-idx'), 10)); });
+        });
+        showSuggest();
+    }
+
+    function setActive(i) {
+        activeIndex = i;
+        var els = list.querySelectorAll('.gp-suggest-item');
+        for (var k = 0; k < els.length; k++) {
+            if (k === i) els[k].classList.add('is-active');
+            else els[k].classList.remove('is-active');
+        }
+        if (els[i] && els[i].scrollIntoView) els[i].scrollIntoView({ block: 'nearest' });
+    }
+
+    function showSuggest() { box.hidden = false; input.setAttribute('aria-expanded', 'true'); }
+    function hideSuggest() { box.hidden = true; input.setAttribute('aria-expanded', 'false'); activeIndex = -1; }
 })();
 </script>

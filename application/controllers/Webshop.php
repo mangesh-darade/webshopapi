@@ -2294,6 +2294,99 @@ XSL;
         $this->load_view("search_products", $this->data);
     }
 
+    /**
+     * AJAX endpoint — lightweight autocomplete for the header search box.
+     *
+     * GET ?q=… (or ?search=…) returns up to 8 matching products as JSON with
+     * just enough fields to render a suggestion row (name, image, price, url).
+     * Results are cached per-keyword in the session for 60s so a repeated key
+     * sequence does not re-hit the ElintOm API on every keystroke.
+     */
+    public function search_suggest()
+    {
+        $this->output->set_content_type('application/json');
+
+        $keyword = trim((string) $this->input->get('q'));
+        if ($keyword === '') {
+            $keyword = trim((string) $this->input->get('search'));
+        }
+
+        $limit = (int) $this->input->get('limit');
+        if ($limit < 1 || $limit > 12) {
+            $limit = 8;
+        }
+
+        if (function_exists('mb_strlen') ? mb_strlen($keyword) < 2 : strlen($keyword) < 2) {
+            echo json_encode(array('status' => 'OK', 'q' => $keyword, 'items' => array()));
+            return;
+        }
+
+        // Short per-session cache absorbs repeated keystrokes without re-querying the API.
+        $sess = $this->session->userdata('webshop_search_suggest_cache');
+        if (!is_array($sess)) {
+            $sess = array();
+        }
+        $cacheKey = (function_exists('mb_strtolower') ? mb_strtolower($keyword) : strtolower($keyword)) . '|' . $limit;
+        if (isset($sess[$cacheKey]) && is_array($sess[$cacheKey]) && isset($sess[$cacheKey]['exp']) && $sess[$cacheKey]['exp'] > time()) {
+            echo json_encode($sess[$cacheKey]['payload']);
+            return;
+        }
+
+        $items = array();
+        try {
+            // Use the api model so DB-less and DB-backed deployments both work.
+            $rows = $this->webshop_api_model->search_category_products($keyword, null);
+            if (is_array($rows)) {
+                $uploadsBase = isset($this->data['uploads']) ? (string) $this->data['uploads'] : '';
+                $thumbsBase  = isset($this->data['thumbs'])  ? (string) $this->data['thumbs']  : '';
+                $count = 0;
+                foreach ($rows as $row) {
+                    if ($count >= $limit) {
+                        break;
+                    }
+                    $r = is_array($row) ? $row : (array) $row;
+                    $id = !empty($r['id']) ? $r['id'] : (!empty($r['product_id']) ? $r['product_id'] : null);
+                    if ($id === null) {
+                        continue;
+                    }
+                    $hash  = md5((string) $id);
+                    $name  = isset($r['name']) ? (string) $r['name'] : (isset($r['product_name']) ? (string) $r['product_name'] : '');
+                    if ($name === '') {
+                        continue;
+                    }
+                    $price = isset($r['price']) ? $r['price'] : (isset($r['unit_price']) ? $r['unit_price'] : 0);
+                    $promo = isset($r['promo_price']) && $r['promo_price'] !== '' && (float) $r['promo_price'] > 0 ? $r['promo_price'] : null;
+                    $mrp   = isset($r['mrp']) && $r['mrp'] !== '' && (float) $r['mrp'] > 0 ? $r['mrp'] : null;
+                    $image = function_exists('webshop_product_image_src')
+                        ? webshop_product_image_src($uploadsBase, $thumbsBase, $r)
+                        : '';
+                    $items[] = array(
+                        'id'    => $id,
+                        'hash'  => $hash,
+                        'name'  => $name,
+                        'image' => $image,
+                        'price' => $promo !== null ? (float) $promo : (float) $price,
+                        'mrp'   => $mrp,
+                        'url'   => base_url('webshop/product_details/' . $hash),
+                    );
+                    $count++;
+                }
+            }
+        } catch (Exception $e) {
+            // Suggestions are best-effort — never fail the dropdown with a 500.
+        }
+
+        $payload = array('status' => 'OK', 'q' => $keyword, 'items' => $items);
+        $sess[$cacheKey] = array('exp' => time() + 60, 'payload' => $payload);
+        // Cap cache so it can't grow unbounded across a long session.
+        if (count($sess) > 30) {
+            $sess = array_slice($sess, -30, null, true);
+        }
+        $this->session->set_userdata('webshop_search_suggest_cache', $sess);
+
+        echo json_encode($payload);
+    }
+
     public function wishlist()
     {
         $ws_sess = $this->session->userdata('webshop');
@@ -4422,8 +4515,6 @@ XSL;
 
     public function forgot_password()
     {
-
-        $theme = isset($this->webshop_settings->webshop_theme) ? $this->webshop_settings->webshop_theme : '';
         $ws_sess = $this->session->userdata('webshop');
         $already_logged_in = $ws_sess
             && (is_object($ws_sess) ? !empty($ws_sess->is_login)  : !empty($ws_sess['is_login']))
@@ -4431,96 +4522,265 @@ XSL;
         if ($already_logged_in) {
             redirect('webshop/index');
         }
+
+        // ── Step 1: deliver OTP ────────────────────────────────────────
         if (isset($_POST['send_otp'])) {
-            $mobile = trim((string) $this->input->post('mobile'));
-            if ($mobile === '') {
-                $this->session->set_flashdata('error', 'Mobile number is required.');
-                redirect("webshop/forgot_password");
-                return;
-            }
-            $customerExists = $this->webshop_model->authenticate_user_mobile($mobile);
-            if (!$customerExists) {
-                $this->session->set_flashdata('error', 'No account found for this mobile number.');
-                redirect("webshop/forgot_password");
+            $mobile = $this->_normalize_mobile($this->input->post('mobile'));
+            if ($mobile === '' || !$this->_is_valid_mobile($mobile)) {
+                $this->session->set_flashdata('error', 'Please enter a valid mobile number (10-15 digits).');
+                $this->session->set_flashdata('error_field', 'mobile');
+                redirect('webshop/forgot_password');
                 return;
             }
 
-            $otp = (string) random_int(100000, 999999);
+            // Verify the customer exists via the API (DB-less compliant).
+            try {
+                $customer = $this->webshop_api_model->get_customer(array('phone' => $mobile));
+            } catch (Exception $e) {
+                log_message('error', 'forgot_password: get_customer failed: ' . $e->getMessage());
+                $this->session->set_flashdata('error', 'Service temporarily unavailable. Please try again in a moment.');
+                $this->session->set_flashdata('forgot_mobile', $mobile);
+                redirect('webshop/forgot_password');
+                return;
+            }
+            if (!$customer) {
+                $this->session->set_flashdata('error', 'No account found for this mobile number.');
+                $this->session->set_flashdata('error_field', 'mobile');
+                $this->session->set_flashdata('forgot_mobile', $mobile);
+                redirect('webshop/forgot_password');
+                return;
+            }
+
+            $otp = $this->_generate_numeric_otp(6);
+            if ($otp === '') {
+                log_message('error', 'forgot_password: OTP generation returned empty (no entropy source available)');
+                $this->session->set_flashdata('error', 'Could not generate a secure OTP. Please try again.');
+                redirect('webshop/forgot_password');
+                return;
+            }
+
             $this->session->set_userdata('forgot_password_otp_data', array(
-                'mobile' => $mobile,
-                'otp' => $otp,
+                'mobile'     => $mobile,
+                'otp'        => $otp,
                 'expires_at' => time() + 600,
+                'attempts'   => 0,
             ));
-            log_message('debug', 'Forgot password OTP generated for ' . $mobile . ': ' . $otp);
-            $this->session->set_flashdata('message', 'OTP has been sent to your mobile number.');
+
+            // Hand off delivery to ElintOm (WhatsApp + SMS + Email). Exceptions
+            // from the HTTP layer must never reach the browser.
+            try {
+                $delivery = $this->webshop_api_model->send_password_otp($mobile, $otp);
+            } catch (Exception $e) {
+                log_message('error', 'forgot_password: send_password_otp threw: ' . $e->getMessage());
+                $delivery = array('status' => 'ERROR', 'msg' => 'Unable to reach the messaging service. Please try again.', 'delivered' => array());
+            }
+
+            $delivered = isset($delivery['delivered']) && is_array($delivery['delivered']) ? $delivery['delivered'] : array();
+            $channels = array();
+            if (!empty($delivered['whatsapp'])) { $channels[] = 'WhatsApp'; }
+            if (!empty($delivered['sms']))      { $channels[] = 'SMS'; }
+            if (!empty($delivered['email']))    { $channels[] = 'Email'; }
+
+            if ($delivery && isset($delivery['status']) && $delivery['status'] === 'SUCCESS' && !empty($channels)) {
+                // Mask the mobile so logs never leak the full number.
+                $maskedMobile = $this->_mask_secret($mobile);
+                log_message('info', 'forgot_password: OTP delivered to ' . $maskedMobile . ' via ' . implode(',', $channels));
+                $this->session->set_flashdata('message', 'OTP sent via ' . implode(' & ', $channels) . '. Please check your messages.');
+                $this->session->set_flashdata('otp_sent', true);
+            } else {
+                // Wipe the OTP so the user can retry cleanly.
+                $this->session->unset_userdata('forgot_password_otp_data');
+                log_message('error', 'forgot_password: delivery failed for ' . $this->_mask_secret($mobile)
+                    . ' (' . (isset($delivery['msg']) ? $delivery['msg'] : 'no msg') . ')');
+                $errMsg = ($delivery && !empty($delivery['msg'])) ? (string) $delivery['msg'] : 'Unable to deliver OTP right now. Please try again.';
+                $this->session->set_flashdata('error', $errMsg);
+            }
             $this->session->set_flashdata('forgot_mobile', $mobile);
-            redirect("webshop/forgot_password");
+            redirect('webshop/forgot_password');
             return;
         }
 
+        // ── Step 2: verify OTP and reset password ──────────────────────
         if (isset($_POST['reset_password'])) {
-            $mobile = trim((string) $this->input->post('mobile'));
-            $otp = trim((string) $this->input->post('otp'));
-            $new_password = (string) $this->input->post('new_password');
+            $mobile           = $this->_normalize_mobile($this->input->post('mobile'));
+            $otp              = preg_replace('/\D/', '', (string) $this->input->post('otp'));
+            $new_password     = (string) $this->input->post('new_password');
             $confirm_password = (string) $this->input->post('confirm_password');
 
             if ($mobile === '' || $otp === '' || $new_password === '' || $confirm_password === '') {
                 $this->session->set_flashdata('error', 'All fields are required.');
                 $this->session->set_flashdata('forgot_mobile', $mobile);
-                redirect("webshop/forgot_password");
+                $this->session->set_flashdata('otp_sent', true);
+                redirect('webshop/forgot_password');
+                return;
+            }
+            if (!$this->_is_valid_mobile($mobile)) {
+                $this->session->set_flashdata('error', 'Invalid mobile number.');
+                $this->session->set_flashdata('error_field', 'mobile');
+                redirect('webshop/forgot_password');
+                return;
+            }
+            if (strlen($otp) !== 6) {
+                $this->session->set_flashdata('error', 'OTP must be exactly 6 digits.');
+                $this->session->set_flashdata('error_field', 'otp');
+                $this->session->set_flashdata('forgot_mobile', $mobile);
+                $this->session->set_flashdata('otp_sent', true);
+                redirect('webshop/forgot_password');
                 return;
             }
             if ($new_password !== $confirm_password) {
                 $this->session->set_flashdata('error', 'Passwords do not match.');
+                $this->session->set_flashdata('error_field', 'confirm_password');
                 $this->session->set_flashdata('forgot_mobile', $mobile);
-                redirect("webshop/forgot_password");
+                $this->session->set_flashdata('otp_sent', true);
+                redirect('webshop/forgot_password');
                 return;
             }
             if (strlen($new_password) < 6) {
                 $this->session->set_flashdata('error', 'Password must be at least 6 characters.');
+                $this->session->set_flashdata('error_field', 'new_password');
                 $this->session->set_flashdata('forgot_mobile', $mobile);
-                redirect("webshop/forgot_password");
+                $this->session->set_flashdata('otp_sent', true);
+                redirect('webshop/forgot_password');
                 return;
             }
 
             $otpData = $this->session->userdata('forgot_password_otp_data');
             if (!is_array($otpData) || empty($otpData['otp']) || empty($otpData['mobile']) || empty($otpData['expires_at'])) {
                 $this->session->set_flashdata('error', 'OTP session expired. Please request a new OTP.');
-                redirect("webshop/forgot_password");
+                redirect('webshop/forgot_password');
                 return;
             }
             if ($otpData['mobile'] !== $mobile) {
                 $this->session->set_flashdata('error', 'OTP verification failed for this mobile number.');
-                redirect("webshop/forgot_password");
+                redirect('webshop/forgot_password');
                 return;
             }
             if (time() > (int) $otpData['expires_at']) {
                 $this->session->unset_userdata('forgot_password_otp_data');
                 $this->session->set_flashdata('error', 'OTP has expired. Please request a new OTP.');
-                redirect("webshop/forgot_password");
+                redirect('webshop/forgot_password');
                 return;
             }
+            // Throttle brute-force on the 6-digit OTP — 5 wrong tries invalidates the session.
+            $attempts = isset($otpData['attempts']) ? (int) $otpData['attempts'] : 0;
             if ((string) $otpData['otp'] !== $otp) {
-                $this->session->set_flashdata('error', 'Invalid OTP.');
-                $this->session->set_flashdata('forgot_mobile', $mobile);
-                redirect("webshop/forgot_password");
+                $attempts++;
+                $otpData['attempts'] = $attempts;
+                if ($attempts >= 5) {
+                    $this->session->unset_userdata('forgot_password_otp_data');
+                    log_message('warning', 'forgot_password: OTP locked out after 5 attempts for ' . $this->_mask_secret($mobile));
+                    $this->session->set_flashdata('error', 'Too many invalid attempts. Please request a new OTP.');
+                } else {
+                    $this->session->set_userdata('forgot_password_otp_data', $otpData);
+                    $this->session->set_flashdata('error', 'Invalid OTP. ' . (5 - $attempts) . ' attempt(s) left.');
+                    $this->session->set_flashdata('error_field', 'otp');
+                    $this->session->set_flashdata('forgot_mobile', $mobile);
+                    $this->session->set_flashdata('otp_sent', true);
+                }
+                redirect('webshop/forgot_password');
                 return;
             }
 
-            $hashedPassword = md5($new_password);
-            if ($this->webshop_model->update_company_password($mobile, $hashedPassword)) {
+            // Hand off the password update to ElintOm (DB-less compliant).
+            try {
+                $reset = $this->webshop_api_model->reset_customer_password($mobile, $new_password);
+            } catch (Exception $e) {
+                log_message('error', 'forgot_password: reset_customer_password threw: ' . $e->getMessage());
+                $reset = array('status' => 'ERROR', 'msg' => 'Service temporarily unavailable. Please try again.');
+            }
+
+            if ($reset && isset($reset['status']) && $reset['status'] === 'SUCCESS') {
                 $this->session->unset_userdata('forgot_password_otp_data');
+                log_message('info', 'forgot_password: password reset complete for ' . $this->_mask_secret($mobile));
                 $this->session->set_flashdata('message', 'Password has been changed successfully. Please login.');
-                redirect("webshop/login");
+                redirect('webshop/login');
                 return;
             }
 
-            $this->session->set_flashdata('error', 'Failed to update password.');
-            redirect("webshop/forgot_password");
+            log_message('error', 'forgot_password: reset returned ERROR for ' . $this->_mask_secret($mobile)
+                . ' msg=' . (isset($reset['msg']) ? $reset['msg'] : 'none'));
+            $this->session->set_flashdata('error', ($reset && !empty($reset['msg'])) ? (string) $reset['msg'] : 'Failed to update password.');
+            $this->session->set_flashdata('forgot_mobile', $mobile);
+            $this->session->set_flashdata('otp_sent', true);
+            redirect('webshop/forgot_password');
             return;
         }
 
-        $this->load_view("forgot_password", $this->data);
+        $this->load_view('forgot_password', $this->data);
+    }
+
+    private function _normalize_mobile($raw)
+    {
+        $s = trim((string) $raw);
+        // Allow a leading + but strip everything else non-numeric (spaces, dashes, brackets).
+        $hasPlus = (strpos($s, '+') === 0);
+        $digits = preg_replace('/\D/', '', $s);
+        return $hasPlus ? ('+' . $digits) : $digits;
+    }
+
+    private function _is_valid_mobile($mobile)
+    {
+        $digits = preg_replace('/\D/', '', (string) $mobile);
+        $len = strlen($digits);
+        return $len >= 10 && $len <= 15;
+    }
+
+    /**
+     * Mask a secret value for log lines — keeps the first 2 and last 2 chars,
+     * replaces the middle with asterisks. Matches the rule in
+     * .cursor/rules/security-and-secrets.mdc (no full mobiles / keys in logs).
+     */
+    private function _mask_secret($value)
+    {
+        $s = (string) $value;
+        $n = strlen($s);
+        if ($n <= 4) {
+            return str_repeat('*', $n);
+        }
+        return substr($s, 0, 2) . str_repeat('*', $n - 4) . substr($s, -2);
+    }
+
+    /**
+     * Generate an N-digit numeric OTP. PHP 5.6 compatible — random_int() is
+     * PHP 7+ only, so this falls through to openssl_random_pseudo_bytes()
+     * (CSPRNG on Windows/Linux when openssl is built in) and finally to
+     * mt_rand() as a last resort. Returns '' if no source produced a value.
+     */
+    private function _generate_numeric_otp($length = 6)
+    {
+        $length = max(4, min(8, (int) $length));
+        $min = (int) str_pad('1', $length, '0');
+        $max = (int) str_pad('9', $length, '9');
+
+        if (function_exists('random_int')) {
+            try {
+                return (string) random_int($min, $max);
+            } catch (Exception $e) {
+                // Fall through to next source.
+            }
+        }
+
+        if (function_exists('openssl_random_pseudo_bytes')) {
+            $strong = false;
+            $bytes = @openssl_random_pseudo_bytes(4, $strong);
+            if ($bytes !== false && strlen($bytes) === 4) {
+                $unpacked = @unpack('N', $bytes);
+                if (is_array($unpacked) && isset($unpacked[1])) {
+                    $num = (int) $unpacked[1];
+                    if ($num < 0) { $num = -$num; }
+                    return (string) ($min + ($num % ($max - $min + 1)));
+                }
+            }
+        }
+
+        // mt_rand is not cryptographically secure but the OTP is short-lived
+        // (10 min TTL + 5-attempt lockout), so it's an acceptable last resort.
+        if (function_exists('mt_rand')) {
+            return (string) mt_rand($min, $max);
+        }
+
+        return '';
     }
 
     /**

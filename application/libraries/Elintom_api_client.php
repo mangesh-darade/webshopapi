@@ -284,6 +284,29 @@ class Elintom_api_client {
         return $this->post('registercheck', array('phone' => $phone, 'email' => $email));
     }
 
+    /**
+     * Ask ElintOm to deliver a forgot-password OTP via WhatsApp / SMS / Email.
+     * The storefront still owns the OTP value and TTL — this is delivery only.
+     */
+    public function send_password_otp($phone, $otp) {
+        return $this->post('passwordotpsend', array(
+            'phone' => $phone,
+            'otp'   => $otp,
+        ));
+    }
+
+    /**
+     * Ask ElintOm to update the customer password after OTP verification.
+     * OTP is verified by the storefront against its own session before
+     * calling this — ElintOm only writes the new password.
+     */
+    public function reset_customer_password($phone, $new_password) {
+        return $this->post('customerresetpassword', array(
+            'phone'        => $phone,
+            'new_password' => $new_password,
+        ));
+    }
+
     /* ================================================================
      * ADDRESSES
      * ================================================================ */

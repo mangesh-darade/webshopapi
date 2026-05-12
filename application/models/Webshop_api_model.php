@@ -1646,6 +1646,62 @@ class Webshop_api_model extends CI_Model {
         return $res ? $res : (object)['dup_phone' => false, 'dup_email' => false];
     }
 
+    /**
+     * Deliver a forgot-password OTP via ElintOm (WhatsApp/SMS/Email).
+     * Returns associative array: ['status'=>SUCCESS|ERROR, 'msg'=>..., 'delivered'=>['whatsapp'=>bool,'sms'=>bool,'email'=>bool]].
+     * Never throws — transport errors are converted to ERROR responses so the
+     * caller can surface a clean message to the user.
+     */
+    public function send_password_otp($phone, $otp) {
+        try {
+            $res = $this->api->send_password_otp($phone, $otp);
+        } catch (Exception $e) {
+            log_message('error', 'Webshop_api_model::send_password_otp transport error: ' . $e->getMessage());
+            return [
+                'status' => 'ERROR',
+                'msg'    => 'Unable to reach the messaging service. Please try again.',
+                'delivered' => [],
+            ];
+        }
+        if ($res && isset($res->status) && strtoupper((string) $res->status) === 'SUCCESS') {
+            return [
+                'status' => 'SUCCESS',
+                'msg'    => isset($res->msg) ? (string) $res->msg : 'OTP sent.',
+                'delivered' => isset($res->delivered) ? (array) $res->delivered : [],
+            ];
+        }
+        $apiErr = method_exists($this->api, 'get_last_error') ? $this->api->get_last_error() : null;
+        if (!$res && $apiErr) {
+            log_message('error', 'Webshop_api_model::send_password_otp api error: ' . $apiErr);
+        }
+        return [
+            'status' => 'ERROR',
+            'msg'    => $res && isset($res->msg) ? (string) $res->msg : 'OTP delivery failed.',
+            'delivered' => $res && isset($res->delivered) ? (array) $res->delivered : [],
+        ];
+    }
+
+    /**
+     * Update the customer password through ElintOm. Caller must have verified the OTP first.
+     * Never throws — transport errors are converted to ERROR responses.
+     */
+    public function reset_customer_password($phone, $new_password) {
+        try {
+            $res = $this->api->reset_customer_password($phone, $new_password);
+        } catch (Exception $e) {
+            log_message('error', 'Webshop_api_model::reset_customer_password transport error: ' . $e->getMessage());
+            return ['status' => 'ERROR', 'msg' => 'Service temporarily unavailable. Please try again.'];
+        }
+        if ($res && isset($res->status) && strtoupper((string) $res->status) === 'SUCCESS') {
+            return ['status' => 'SUCCESS', 'msg' => isset($res->msg) ? (string) $res->msg : 'Password updated.'];
+        }
+        $apiErr = method_exists($this->api, 'get_last_error') ? $this->api->get_last_error() : null;
+        if (!$res && $apiErr) {
+            log_message('error', 'Webshop_api_model::reset_customer_password api error: ' . $apiErr);
+        }
+        return ['status' => 'ERROR', 'msg' => $res && isset($res->msg) ? (string) $res->msg : 'Failed to update password.'];
+    }
+
     /* ================================================================
      * ADDRESSES
      * ================================================================ */

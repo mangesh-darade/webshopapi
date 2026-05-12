@@ -496,18 +496,32 @@ class Webshop_section_engine
             );
         }
 
+        // Section type -> filename basename(s) we accept (first match wins).
+        // Header/Footer reuse the CMS strip components instead of the theme's top-level
+        // header.php / footer.php, which already render the storefront chrome.
+        $candidateBasenames = array($type);
+        if ($type === 'header') {
+            $candidateBasenames = array('cms_header_section');
+        } elseif ($type === 'footer') {
+            $candidateBasenames = array('cms_footer_section');
+        }
+
         // 1. Try active theme components first
         if ($theme !== 'default') {
-            $themePath = 'plane_vanila_theme/' . $theme . '_theme/components/' . $type;
-            if (is_file(VIEWPATH . $themePath . '.php')) {
-                return $themePath;
+            foreach ($candidateBasenames as $basename) {
+                $themePath = 'plane_vanila_theme/' . $theme . '_theme/components/' . $basename;
+                if (is_file(VIEWPATH . $themePath . '.php')) {
+                    return $themePath;
+                }
             }
         }
 
         // 2. Try gulfpharmacy_theme components (User request: use this path)
-        $gpPath = 'plane_vanila_theme/gulfpharmacy_theme/components/' . $type;
-        if (is_file(VIEWPATH . $gpPath . '.php')) {
-            return $gpPath;
+        foreach ($candidateBasenames as $basename) {
+            $gpPath = 'plane_vanila_theme/gulfpharmacy_theme/components/' . $basename;
+            if (is_file(VIEWPATH . $gpPath . '.php')) {
+                return $gpPath;
+            }
         }
 
         // 3. Legacy fallback (webshop/components/ is currently missing in filesystem)
@@ -519,6 +533,8 @@ class Webshop_section_engine
             'category_carousel' => 'webshop/components/category_carousel',
             'banner' => 'webshop/components/banner',
             'hero_banner' => 'webshop/components/banner',
+            'header' => 'webshop/components/cms_header_section',
+            'footer' => 'webshop/components/cms_footer_section',
         );
         return isset($map[$type]) ? $map[$type] : '';
     }

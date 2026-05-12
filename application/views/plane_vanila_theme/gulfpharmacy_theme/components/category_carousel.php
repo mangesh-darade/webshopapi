@@ -70,10 +70,34 @@ if (empty($items)) return;
 .gp-cc-btn:hover{background:#214548;color:#fff;transform:scale(1.08);}
 .gp-cc-prev{position:absolute;left:5px;}
 .gp-cc-next{position:absolute;right:5px;}
-@media(max-width:768px){.gp-cc-btn{display:none;}.gp-cc-item{flex:0 0 165px;}}
+/* Auto-hide arrows at scroll boundaries (works on all sizes once JS toggles classes). */
+.gp-cc-wrap.is-at-start .gp-cc-prev,
+.gp-cc-wrap.is-at-end .gp-cc-next{opacity:0;pointer-events:none;visibility:hidden;}
+@media(max-width:768px){
+    .gp-cc-item{flex:0 0 165px;}
+    .gp-cc-btn{width:34px;height:34px;background:rgba(255,255,255,.94);box-shadow:0 4px 14px rgba(0,0,0,.18);}
+    .gp-cc-btn svg{width:16px;height:16px;}
+    .gp-cc-prev{left:2px;}
+    .gp-cc-next{right:2px;}
+}
 </style>
 <script>
 function gcc_scroll(id,dir){var el=document.getElementById(id);if(el)el.scrollBy({left:dir*(window.innerWidth < 600 ? 180 : 220),behavior:'smooth'});}
+(function(){
+    var car = document.getElementById('<?= $uid ?>');
+    if (!car) return;
+    var wrap = car.parentElement;
+    if (!wrap) return;
+    function updateEdges(){
+        var atStart = car.scrollLeft <= 4;
+        var atEnd = car.scrollLeft + car.clientWidth >= car.scrollWidth - 4;
+        wrap.classList.toggle('is-at-start', atStart);
+        wrap.classList.toggle('is-at-end', atEnd);
+    }
+    car.addEventListener('scroll', updateEdges, { passive: true });
+    window.addEventListener('resize', updateEdges);
+    setTimeout(updateEdges, 50);
+})();
 </script>
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 <?php

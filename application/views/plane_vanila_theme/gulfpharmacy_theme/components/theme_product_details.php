@@ -98,7 +98,98 @@ if (empty($gallery)) {
 .pd-item img{width:100%;height:140px;object-fit:contain;background:#f8fafc;border-radius:8px}
 .pd-item h4{font-size:14px;height:38px;overflow:hidden}
 .pd-item .p{font-weight:700;color:#0F4C81}
-@media(max-width:992px){.pd-main{grid-template-columns:1fr}.pd-summary{position:static}.pd-gallery{grid-template-columns:1fr}.pd-thumbs{flex-direction:row;max-height:none}.pd-thumb img{width:70px;height:70px}}
+
+/* Tablet & mobile — keep gallery and cart card from blowing up vertically */
+@media (max-width: 992px) {
+    .pd-wrap { padding: 12px; }
+    .pd-main { grid-template-columns: 1fr; gap: 14px; }
+
+    /* Gallery: main image first, thumb strip scrolls horizontally underneath */
+    .pd-gallery { grid-template-columns: 1fr; padding: 10px; gap: 10px; }
+    .pd-mainimg { order: 1; min-height: 0; aspect-ratio: 1 / 1; }
+    .pd-mainimg img { max-width: 100%; max-height: 100%; }
+    .pd-mainimg:hover img { transform: none; }
+    .pd-thumbs {
+        order: 2;
+        flex-direction: row;
+        max-height: none;
+        gap: 8px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 2px;
+    }
+    .pd-thumb { flex: 0 0 auto; scroll-snap-align: start; padding: 2px; }
+    .pd-thumb img { width: 60px; height: 60px; }
+
+    /* Summary card — relative so the wish heart can float top-right */
+    .pd-summary { position: relative; top: auto; padding: 16px; }
+    .pd-title { font-size: 22px; line-height: 1.25; margin-bottom: 6px; padding-right: 52px; }
+    .pd-meta { font-size: 12px; gap: 6px 10px; margin-bottom: 10px; }
+    .pd-price { gap: 8px; }
+    .pd-price-now { font-size: 26px; }
+    .pd-mrp { font-size: 14px; }
+    .pd-off { font-size: 11px; padding: 3px 8px; }
+    .pd-stock { font-size: 13px; margin: 8px 0; }
+    .pd-short { font-size: 14px; padding: 10px 12px; line-height: 1.5; }
+
+    /* Action row: qty | cart | buy ; heart floats in card corner */
+    .pd-actions {
+        grid-template-columns: minmax(110px, 130px) 1fr 1fr;
+        gap: 8px;
+        position: static;
+        margin-top: 12px;
+    }
+    .pd-qty button { width: 36px; height: 44px; font-size: 18px; }
+    .pd-qty input { width: 100%; min-width: 0; height: 44px; }
+    .pd-btn { padding: 11px 10px; font-size: 14px; min-height: 44px; line-height: 1.15; }
+    .pd-wish {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        font-size: 22px;
+        background: #fff;
+        box-shadow: 0 2px 8px rgba(15,76,129,.08);
+    }
+
+    /* Tabs scroll instead of wrapping into 3 ugly rows */
+    .pd-tab-nav { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; gap: 6px; }
+    .pd-tab-link { flex: 0 0 auto; font-size: 12px; padding: 7px 12px; white-space: nowrap; }
+    .pd-tab { padding: 12px; font-size: 14px; line-height: 1.6; }
+
+    /* Related/recent carousels stay scrollable */
+    .pd-item { min-width: 160px; }
+    .pd-item img { height: 110px; }
+}
+
+/* Phones (≤ 480px): reduce hierarchy further so layout breathes */
+@media (max-width: 480px) {
+    .pd-wrap { padding: 8px; }
+    .pd-mainimg { aspect-ratio: 4 / 3; }
+    .pd-title { font-size: 19px; padding-right: 48px; }
+    .pd-price-now { font-size: 22px; }
+    /* Keep qty + Add To Cart + Buy Now on a single row even on phones. */
+    .pd-actions {
+        grid-template-columns: minmax(96px, 116px) 1fr 1fr;
+        gap: 6px;
+    }
+    .pd-qty button { width: 30px; }
+    .pd-qty input { font-size: 14px; }
+    .pd-btn { padding: 10px 8px; font-size: 13px; white-space: nowrap; }
+    .pd-thumb img { width: 56px; height: 56px; }
+}
+
+/* Very narrow phones (≤ 360px) — shave a bit more so labels never wrap. */
+@media (max-width: 360px) {
+    .pd-actions { grid-template-columns: 94px 1fr 1fr; gap: 5px; }
+    .pd-qty button { width: 26px; font-size: 16px; }
+    .pd-qty input { font-size: 13px; }
+    .pd-btn { padding: 10px 6px; font-size: 12px; }
+}
 </style>
 
 <div class="pd-wrap">
