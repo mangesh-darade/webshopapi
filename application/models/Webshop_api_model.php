@@ -1757,12 +1757,138 @@ class Webshop_api_model extends CI_Model {
      * ADDRESSES
      * ================================================================ */
 
+    /**
+     * ElintOm returns JSON "addresses" as object or array; json_decode leaves
+     * stdClass trees. Views use is_array() — normalize to a PHP array of rows
+     * keyed by address id (matches legacy Webshop_model::get_customer_address).
+     *
+     * @param mixed $raw
+     * @return array<int,array<string,mixed>>
+     */
+    protected function _normalize_customer_address_payload($raw) {
+        if ($raw === null || $raw === false) {
+            return array();
+        }
+        if (is_object($raw)) {
+            $raw = json_decode(json_encode($raw), true);
+        }
+        if (!is_array($raw)) {
+            return array();
+        }
+        $out = array();
+        foreach ($raw as $key => $row) {
+            $a = is_object($row) ? (array) $row : $row;
+            if (!is_array($a)) {
+                continue;
+            }
+            $id = 0;
+            if (isset($a['id'])) {
+                $id = (int) $a['id'];
+            } elseif (is_int($key) || (is_string($key) && ctype_digit($key))) {
+                $id = (int) $key;
+            }
+            if ($id > 0) {
+                $out[$id] = $a;
+            } else {
+                $out[] = $a;
+            }
+        }
+        return $out;
+    }
+
     public function get_customer_address($customer_id, $address_id = null) {
         $res = $this->api->get_addresses($customer_id, $address_id);
         if ($res && isset($res->status) && $res->status === 'SUCCESS') {
-            return $res->addresses;
+            return $this->_normalize_customer_address_payload(isset($res->addresses) ? $res->addresses : array());
         }
-        return [];
+        // Surface auth / transport failures (e.g. "Private key mismatch") instead of silently
+        // returning [] — otherwise My Account and checkout show an empty address picker even
+        // though the DB has rows, and there is nothing in logs to point at the real cause.
+        $this->_log_error('get_addresses');
+        return array();
+    }
+
+    /**
+     * Legacy Webshop_model::set_customer_address — insert row. API mode maps to add_address.
+     *
+     * @param array $data company_id, address_name, line1, … state_code optional
+     * @return int|false New address id
+     */
+    public function set_customer_address($data) {
+        if (!$this->api_mode && $this->has_local_db()) {
+            return $this->_fallback_webshop_model()->set_customer_address($data);
+        }
+        if (!is_array($data)) {
+            return false;
+        }
+        return $this->add_address($data);
+    }
+
+    /**
+     * @param array    $data Same keys as set_customer_address (without id)
+     * @param int|null $id   Address row id
+     * @return bool
+     */
+    public function update_customer_address($data, $id) {
+        if (!$this->api_mode && $this->has_local_db()) {
+            return $this->_fallback_webshop_model()->update_customer_address($data, $id);
+        }
+        $aid = (int) $id;
+        if ($aid < 1 || !is_array($data)) {
+            return false;
+        }
+        $payload = $data;
+        $payload['address_id'] = $aid;
+        if (!isset($payload['customer_id']) && isset($payload['company_id'])) {
+            $payload['customer_id'] = $payload['company_id'];
+        }
+        if (!isset($payload['email']) && isset($payload['email_id'])) {
+            $payload['email'] = $payload['email_id'];
+        }
+        $res = $this->api->update_address($payload);
+        return ($res && isset($res->status) && $res->status === 'SUCCESS');
+    }
+
+    /**
+     * @param int $customer_id companies.id
+     * @param int $address_id  addresses.id
+     * @return bool
+     */
+    public function set_address_default($customer_id, $address_id) {
+        if (!$this->api_mode && $this->has_local_db()) {
+            return $this->_fallback_webshop_model()->set_address_default($customer_id, $address_id);
+        }
+        $cid = (int) $customer_id;
+        $aid = (int) $address_id;
+        if ($cid < 1 || $aid < 1) {
+            return false;
+        }
+        $res = $this->api->set_address_default(array(
+            'customer_id' => $cid,
+            'address_id'  => $aid,
+        ));
+        return ($res && isset($res->status) && $res->status === 'SUCCESS');
+    }
+
+    /**
+     * @param int      $address_id
+     * @param int|null $customer_id When set, ElintOm verifies ownership (recommended).
+     * @return bool
+     */
+    public function delete_address($address_id, $customer_id = null) {
+        if (!$this->api_mode && $this->has_local_db()) {
+            return $this->_fallback_webshop_model()->delete_address($address_id);
+        }
+        $aid = (int) $address_id;
+        $cid = $customer_id !== null ? (int) $customer_id : 0;
+        if ($aid < 1) {
+            return false;
+        }
+        $res = $this->api->delete_address(array(
+            'address_id'  => $aid,
+            'customer_id' => $cid,
+        ));
+        return ($res && isset($res->status) && $res->status === 'SUCCESS');
     }
 
     public function add_address(array $data) {
@@ -1790,14 +1916,26 @@ class Webshop_api_model extends CI_Model {
 
     public function getAddressDefault($customer_id, $addressType) {
         $addresses = $this->get_customer_address($customer_id);
-        if (empty($addresses)) return false;
+        if (empty($addresses)) {
+            return false;
+        }
+        $typeWant = strtolower((string) $addressType);
         foreach ($addresses as $addr) {
-            if (isset($addr->address_type) && strtolower($addr->address_type) == strtolower($addressType)) {
-                return $addr->id;
+            $a = is_object($addr) ? (array) $addr : $addr;
+            if (!is_array($a)) {
+                continue;
+            }
+            if (isset($a['address_type']) && strtolower((string) $a['address_type']) === $typeWant) {
+                return isset($a['id']) ? (int) $a['id'] : false;
             }
         }
-        // fallback to first if none matches explicitly
-        return isset($addresses[0]->id) ? $addresses[0]->id : false;
+        foreach ($addresses as $addr) {
+            $a = is_object($addr) ? (array) $addr : $addr;
+            if (is_array($a) && !empty($a['id'])) {
+                return (int) $a['id'];
+            }
+        }
+        return false;
     }
 
     /* ================================================================
@@ -1968,10 +2106,159 @@ class Webshop_api_model extends CI_Model {
         return isset($this->_order_cache[$id]['items']) ? $this->_order_cache[$id]['items'] : array();
     }
 
+    /**
+     * Resolve a tracking identifier (numeric id, reference_no, or md5(id)) to an order +
+     * its line items for the /webshop/track_order page. Constrained to the logged-in
+     * customer so users can only track their own orders.
+     *
+     * @param string $identifier  Raw URL segment: order id, reference_no, or MD5(id).
+     * @param int    $customer_id companies.id from the webshop session.
+     * @return array|null         ['order' => array, 'items' => array] or null if not found.
+     */
+    public function get_order_for_tracking($identifier, $customer_id = 0) {
+        $needle = trim((string) $identifier);
+        $cid = (int) $customer_id;
+        if ($needle === '' || $cid < 1) {
+            return null;
+        }
+
+        $sales = $this->get_customer_sales($cid);
+        if (!is_array($sales) || empty($sales)) {
+            return null;
+        }
+
+        $needle_lc = strtolower($needle);
+        $needle_int = ctype_digit($needle) ? (int) $needle : 0;
+
+        foreach ($sales as $s) {
+            $a = is_object($s) ? (array) $s : (array) $s;
+            $oid = isset($a['id']) ? (int) $a['id'] : 0;
+            if ($oid < 1) {
+                continue;
+            }
+            $ref = isset($a['reference_no']) ? strtolower((string) $a['reference_no']) : '';
+            $match = ($needle_int > 0 && $oid === $needle_int)
+                || ($ref !== '' && $ref === $needle_lc)
+                || (md5((string) $oid) === $needle_lc);
+
+            if ($match) {
+                return array(
+                    'order' => $a,
+                    'items' => $this->get_order_items_by_order_id($oid),
+                );
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Legacy Webshop_model::get_customer_orders() contract for account + order_details.
+     * DB-less / API-primary: lists from ElintOm getcustomersales (orders table on backend).
+     *
+     * @param int         $customer_id companies.id / session user_id
+     * @param string|null $order_id      When set, MD5(orders.id) (legacy) or numeric id
+     * @return array|false
+     */
+    public function get_customer_orders($customer_id, $order_id = null) {
+        if (!$this->api_mode && $this->has_local_db()) {
+            return $this->_fallback_webshop_model()->get_customer_orders($customer_id, $order_id);
+        }
+
+        $cid = (int) $customer_id;
+        if ($cid < 1) {
+            return false;
+        }
+
+        $sale_status = '';
+        $sales = $this->get_customer_sales($cid, $sale_status);
+        if (!is_array($sales)) {
+            $sales = array();
+        }
+
+        $needle = $order_id !== null && $order_id !== '' ? strtolower(trim((string) $order_id)) : '';
+        $match_numeric = ($needle !== '' && ctype_digit($needle)) ? (int) $needle : 0;
+
+        if ($needle === '') {
+            $orders = array();
+            foreach ($sales as $s) {
+                $row = $this->_coerce_api_sale_to_order_list_row($s);
+                if ($row !== null) {
+                    $orders[] = $row;
+                }
+            }
+            return array('orders' => $orders);
+        }
+
+        $matched_id = 0;
+        foreach ($sales as $s) {
+            $a = is_object($s) ? (array) $s : (array) $s;
+            $oid = isset($a['id']) ? (int) $a['id'] : 0;
+            if ($oid < 1) {
+                continue;
+            }
+            if ($match_numeric > 0 && $oid === $match_numeric) {
+                $matched_id = $oid;
+                break;
+            }
+            if (md5((string) $oid) === $needle) {
+                $matched_id = $oid;
+                break;
+            }
+        }
+
+        if ($matched_id < 1) {
+            return false;
+        }
+
+        $order_arr = $this->get_order_by_id($matched_id);
+        if (!is_array($order_arr) || $order_arr === array()) {
+            return false;
+        }
+
+        $items_arr = $this->get_order_items_by_order_id($matched_id);
+        $order_obj = (object) $order_arr;
+        $items_by_oid = array();
+        foreach ($items_arr as $it) {
+            $it_obj = is_object($it) ? $it : (object) $it;
+            $items_by_oid[$matched_id][] = $it_obj;
+        }
+
+        return array(
+            'orders'   => array($order_obj),
+            'items'    => $items_by_oid,
+            'payments' => array(),
+        );
+    }
+
+    /**
+     * @param mixed $sale row from get_customer_sales (object or array)
+     * @return object|null stdClass compatible with my_account / legacy views
+     */
+    protected function _coerce_api_sale_to_order_list_row($sale) {
+        $a = is_object($sale) ? (array) $sale : (array) $sale;
+        $id = isset($a['id']) ? (int) $a['id'] : 0;
+        if ($id < 1) {
+            return null;
+        }
+        $row = new \stdClass();
+        $row->order_id = isset($a['order_id']) ? (int) $a['order_id'] : $id;
+        $row->id = $id;
+        $row->reference_no = isset($a['reference_no']) ? (string) $a['reference_no'] : '';
+        $row->date = isset($a['date']) ? (string) $a['date'] : '';
+        $row->sale_status = isset($a['sale_status']) ? (string) $a['sale_status'] : 'pending';
+        $row->grand_total = isset($a['grand_total']) ? (float) $a['grand_total'] : 0.0;
+        $row->payment_status = isset($a['payment_status']) ? (string) $a['payment_status'] : '';
+        $row->total = isset($a['total']) ? (float) $a['total'] : 0.0;
+        return $row;
+    }
+
     public function get_customer_sales($customer_id, $sale_status = '') {
         $res = $this->api->get_customer_sales($customer_id, $sale_status);
         if ($res && isset($res->status) && $res->status === 'SUCCESS') {
-            return $res->sales;
+            if (!isset($res->sales) || $res->sales === null) {
+                return array();
+            }
+            return is_array($res->sales) ? $res->sales : (array) $res->sales;
         }
         return [];
     }

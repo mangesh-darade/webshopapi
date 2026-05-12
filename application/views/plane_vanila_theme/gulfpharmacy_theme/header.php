@@ -18,6 +18,24 @@ $cms_nav   = isset($cms_nav_pages) && is_array($cms_nav_pages) ? $cms_nav_pages 
 $cart_cnt  = isset($cart_items) && is_array($cart_items) ? count($cart_items) : 0;
 $wish_cnt  = isset($wishlist_count) ? (int)$wishlist_count : 0;
 $webshop_url = base_url('webshop');
+
+// Pull user session for profile dropdown + sidebar greeting without leaking session details client-side.
+$ws_sess = $this->session->userdata('webshop');
+$is_login = false;
+$user_name = '';
+$user_email = '';
+if ($ws_sess) {
+    if (is_object($ws_sess)) {
+        $is_login   = !empty($ws_sess->is_login);
+        $user_name  = isset($ws_sess->name)  ? (string) $ws_sess->name  : '';
+        $user_email = isset($ws_sess->email) ? (string) $ws_sess->email : '';
+    } else {
+        $is_login   = !empty($ws_sess['is_login']);
+        $user_name  = isset($ws_sess['name'])  ? (string) $ws_sess['name']  : '';
+        $user_email = isset($ws_sess['email']) ? (string) $ws_sess['email'] : '';
+    }
+}
+$user_first_name = $user_name !== '' ? trim((string) strtok($user_name, ' ')) : '';
 ?>
 <header class="gp-header" id="gp-header">
     <div class="gp-header-inner container">
@@ -47,6 +65,64 @@ $webshop_url = base_url('webshop');
             <button class="gp-icon-btn" id="gp-search-toggle" aria-label="Search">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
             </button>
+            <!-- Profile -->
+            <div class="gp-profile-wrap">
+                <button type="button" class="gp-icon-btn gp-profile-btn" id="gp-profile-btn"
+                        aria-label="Account menu" aria-haspopup="true" aria-expanded="false" aria-controls="gp-profile-dropdown">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+                </button>
+                <div class="gp-profile-dropdown" id="gp-profile-dropdown" role="menu" aria-labelledby="gp-profile-btn">
+                    <?php if ($is_login): ?>
+                        <div class="gp-profile-greet">
+                            <p class="gp-profile-greet-line1">Hello,</p>
+                            <p class="gp-profile-greet-line2"><?= htmlspecialchars($user_first_name !== '' ? $user_first_name : 'there', ENT_QUOTES, 'UTF-8') ?></p>
+                        </div>
+                        <a class="gp-profile-link" href="<?= $webshop_url ?>/your_account" role="menuitem">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+                            My Account
+                        </a>
+                        <a class="gp-profile-link" href="<?= $webshop_url ?>/your_orders" role="menuitem">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                            My Orders
+                        </a>
+                        <a class="gp-profile-link" href="<?= $webshop_url ?>/your_address" role="menuitem">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                            Saved Addresses
+                        </a>
+                        <a class="gp-profile-link" href="<?= $webshop_url ?>/your_tracking" role="menuitem">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                            Track order
+                        </a>
+                        <a class="gp-profile-link" href="<?= $webshop_url ?>/wishlist" role="menuitem">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                            Wishlist
+                        </a>
+                        <div class="gp-profile-divider" role="presentation"></div>
+                        <a class="gp-profile-link gp-profile-signout" href="<?= $webshop_url ?>/logout" role="menuitem">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+                            Sign out
+                        </a>
+                    <?php else: ?>
+                        <div class="gp-profile-greet">
+                            <p class="gp-profile-greet-line1">Welcome!</p>
+                            <p class="gp-profile-greet-line2">Sign in for a faster checkout</p>
+                        </div>
+                        <a class="gp-profile-link" href="<?= $webshop_url ?>/login" role="menuitem">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
+                            Sign in
+                        </a>
+                        <a class="gp-profile-link" href="<?= $webshop_url ?>/register" role="menuitem">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/></svg>
+                            Create account
+                        </a>
+                        <div class="gp-profile-divider" role="presentation"></div>
+                        <a class="gp-profile-link" href="<?= $webshop_url ?>/your_orders" role="menuitem">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+                            Track an order
+                        </a>
+                    <?php endif; ?>
+                </div>
+            </div>
             <!-- Wishlist -->
             <a class="gp-icon-btn" href="<?= $webshop_url ?>/wishlist" aria-label="Wishlist">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
@@ -58,7 +134,7 @@ $webshop_url = base_url('webshop');
                 <span class="gp-badge gp-cart-count" <?= $cart_cnt > 0 ? '' : 'style="display:none"' ?>><?= $cart_cnt ?></span>
             </a>
             <!-- Mobile menu toggle -->
-            <button class="gp-hamburger" id="gp-hamburger" aria-label="Menu" aria-expanded="false">
+            <button class="gp-hamburger" id="gp-hamburger" aria-label="Menu" aria-expanded="false" aria-controls="gp-sidebar-drawer">
                 <span></span><span></span><span></span>
             </button>
         </div>
@@ -90,6 +166,100 @@ $webshop_url = base_url('webshop');
     </div>
 </header>
 
+<!-- Mobile sidebar drawer (left) -->
+<aside class="gp-drawer gp-sidebar" id="gp-sidebar-drawer" data-side="left" role="dialog" aria-modal="true" aria-label="Menu" aria-hidden="true">
+    <div class="gp-sidebar-greet">
+        <?php if ($is_login): ?>
+            <p class="gp-sidebar-greet-name">Hi, <?= htmlspecialchars($user_first_name !== '' ? $user_first_name : 'there', ENT_QUOTES, 'UTF-8') ?></p>
+            <p class="gp-sidebar-greet-sub"><?= htmlspecialchars($user_email !== '' ? $user_email : 'Welcome back', ENT_QUOTES, 'UTF-8') ?></p>
+        <?php else: ?>
+            <p class="gp-sidebar-greet-name">Welcome</p>
+            <p class="gp-sidebar-greet-sub"><a href="<?= $webshop_url ?>/login">Sign in</a> or <a href="<?= $webshop_url ?>/register">register</a></p>
+        <?php endif; ?>
+    </div>
+
+    <div class="gp-drawer-head">
+        <h2 class="gp-drawer-title">Menu</h2>
+        <button type="button" class="gp-drawer-close" aria-label="Close menu">&times;</button>
+    </div>
+
+    <div class="gp-drawer-body">
+        <div class="gp-sidebar-section">
+            <h3 class="gp-sidebar-section-title">Shop</h3>
+            <a class="gp-sidebar-link" href="<?= $webshop_url ?>">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/></svg>
+                Home
+            </a>
+            <?php foreach ($cms_nav as $np): ?>
+            <a class="gp-sidebar-link" href="<?= htmlspecialchars(isset($np['href']) ? $np['href'] : '', ENT_QUOTES, 'UTF-8') ?>">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+                <?= htmlspecialchars(isset($np['title']) ? $np['title'] : '', ENT_QUOTES, 'UTF-8') ?>
+            </a>
+            <?php endforeach; ?>
+        </div>
+
+        <div class="gp-sidebar-section">
+            <h3 class="gp-sidebar-section-title">My account</h3>
+            <?php if ($is_login): ?>
+                <a class="gp-sidebar-link" href="<?= $webshop_url ?>/your_account">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+                    Account dashboard
+                </a>
+                <a class="gp-sidebar-link" href="<?= $webshop_url ?>/your_orders">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                    My orders
+                </a>
+                <a class="gp-sidebar-link" href="<?= $webshop_url ?>/your_tracking">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                    Track order
+                </a>
+                <a class="gp-sidebar-link" href="<?= $webshop_url ?>/your_address">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                    Saved addresses
+                </a>
+                <a class="gp-sidebar-link" href="<?= $webshop_url ?>/wishlist">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                    Wishlist
+                </a>
+                <a class="gp-sidebar-link gp-sidebar-signout" href="<?= $webshop_url ?>/logout" data-danger="true">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+                    Sign out
+                </a>
+            <?php else: ?>
+                <a class="gp-sidebar-link" href="<?= $webshop_url ?>/login">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
+                    Sign in
+                </a>
+                <a class="gp-sidebar-link" href="<?= $webshop_url ?>/register">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/></svg>
+                    Create account
+                </a>
+            <?php endif; ?>
+        </div>
+    </div>
+</aside>
+
+<!-- Mini cart drawer (right) -->
+<aside class="gp-drawer gp-minicart" id="gp-minicart-drawer" data-side="right" role="dialog" aria-modal="true" aria-label="Shopping cart" aria-hidden="true">
+    <div class="gp-drawer-head">
+        <h2 class="gp-drawer-title">Your cart</h2>
+        <button type="button" class="gp-drawer-close" aria-label="Close cart">&times;</button>
+    </div>
+    <div class="gp-drawer-body gp-minicart-body">
+        <!-- Populated by header-drawers.js on open. -->
+    </div>
+    <div class="gp-drawer-foot" hidden>
+        <!-- Subtotal + actions injected by header-drawers.js. -->
+    </div>
+</aside>
+
 <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css">
-<script>window.GP_HEADER_CTX=<?= json_encode(array('webshop_url' => $webshop_url), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+<link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header-drawers.css">
+<script>window.GP_HEADER_CTX=<?= json_encode(array(
+    'webshop_url'     => $webshop_url,
+    'is_login'        => (bool) $is_login,
+    'user_name'       => $user_name,
+    'user_first_name' => $user_first_name,
+), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
 <script defer src="<?= $assets ?>gulfpharmacy_theme/js/header.js"></script>
+<script defer src="<?= $assets ?>gulfpharmacy_theme/js/header-drawers.js"></script>

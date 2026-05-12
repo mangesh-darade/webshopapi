@@ -35,7 +35,7 @@ $symbol = isset($Settings->symbol) ? $Settings->symbol : '$';
             ?>
                 <div class="wishlist-card" id="wishlist-item-<?= $p_id ?>">
                     <div class="wishlist-item-image">
-                        <img src="<?= $api_media_uploads_base . $p_image ?>" alt="<?= html_escape($p_name) ?>" onerror="this.src='<?= base_url('assets/uploads/no_image.png') ?>'">
+                        <img src="<?= $api_media_uploads_base . $p_image ?>" alt="<?= html_escape($p_name) ?>" loading="lazy" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,<?= rawurlencode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none"><rect width="80" height="80" rx="8" fill="#F1F5F9"/><path d="M20 56l14-16 10 12 6-8 12 12H20z" fill="#CBD5E1"/><circle cx="28" cy="28" r="5" fill="#CBD5E1"/></svg>') ?>'">
                         <button class="remove-btn" onclick="removeFromWishlist('<?= $p_id ?>')" title="Remove from Wishlist">&times;</button>
                     </div>
                     <div class="wishlist-item-info">

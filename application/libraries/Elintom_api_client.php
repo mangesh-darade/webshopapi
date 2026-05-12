@@ -322,6 +322,18 @@ class Elintom_api_client {
         return $this->post('addaddress', $data);
     }
 
+    public function update_address(array $data) {
+        return $this->post('updateaddress', $data);
+    }
+
+    public function delete_address(array $data) {
+        return $this->post('deleteaddress', $data);
+    }
+
+    public function set_address_default(array $data) {
+        return $this->post('setaddressdefault', $data);
+    }
+
     /* ================================================================
      * ORDERS
      * ================================================================ */

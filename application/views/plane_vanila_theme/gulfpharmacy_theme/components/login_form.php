@@ -30,7 +30,7 @@ $toast_err = $CI->session->flashdata('toast_error');
                 <label for="identity">Email or Phone</label>
                 <div class="input-wrapper">
                     <span class="input-icon">📧</span>
-                    <input type="text" name="identity" id="identity" required placeholder="email@example.com">
+                    <input type="text" name="identity" id="identity" required autocomplete="username" placeholder="email@example.com or 10-digit mobile">
                 </div>
             </div>
 
@@ -38,7 +38,7 @@ $toast_err = $CI->session->flashdata('toast_error');
                 <label for="password">Password</label>
                 <div class="input-wrapper">
                     <span class="input-icon">🔒</span>
-                    <input type="password" name="password" id="password" required placeholder="••••••••">
+                    <input type="password" name="password" id="password" required autocomplete="current-password" placeholder="••••••••">
                 </div>
             </div>
 

@@ -253,6 +253,7 @@ XSL;
             'Disallow: /webshop/checkout',
             'Disallow: /webshop/your_account',
             'Disallow: /webshop/your_orders',
+            'Disallow: /webshop/your_tracking',
             'Disallow: /webshop/webshop_request',
             'Allow: /assets/',
             'Allow: /themes/',
@@ -1359,6 +1360,23 @@ XSL;
 
                 $this->remove_cart_item($postData);
 
+                break;
+
+            case "mini_cart":
+
+                $this->mini_cart();
+
+                break;
+
+            case "mini_cart_remove":
+
+                $this->mini_cart_remove($postData);
+
+                break;
+
+            case "account_panel_data":
+
+                $this->account_panel_data();
                 break;
 
             case "apply_coupon":
@@ -2567,8 +2585,18 @@ XSL;
 
             if (md5(date('Y-m-d H')) == $this->input->post('submit_order')) {
 
+                // Authoritative customer: when a webshop user is logged in, the order MUST be
+                // attributed to that session user_id. Looking the customer up by typed billing
+                // phone/email would otherwise attach the new order to a stranger whose existing
+                // record happens to share the phone the buyer typed (so /my-orders shows nothing).
+                $session_user_id = $this->_get_webshop_session_user_id();
+
                 if ($this->input->post('default_shipping_address') && $this->input->post('customer_id')) {
                     $customer_id = $this->input->post('customer_id');
+                    if ($session_user_id) {
+                        // Never trust a client-supplied customer_id for a logged-in session.
+                        $customer_id = $session_user_id;
+                    }
                     $address_id = $this->input->post('default_shipping_address');
                     $address = $this->webshop_model->get_customer_address($customer_id, $address_id);
                     $billing_address = $address[$address_id];
@@ -2584,7 +2612,14 @@ XSL;
 
                         $billing_phone = $this->input->post('billing_phone');
                         $billing_email = $this->input->post('billing_email');
-                        $customer = $this->webshop_model->get_customer(['phone' => $billing_phone]);
+
+                        // Logged-in checkout: bind the order to the session user, not to whichever
+                        // existing record happens to match the typed billing phone.
+                        if ($session_user_id) {
+                            $customer = $this->webshop_model->get_customer(['id' => $session_user_id]);
+                        } else {
+                            $customer = $this->webshop_model->get_customer(['phone' => $billing_phone]);
+                        }
 
                         if (!$customer) {
 
@@ -2630,9 +2665,12 @@ XSL;
                         }
                     } else {
                         $customer_id = $this->input->post('customer_id');
+                        if ($session_user_id) {
+                            $customer_id = $session_user_id;
+                        }
                         $customer = $this->webshop_model->get_customer(['id' => $customer_id]);
 
-                        $address_id =   $this->webshop_model->getAddressDefault($this->input->post('customer_id'), 'default');
+                        $address_id =   $this->webshop_model->getAddressDefault($customer_id, 'default');
                         $shipping_address_id = $billing_address_id = $address_id;
                     }
 
@@ -2675,8 +2713,15 @@ XSL;
 
                         if ($this->input->post('billing_and_shipping_address_is_same')) {
 
-                            $shipping_address = $billing_address;
-                            $shipping_address['address_type'] = 'shipping';
+                            // $billing_address may be undefined when the buyer picked an existing
+                            // saved billing address (id-only path). Keep the same id for shipping;
+                            // guard the array clone so we don't emit notices in that path.
+                            if (isset($billing_address) && is_array($billing_address)) {
+                                $shipping_address = $billing_address;
+                                $shipping_address['address_type'] = 'shipping';
+                            } else {
+                                $shipping_address = array();
+                            }
 
                             $shipping_address_id = $billing_address_id;
                         } else {
@@ -2713,6 +2758,25 @@ XSL;
                         }
                     } //end if.
                 } //end else
+
+                // Logged-in checkout: reject forged address ids (saved-address picker).
+                if ($session_user_id && !empty($customer) && is_array($customer) && (int) $customer['id'] === $session_user_id) {
+                    $allowed_addrs = $this->webshop_model->get_customer_address($session_user_id);
+                    $posted_bill = (int) $this->input->post('billing_address_id');
+                    if ($posted_bill > 0 && !isset($allowed_addrs[$posted_bill])) {
+                        $this->session->set_flashdata('error_message', 'Invalid billing address. Please choose an address from your list.');
+                        redirect('webshop/checkout');
+                        return;
+                    }
+                    $posted_ship = (int) $this->input->post('shipping_address_id');
+                    $same_ship = (string) $this->input->post('billing_and_shipping_address_is_same') === '1'
+                        || $this->input->post('billing_and_shipping_address_is_same') === true;
+                    if ($posted_ship > 0 && !$same_ship && !isset($allowed_addrs[$posted_ship])) {
+                        $this->session->set_flashdata('error_message', 'Invalid shipping address. Please choose an address from your list.');
+                        redirect('webshop/checkout');
+                        return;
+                    }
+                }
 
                 $warehouse_id = $this->webshop_settings->warehouse_id;
                 $biller_id = $this->webshop_settings->biller_id;
@@ -3599,6 +3663,105 @@ XSL;
         }
     }
 
+    /**
+     * JSON cart payload for the gulfpharmacy mini-cart drawer.
+     * Reuses the same $_SESSION['cart'] + webshop_model->get_cart_data() shape
+     * already powering cart_view.php; only the response format differs (JSON, not HTML).
+     */
+    public function mini_cart()
+    {
+        $cart_items = isset($_SESSION['cart']) && is_array($_SESSION['cart']) ? $_SESSION['cart'] : array();
+        $this->json_response($this->_build_mini_cart_payload($cart_items));
+    }
+
+    public function mini_cart_remove($postData)
+    {
+        $postData = is_array($postData) ? $postData : array();
+        $key = isset($postData['cart_item_key']) ? (string) $postData['cart_item_key'] : '';
+        if ($key !== '' && isset($_SESSION['cart'][$key])) {
+            unset($_SESSION['cart'][$key]);
+        }
+        $cart_items = isset($_SESSION['cart']) && is_array($_SESSION['cart']) ? $_SESSION['cart'] : array();
+        $this->json_response($this->_build_mini_cart_payload($cart_items));
+    }
+
+    private function _build_mini_cart_payload(array $cart_items)
+    {
+        $checkout_url  = base_url('webshop/checkout');
+        $view_cart_url = base_url('webshop/cart');
+        $symbol = (isset($this->Settings) && is_object($this->Settings) && !empty($this->Settings->symbol))
+            ? (string) $this->Settings->symbol
+            : '$';
+
+        if (empty($cart_items)) {
+            return array(
+                'status'        => 'success',
+                'count'         => 0,
+                'subtotal'      => 0,
+                'subtotal_fmt'  => $symbol . ' 0.00',
+                'currency'      => $symbol,
+                'items'         => array(),
+                'view_cart_url' => $view_cart_url,
+                'checkout_url'  => $checkout_url,
+            );
+        }
+
+        $cart_data = $this->webshop_model->get_cart_data();
+        $products = (is_array($cart_data) && isset($cart_data['products']) && is_array($cart_data['products'])) ? $cart_data['products'] : array();
+        $variants = (is_array($cart_data) && isset($cart_data['variants']) && is_array($cart_data['variants'])) ? $cart_data['variants'] : array();
+
+        $uploadsBase = isset($this->data['uploads']) ? (string) $this->data['uploads'] : '';
+        $thumbsBase  = isset($this->data['thumbs'])  ? (string) $this->data['thumbs']  : '';
+
+        $items = array();
+        $subtotal = 0.0;
+        foreach ($cart_items as $key => $item) {
+            if (!is_array($item)) { continue; }
+            $pid = (int) (isset($item['product_id']) ? $item['product_id'] : 0);
+            $vid = (int) (isset($item['variant_id']) ? $item['variant_id'] : 0);
+            $qty = (int) (isset($item['quantity']) ? $item['quantity'] : 0);
+            $unit_price = (float) (isset($item['product_price']) ? $item['product_price'] : (isset($item['price']) ? $item['price'] : 0));
+            $line = $unit_price * $qty;
+            $subtotal += $line;
+
+            $prow = isset($products[$pid]) ? $products[$pid] : array();
+            $name = isset($prow['name']) ? (string) $prow['name'] : 'Product';
+            $variant_name = '';
+            if ($vid && isset($variants[$vid]['name'])) {
+                $variant_name = (string) $variants[$vid]['name'];
+            }
+            $image_url = '';
+            if (!empty($prow) && function_exists('webshop_product_image_src')) {
+                $image_url = webshop_product_image_src($uploadsBase, $thumbsBase, $prow);
+            }
+
+            $items[] = array(
+                'item_key'       => (string) $key,
+                'product_id'     => $pid,
+                'variant_id'     => $vid,
+                'name'           => $name,
+                'variant_name'   => $variant_name,
+                'image'          => $image_url,
+                'quantity'       => $qty,
+                'unit_price'     => $unit_price,
+                'unit_price_fmt' => $symbol . ' ' . number_format($unit_price, 2),
+                'line_total'     => $line,
+                'line_total_fmt' => $symbol . ' ' . number_format($line, 2),
+            );
+        }
+
+        return array(
+            'status'        => 'success',
+            'count'         => count($items),
+            'subtotal'      => $subtotal,
+            'subtotal_fmt'  => $symbol . ' ' . number_format($subtotal, 2),
+            'currency'      => $symbol,
+            'items'         => $items,
+            'view_cart_url' => $view_cart_url,
+            'checkout_url'  => $checkout_url,
+        );
+    }
+
     public function set_product_gallery($postData)
     {
 
@@ -3715,18 +3878,42 @@ XSL;
     public function login()
     {
         $theme = $this->webshop_settings->webshop_theme;
-        if ($this->input->post('submit_login')) {
 
-            $username = $this->input->post('webshop_username');
-            $plainPassword = (string) $this->input->post('webshop_password');
-            $return_page = $this->input->post('return_page');
-            $data['phone'] = $this->input->post('phone');
-            $logdata['first'] = $this->input->post('first');
-            $logdata['last']  = $this->input->post('last');
-            $phone = $this->input->post('phone');
+        // Treat any POST to /webshop/login as a login attempt. The modern
+        // "Welcome Back" form (components/login_form.php) posts identity+password
+        // and a "submit" button; the legacy two-column view posts phone +
+        // webshop_password + submit_login. Reading by method instead of one
+        // button name keeps both working — without this the modern form's POST
+        // silently fell through to the render branch and the page only refreshed.
+        $is_login_post = (strtoupper($this->input->method(true)) === 'POST');
 
-            // $authData = $this->webshop_model->authenticate_user($username, $passwdHash);
-            $authData = $this->webshop_model->authenticate_user_password($phone, $plainPassword);
+        if ($is_login_post) {
+            // identity = email OR phone (ElintOm logincheck accepts either).
+            $identity_raw = $this->input->post('identity');
+            if ($identity_raw === false || $identity_raw === null || trim((string) $identity_raw) === '') {
+                $identity_raw = $this->input->post('phone');
+            }
+            $login_input = trim((string) $identity_raw);
+
+            $password_raw = $this->input->post('password');
+            if ($password_raw === false || $password_raw === null || $password_raw === '') {
+                $password_raw = $this->input->post('webshop_password');
+            }
+            $plainPassword = (string) $password_raw;
+
+            $return_page = trim((string) $this->input->post('return_page'));
+            // Don't loop back to the login page on success.
+            if ($return_page === '' || stripos($return_page, 'webshop/login') !== false) {
+                $return_page = site_url('webshop');
+            }
+
+            if ($login_input === '' || $plainPassword === '') {
+                $this->session->set_flashdata('toast_error', 'Please enter your email or mobile number and password.');
+                redirect('webshop/login');
+                return;
+            }
+
+            $authData = $this->webshop_model->authenticate_user_password($login_input, $plainPassword);
 
             if (!empty($authData)) {
                 $authData = is_object($authData) ? $authData : (object) $authData;
@@ -3751,37 +3938,39 @@ XSL;
                     'phone'         => isset($authData->phone) ? $authData->phone : '',
                 );
                 $this->session->set_userdata('customer_register', $register_session_data);
-                if ($theme == 'restaurant') {
-                    redirect("webshop?msg=login_success");
+                if ($theme == 'restaurant' || $theme == 'nw') {
+                    redirect('webshop?msg=login_success');
                     return;
                 }
-                if ($theme == 'nw') {
-                    redirect("webshop?msg=login_success");
-                    return;
-                }
-                redirect($return_page .  "?msg=auth_success");
-            } else {
-                // redirect("webshop/login?msg=error");
-                $this->data['phone_error'] = "Invalid phone number or password.";
-                $this->data['validated'] = false;
-                $this->data['return_page'] = $return_page;
-
-                $this->load_view("login", $this->data);
-            }
-        } else {
-            $ws_sess = $this->session->userdata('webshop');
-            $is_login = false;
-            if ($ws_sess) {
-                $is_login = is_object($ws_sess) ? (isset($ws_sess->is_login) && $ws_sess->is_login) : (isset($ws_sess['is_login']) && $ws_sess['is_login']);
+                redirect($return_page . (strpos($return_page, '?') === false ? '?' : '&') . 'msg=auth_success');
+                return;
             }
 
-            if ($is_login) {
-                redirect("webshop/index");
-            }
-            $this->data['return_page'] = isset($_SERVER['HTTP_REFERER']) ? str_replace(base_url(), '', $_SERVER['HTTP_REFERER']) : '';
-            $this->data['website_setting'] = $this->webshop_model->get_website_setting();
-            $this->load_view("login", $this->data);
+            // Failure path — flashdata is read by both the modern and legacy
+            // login views (toast_error / flash_err). Redirect (PRG) so a browser
+            // refresh after the error doesn't re-POST the credentials.
+            $this->session->set_flashdata('toast_error', 'Invalid email/mobile or password. Please try again.');
+            redirect('webshop/login');
+            return;
         }
+
+        // GET — render the login page (or send the user away if already signed in).
+        $ws_sess = $this->session->userdata('webshop');
+        $is_login = false;
+        if ($ws_sess) {
+            $is_login = is_object($ws_sess)
+                ? (isset($ws_sess->is_login) && $ws_sess->is_login)
+                : (isset($ws_sess['is_login']) && $ws_sess['is_login']);
+        }
+
+        if ($is_login) {
+            redirect('webshop/index');
+            return;
+        }
+        $this->data['return_page'] = isset($_SERVER['HTTP_REFERER']) ? str_replace(base_url(), '', $_SERVER['HTTP_REFERER']) : '';
+        $this->data['website_setting'] = $this->webshop_model->get_website_setting();
+        $this->data['validated'] = null;
+        $this->load_view('login', $this->data);
     }
     public function logout()
     {
@@ -4070,7 +4259,28 @@ XSL;
 
     public function your_account()
     {
-        $theme = $this->webshop_settings->webshop_theme;
+        $this->_render_my_account_view('profile');
+    }
+
+    /**
+     * Same shell as your_account, with the Track order tab selected (logged-in only).
+     */
+    public function your_tracking()
+    {
+        $this->_render_my_account_view('tracking');
+    }
+
+    /**
+     * Unified Gulf Pharmacy "My Account" view.
+     *
+     * Loads /your_account, /your_orders, /your_tracking, /your_address, /change_password into the same
+     * tabbed shell with $active_tab driving which panel is initially visible.
+     * Heavy lists (orders, addresses, state/country) are loaded only for the tab that is shown first;
+     * other tabs hydrate via POST webshop_request action=account_panel_data (see account_panel_data()).
+     */
+    private function _render_my_account_view($active_tab = 'profile')
+    {
+        $theme = isset($this->webshop_settings->webshop_theme) ? (string) $this->webshop_settings->webshop_theme : '';
         $ws_sess = $this->session->userdata('webshop');
         $is_login = false;
         $customer_id = 0;
@@ -4080,67 +4290,302 @@ XSL;
         }
 
         if (!$is_login || !$customer_id) {
-            if ($theme == 'restaurant') {
-                $this->load_view("restaurant/index", $this->data);
-                return;
-            }
-            if ($theme == 'nw') {
-                $this->load_view("nw_theme/index", $this->data);
-                return;
-            }
-            if ($theme == 'gulfpharmacy') {
-                $this->load_view("gulfpharmacy_theme/index", $this->data);
-                return;
-            }
             redirect("webshop/login");
             return;
         }
 
-        $raw_settings = $this->webshop_model->get_website_setting();
-        $this->data['website_setting'] = $raw_settings;
-        $setting_map = [];
-        if (is_array($raw_settings) || is_object($raw_settings)) {
-            foreach ($raw_settings as $row) {
-                $setting_map[$row->fields] = $row->value;
+        // Only load heavy lists for the tab that needs them on first paint; other tabs hydrate via account_panel_data.
+        $ssr_orders = ($active_tab === 'orders');
+        $ssr_addresses = ($active_tab === 'addresses');
+        $ssr_geo = ($active_tab === 'addresses');
+
+        // Legacy theme shells still expect the full payload in $this->data (even if the view is not Gulf).
+        if ($theme === 'restaurant' || $theme === 'nw') {
+            $ssr_orders = true;
+            $ssr_addresses = true;
+            $ssr_geo = true;
+        }
+
+        $this->data['orders'] = array('orders' => array());
+        $this->data['addresses'] = array();
+        $this->data['state_list'] = array();
+        $this->data['country'] = array();
+
+        if ($ssr_orders) {
+            $orders_raw = $this->webshop_model->get_customer_orders($customer_id);
+            if (is_array($orders_raw) && isset($orders_raw['orders']) && is_array($orders_raw['orders'])) {
+                $this->data['orders'] = $orders_raw;
             }
         }
-        $this->data['setting_map'] = $setting_map;
-        $this->data['state_list'] = $this->webshop_model->get_state();
-        $this->data['country'] = $this->webshop_model->getCountry();
-        $this->data['orders'] = $this->webshop_model->get_customer_orders($customer_id);
-        if ($theme == 'restaurant') {
-            $this->load_view("webshop_restaurant_t1/my_account", $this->data);
-            return;
+        if ($ssr_addresses) {
+            $addr_raw = $this->webshop_model->get_customer_address($customer_id);
+            if (is_array($addr_raw)) {
+                $this->data['addresses'] = $addr_raw;
+            }
         }
-        if ($theme == 'nw') {
-            $this->load_view("nw_theme/my_account", $this->data);
-            return;
+        if ($ssr_geo) {
+            $st = $this->webshop_model->get_state();
+            $this->data['state_list'] = is_array($st) ? $st : array();
+            $cc = $this->webshop_model->getCountry();
+            $this->data['country'] = is_array($cc) ? $cc : array();
         }
-        if ($theme == 'gulfpharmacy') {
+
+        $this->data['ma_orders_lazy'] = !$ssr_orders;
+        $this->data['ma_addresses_lazy'] = !$ssr_addresses;
+        $this->data['ma_geo_lazy'] = !$ssr_geo;
+
+        $cust = $this->webshop_model->get_customer(['id' => $customer_id]);
+        $this->data['customer'] = is_array($cust) ? $cust : array();
+        $this->data['customer_id']  = $customer_id;
+        $this->data['images']       = base_url("assets/images/customers/");
+
+        $allowed_tabs = array('profile', 'orders', 'tracking', 'addresses', 'change_password');
+        $this->data['active_tab'] = in_array($active_tab, $allowed_tabs, true) ? $active_tab : 'profile';
+
+        // Surface password-change status from change_password() redirects (success / error).
+        $segment3 = $this->uri->segment(3, '');
+        if ($segment3 === 'success' || $segment3 === 'error') {
+            $this->data['password_status'] = $segment3;
+        }
+
+        if ($theme === 'gulfpharmacy') {
             $this->load_view("gulfpharmacy_theme/my_account", $this->data);
             return;
         }
-        $this->load_view("your_account", $this->data);
+        if ($theme === 'restaurant') {
+            $this->load_view("webshop_restaurant_t1/my_account", $this->data);
+            return;
+        }
+        if ($theme === 'nw') {
+            $this->load_view("nw_theme/my_account", $this->data);
+            return;
+        }
+        // Final fallback: Gulf Pharmacy view (closest to current default storefront).
+        $this->load_view("gulfpharmacy_theme/my_account", $this->data);
+    }
+
+    /**
+     * JSON payload for My Account lazy tabs (orders / addresses / geo dropdowns).
+     * Called via POST webshop_request action=account_panel_data (same-origin session).
+     */
+    public function account_panel_data()
+    {
+        $customer_id = $this->_get_webshop_session_user_id();
+        if (!$customer_id) {
+            $this->json_response(array('status' => 'FAIL', 'error' => 'Unauthorized'));
+            return;
+        }
+
+        $orders_raw = $this->webshop_model->get_customer_orders($customer_id);
+        $orders_list = array();
+        if (is_array($orders_raw) && isset($orders_raw['orders']) && is_array($orders_raw['orders'])) {
+            foreach ($orders_raw['orders'] as $o) {
+                $arr = is_object($o) ? (array) $o : (array) $o;
+                $oid = isset($arr['order_id']) ? (int) $arr['order_id'] : 0;
+                $arr['track_hash'] = $oid > 0 ? md5((string) $oid) : '';
+                $orders_list[] = $arr;
+            }
+        }
+
+        $addr_raw = $this->webshop_model->get_customer_address($customer_id);
+        $addresses_out = $this->_normalize_ma_addresses_for_json($addr_raw);
+
+        // Keep both `id` (for cascade lookup) and `country_id` so the JS can rebuild
+        // the state dropdown filtered by the chosen country. ElintOm's getstates payload
+        // already carries country_id — see Elintom_api_response::normalize_states_map().
+        $state_rows = $this->webshop_model->get_state();
+        $state_out = array();
+        if (is_array($state_rows)) {
+            foreach ($state_rows as $sr) {
+                $row = is_object($sr) ? (array) $sr : (array) $sr;
+                $n = '';
+                if (isset($row['name']) && (string) $row['name'] !== '') {
+                    $n = (string) $row['name'];
+                } elseif (isset($row['state_name']) && (string) $row['state_name'] !== '') {
+                    $n = (string) $row['state_name'];
+                } elseif (isset($row['StateName']) && (string) $row['StateName'] !== '') {
+                    $n = (string) $row['StateName'];
+                }
+                if ($n === '') {
+                    continue;
+                }
+                $sid  = isset($row['id']) ? (int) $row['id'] : 0;
+                $scid = isset($row['country_id']) ? (int) $row['country_id'] : 0;
+                $state_out[] = array(
+                    'id'         => $sid,
+                    'country_id' => $scid,
+                    'name'       => $n,
+                );
+            }
+        }
+
+        $countries_raw = $this->webshop_model->getCountry();
+        $countries_out = array();
+        if (is_array($countries_raw)) {
+            foreach ($countries_raw as $c) {
+                $name = '';
+                $cid  = 0;
+                if (is_object($c)) {
+                    if (isset($c->name)) {
+                        $name = (string) $c->name;
+                    }
+                    if (isset($c->id)) {
+                        $cid = (int) $c->id;
+                    }
+                } else {
+                    $co = is_array($c) ? $c : array();
+                    if (isset($co['name'])) {
+                        $name = (string) $co['name'];
+                    }
+                    if (isset($co['id'])) {
+                        $cid = (int) $co['id'];
+                    }
+                }
+                if ($name !== '') {
+                    $countries_out[] = array(
+                        'id'   => $cid,
+                        'name' => $name,
+                    );
+                }
+            }
+        }
+
+        // Identity echo: tells the JS exactly which DB customer was queried so the
+        // empty-state cards can show "Signed in as …" — prevents the recurring
+        // confusion where a logged-in test account has no orders/addresses because
+        // a different account (different phone/email) is the one that owns them.
+        $account_out = $this->_account_identity_for_response($customer_id);
+
+        $this->json_response(array(
+            'status' => 'OK',
+            'account' => $account_out,
+            'orders' => $orders_list,
+            'addresses' => $addresses_out,
+            'state_list' => $state_out,
+            'countries' => $countries_out,
+        ));
+    }
+
+    /**
+     * Build a small {id, name, email_masked, phone_masked} bag for the panel JSON.
+     * Source of truth is the API (get_customer); we fall back to session-stored
+     * fields only when the API didn't return them. Email and phone are masked
+     * before they leave the controller — keep the rule in security-and-secrets.mdc.
+     *
+     * @param int $customer_id
+     * @return array<string,mixed>
+     */
+    private function _account_identity_for_response($customer_id)
+    {
+        $cust = $this->webshop_model->get_customer(array('id' => $customer_id));
+        $cust = is_array($cust) ? $cust : array();
+        $ws_sess = $this->session->userdata('webshop');
+        $ws_obj  = $ws_sess;
+        $ws_get  = function ($key) use ($ws_obj) {
+            if (is_object($ws_obj) && isset($ws_obj->$key)) {
+                return (string) $ws_obj->$key;
+            }
+            if (is_array($ws_obj) && isset($ws_obj[$key])) {
+                return (string) $ws_obj[$key];
+            }
+            return '';
+        };
+
+        $name  = isset($cust['name']) ? (string) $cust['name'] : $ws_get('name');
+        $email = isset($cust['email']) ? (string) $cust['email'] : $ws_get('email');
+        $phone = isset($cust['phone']) ? (string) $cust['phone'] : $ws_get('phone');
+
+        return array(
+            'id'            => (int) $customer_id,
+            'name'          => $name,
+            'email_masked'  => $this->_mask_email_for_display($email),
+            'phone_masked'  => $this->_mask_phone_for_display($phone),
+        );
+    }
+
+    private function _mask_email_for_display($email)
+    {
+        $email = trim((string) $email);
+        if ($email === '' || strpos($email, '@') === false) {
+            return '';
+        }
+        list($local, $domain) = explode('@', $email, 2);
+        if ($local === '') {
+            return '@' . $domain;
+        }
+        if (strlen($local) <= 2) {
+            return $local[0] . '***@' . $domain;
+        }
+        return substr($local, 0, 2) . str_repeat('*', max(1, strlen($local) - 4)) . substr($local, -2) . '@' . $domain;
+    }
+
+    private function _mask_phone_for_display($phone)
+    {
+        $phone = preg_replace('/\s+/', '', (string) $phone);
+        if ($phone === '') {
+            return '';
+        }
+        if (strlen($phone) <= 4) {
+            return $phone;
+        }
+        return substr($phone, 0, 2) . str_repeat('*', max(2, strlen($phone) - 4)) . substr($phone, -2);
+    }
+
+    /**
+     * @param mixed $raw get_customer_address() return (keyed list, indexed list, or false)
+     * @return array<int,array<string,mixed>>
+     */
+    private function _normalize_ma_addresses_for_json($raw)
+    {
+        $out = array();
+        if ($raw === false || $raw === null) {
+            return $out;
+        }
+        if (!is_array($raw)) {
+            return $out;
+        }
+        foreach ($raw as $row) {
+            $a = is_object($row) ? (array) $row : (array) $row;
+            $email = '';
+            if (isset($a['email_id'])) {
+                $email = (string) $a['email_id'];
+            } elseif (isset($a['email'])) {
+                $email = (string) $a['email'];
+            }
+            $out[] = array(
+                'id' => isset($a['id']) ? (int) $a['id'] : 0,
+                'address_name' => isset($a['address_name']) ? (string) $a['address_name'] : '',
+                'line1' => isset($a['line1']) ? (string) $a['line1'] : '',
+                'line2' => isset($a['line2']) ? (string) $a['line2'] : '',
+                'city' => isset($a['city']) ? (string) $a['city'] : '',
+                'postal_code' => isset($a['postal_code']) ? (string) $a['postal_code'] : '',
+                'state' => isset($a['state']) ? (string) $a['state'] : '',
+                'country' => isset($a['country']) ? (string) $a['country'] : '',
+                'phone' => isset($a['phone']) ? (string) $a['phone'] : '',
+                'email_id' => $email,
+                'is_default' => isset($a['is_default']) ? (int) $a['is_default'] : 0,
+            );
+        }
+        return $out;
     }
 
     public function your_address()
     {
         $customer_id = $this->_get_webshop_session_user_id();
-        if ($customer_id) {
-            $theme = $this->webshop_settings->webshop_theme;
-
+        if (!$customer_id) {
+            redirect("webshop/login");
+            return;
+        }
+        $theme = isset($this->webshop_settings->webshop_theme) ? (string) $this->webshop_settings->webshop_theme : '';
+        if ($theme === 'restaurant' || $theme === 'nw') {
+            // Legacy themes still expect the JSON contract for this endpoint.
             $this->data['state_list'] = $this->webshop_model->get_state();
-
             $this->data['customer_id'] = $customer_id;
             $this->data['addresses'] = $this->webshop_model->get_customer_address($customer_id);
-            if ($theme == 'restaurant' || $theme == "nw") {
-                $this->json_response($this->data);
-                return;
-            }
-            $this->load_view("your_address", $this->data);
-        } else {
-            redirect("webshop/login");
+            $this->json_response($this->data);
+            return;
         }
+        $this->_render_my_account_view('addresses');
     }
 
     public function manage_address($postData)
@@ -4214,14 +4659,19 @@ XSL;
             $this->json_response(['statusMessage' => "unauthorized"]);
             return;
         }
-        $address_id = isset($input['address_id']) ? $input['address_id'] : null;
         $address_name = isset($input['address_name']) ? $input['address_name'] : '';
         $company_name = isset($input['company_name']) ? $input['company_name'] : '';
         $line1 = isset($input['line1']) ? $input['line1'] : '';
         $line2 = isset($input['line2']) ? $input['line2'] : '';
         $city = isset($input['city']) ? $input['city'] : '';
         $postal_code = isset($input['postal_code']) ? $input['postal_code'] : '';
-        $state = isset($input['state']) ? $input['state'] : '';
+        $state = isset($input['state']) ? trim((string) $input['state']) : '';
+        $state_code = '';
+        if ($state !== '' && strpos($state, '~') !== false) {
+            $sd = explode('~', $state, 2);
+            $state = trim($sd[0]);
+            $state_code = isset($sd[1]) ? trim($sd[1]) : '';
+        }
         $country = isset($input['country']) ? $input['country'] : '';
         $phone = isset($input['phone']) ? $input['phone'] : '';
         $email_id = isset($input['email_id']) ? $input['email_id'] : '';
@@ -4237,32 +4687,46 @@ XSL;
             'city' => $city,
             'postal_code' => $postal_code,
             'state' => $state,
+            'state_code' => $state_code,
             'country' => $country,
             'phone' => $phone,
             'email_id' => $email_id,
         ];
 
         if ($addressAction == "edit") {
-            $this->webshop_model->update_customer_address($data, $address_id);
-            if ($is_default == 1) {
-                $this->webshop_model->set_address_default($userId, $address_id);
+            $eid = isset($input['address_id']) ? (int) $input['address_id'] : 0;
+            if ($eid < 1) {
+                $this->json_response(['statusMessage' => "error"]);
+                return;
             }
-            $this->json_response(['statusMessage' => "success"]);
+            $ok = $this->webshop_model->update_customer_address($data, $eid);
+            if ($ok && $is_default == 1) {
+                $this->webshop_model->set_address_default($userId, $eid);
+            }
+            $this->json_response(['statusMessage' => $ok ? "success" : "error"]);
             return;
         } elseif ($addressAction == "add") {
-            if ($address_id = $this->webshop_model->set_customer_address($data)) {
+            $newId = $this->webshop_model->set_customer_address($data);
+            if ($newId) {
                 if ($is_default == 1) {
-                    $this->webshop_model->set_address_default($userId, $address_id);
+                    $this->webshop_model->set_address_default($userId, $newId);
                 }
+                $this->json_response(['statusMessage' => "success"]);
+                return;
             }
-            $this->json_response(['statusMessage' => "success"]);
+            $this->json_response(['statusMessage' => "error"]);
             return;
         }
+        $this->json_response(['statusMessage' => "error"]);
     }
 
     public function address_set_default($customer_id, $address_id)
     {
-
+        $uid = $this->_get_webshop_session_user_id();
+        if (!$uid || (int) $customer_id !== (int) $uid) {
+            redirect('webshop/login');
+            return;
+        }
         if ($this->webshop_model->set_address_default($customer_id, $address_id)) {
 
             $this->session->set_flashdata('message', "Default Address Set Successfully.");
@@ -4282,8 +4746,12 @@ XSL;
 
     public function address_delete($address_id)
     {
-
-        if ($this->webshop_model->delete_address($address_id)) {
+        $uid = $this->_get_webshop_session_user_id();
+        if (!$uid) {
+            redirect("webshop/login");
+            return;
+        }
+        if ($this->webshop_model->delete_address((int) $address_id, $uid)) {
 
             $this->session->set_flashdata('message', "Address Deleted Successfully.");
             redirect("webshop/your_address");
@@ -4292,33 +4760,22 @@ XSL;
 
     public function your_orders()
     {
-
         $customer_id = $this->_get_webshop_session_user_id();
-        if ($customer_id) {
-            $theme = $this->webshop_settings->webshop_theme;
-
-            $this->data['recent_viewed'] = $this->webshop_model->get_recent_viewed_product();
-
-            $this->data['customer_id'] = $customer_id;
-
-            $this->data['orders'] = $this->webshop_model->get_customer_orders($customer_id);
-
-            if ($theme == 'restaurant' || $theme == "nw") {
-                $this->data['addresses'] = $this->webshop_model->get_customer_address($customer_id);
-                $this->json_response($this->data);
-                return;
-            }
-            $this->load_view("your_orders", $this->data);
-        } else {
-            // $theme = $this->webshop_settings->webshop_theme;
-            // if ($theme == 'restaurant') {
-            //     redirect("webshop/login", $this->data);
-            // }
-            // if ($theme == 'nw') {
-            //     redirect("nw/login", $this->data);
-            // }
+        if (!$customer_id) {
             redirect("webshop/login");
+            return;
         }
+        $theme = isset($this->webshop_settings->webshop_theme) ? (string) $this->webshop_settings->webshop_theme : '';
+        if ($theme === 'restaurant' || $theme === 'nw') {
+            // Legacy themes still expect the JSON contract for this endpoint.
+            $this->data['recent_viewed'] = $this->webshop_model->get_recent_viewed_product();
+            $this->data['customer_id']   = $customer_id;
+            $this->data['orders']        = $this->webshop_model->get_customer_orders($customer_id);
+            $this->data['addresses']     = $this->webshop_model->get_customer_address($customer_id);
+            $this->json_response($this->data);
+            return;
+        }
+        $this->_render_my_account_view('orders');
     }
 
     public function order_details($order_id)
@@ -4558,46 +5015,47 @@ XSL;
     public function change_password()
     {
         $userId = $this->_get_webshop_session_user_id();
-        if ($userId) {
-
-            if ($this->input->post('changePassword') !== false && $this->input->post('changePassword') !== null) {
-
-                $this->load->library('form_validation');
-                $this->form_validation->set_error_delimiters('<div class="text-danger">', '</div>');
-
-                $this->form_validation->set_rules('current_password', 'current password', 'required');
-                $this->form_validation->set_rules('newpassword', 'newpassword', 'trim|required|min_length[8]|max_length[22]|differs[current_password]');
-                $this->form_validation->set_rules('confirm', 'confirm', 'trim|required|matches[newpassword]');
-
-                if ($this->form_validation->run() == FALSE) {
-                    $this->session->set_flashdata('error', 'Validation Errors!');
-                    $this->load_view("change_password", $this->data);
-                } else {
-                    $current_password = $this->input->post('current_password');
-                    $newpassword      = md5($this->input->post('newpassword'));
-
-                    if ($this->webshop_model->is_valid_current_password($userId, $current_password) === false) {
-                        $this->session->set_flashdata('error', 'Invalid Current Password');
-                        redirect("webshop/change_password/error");
-                    } else {
-
-                        if ($this->webshop_model->update_new_password($userId, $newpassword)) {
-
-                            $this->session->set_flashdata('message', 'Password has been changed successfully.');
-                            redirect("webshop/change_password/success");
-                        } else {
-                            $this->session->set_flashdata('error', 'Sql error!');
-                            redirect("webshop/change_password/error");
-                        }
-                    }
-                }
-            } else {
-
-                $this->load_view("change_password", $this->data);
-            }
-        } else {
+        if (!$userId) {
             redirect("webshop/login");
+            return;
         }
+
+        if ($this->input->post('changePassword') !== false && $this->input->post('changePassword') !== null) {
+
+            $this->load->library('form_validation');
+            $this->form_validation->set_error_delimiters('<div class="text-danger">', '</div>');
+
+            $this->form_validation->set_rules('current_password', 'current password', 'required');
+            $this->form_validation->set_rules('newpassword', 'newpassword', 'trim|required|min_length[8]|max_length[22]|differs[current_password]');
+            $this->form_validation->set_rules('confirm', 'confirm', 'trim|required|matches[newpassword]');
+
+            if ($this->form_validation->run() == FALSE) {
+                $this->session->set_flashdata('error', 'Validation Errors!');
+                $this->_render_my_account_view('change_password');
+                return;
+            }
+
+            $current_password = $this->input->post('current_password');
+            $newpassword      = md5($this->input->post('newpassword'));
+
+            if ($this->webshop_model->is_valid_current_password($userId, $current_password) === false) {
+                $this->session->set_flashdata('error', 'Invalid Current Password');
+                redirect("webshop/change_password/error");
+                return;
+            }
+
+            if ($this->webshop_model->update_new_password($userId, $newpassword)) {
+                $this->session->set_flashdata('message', 'Password has been changed successfully.');
+                redirect("webshop/change_password/success");
+                return;
+            }
+
+            $this->session->set_flashdata('error', 'Sql error!');
+            redirect("webshop/change_password/error");
+            return;
+        }
+
+        $this->_render_my_account_view('change_password');
     }
 
     public function forgot_password()
@@ -5564,7 +6022,32 @@ XSL;
 
     public function track_order($order_id)
     {
-        $this->data['order_id'] = $order_id;
+        // Accept numeric id, MD5(id), or reference_no in the URL segment.
+        $identifier = trim((string) $order_id);
+        $this->data['order_id']   = $identifier;
+        $this->data['identifier'] = $identifier;
+
+        $session_user_id = $this->_get_webshop_session_user_id();
+        $this->data['is_logged_in']   = (bool) $session_user_id;
+        $this->data['tracking_order'] = array();
+        $this->data['tracking_items'] = array();
+        $this->data['tracking_error'] = '';
+
+        if (!$session_user_id) {
+            $this->data['tracking_error'] = 'Please sign in to track this order.';
+        } elseif ($identifier === '') {
+            $this->data['tracking_error'] = 'Missing tracking reference.';
+        } else {
+            $this->load->model('webshop_api_model');
+            $tracking = $this->webshop_api_model->get_order_for_tracking($identifier, $session_user_id);
+            if (is_array($tracking) && !empty($tracking['order'])) {
+                $this->data['tracking_order'] = $tracking['order'];
+                $this->data['tracking_items'] = isset($tracking['items']) && is_array($tracking['items']) ? $tracking['items'] : array();
+            } else {
+                $this->data['tracking_error'] = 'We could not find an order matching this reference.';
+            }
+        }
+
         if ($this->webshop_settings->webshop_theme == 'restaurant') {
             $this->load_view("webshop_restaurant_t1/tracking_order", $this->data);
         } else if ($this->webshop_settings->webshop_theme == 'nw') {
@@ -5667,6 +6150,44 @@ XSL;
         } else {
             $this->json_response(['status' => 'error', 'message' => 'No tracking data found']);
         }
+    }
+
+    /**
+     * Lightweight JSON poller used by the Gulf Pharmacy tracking page. Returns just
+     * the current sale_status so the client-side stepper can advance without
+     * re-fetching the whole order row.
+     */
+    public function track_order_status()
+    {
+        $session_user_id = $this->_get_webshop_session_user_id();
+        if (!$session_user_id) {
+            $this->json_response(array('status' => 'FAIL', 'error' => 'Unauthorized'));
+            return;
+        }
+
+        $identifier = trim((string) $this->input->post('identifier'));
+        if ($identifier === '') {
+            $identifier = trim((string) $this->input->post('order_id'));
+        }
+        if ($identifier === '') {
+            $this->json_response(array('status' => 'FAIL', 'error' => 'Missing identifier'));
+            return;
+        }
+
+        $this->load->model('webshop_api_model');
+        $tracking = $this->webshop_api_model->get_order_for_tracking($identifier, $session_user_id);
+        if (!is_array($tracking) || empty($tracking['order'])) {
+            $this->json_response(array('status' => 'FAIL', 'error' => 'Order not found'));
+            return;
+        }
+
+        $order = $tracking['order'];
+        $this->json_response(array(
+            'status'         => 'OK',
+            'sale_status'    => isset($order['sale_status']) ? (string) $order['sale_status'] : '',
+            'payment_status' => isset($order['payment_status']) ? (string) $order['payment_status'] : '',
+            'csrf_hash'      => $this->security->get_csrf_hash(),
+        ));
     }
     // every order status trigger below function 
     public function call_whatsapp_api($order_id = null)
