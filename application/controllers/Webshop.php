@@ -1988,18 +1988,57 @@ XSL;
 
     public function submit_product_review()
     {
-        $product_hash = trim((string) $this->input->post('product_hash'));
-        $rating = (float) $this->input->post('rating');
-        $review_title = trim((string) $this->input->post('review_title'));
+        $product_hash   = trim((string) $this->input->post('product_hash'));
+        $rating         = (int) $this->input->post('rating');
+        $review_title   = trim((string) $this->input->post('review_title'));
         $review_details = trim((string) $this->input->post('review_details'));
 
-        if ($product_hash === '' || $rating < 1 || $rating > 5) {
-            $this->session->set_flashdata('error', 'Please provide a valid rating.');
-            redirect('webshop/product_reviews/' . rawurlencode($product_hash));
+        $back_url = $product_hash !== ''
+            ? 'webshop/product_reviews/' . rawurlencode($product_hash)
+            : 'webshop/index';
+
+        // Preserve what the user typed so the view can repopulate after a redirect.
+        // mb_strlen is safe for ASCII; fall back to strlen if mbstring is missing.
+        $len = function ($v) { return function_exists('mb_strlen') ? mb_strlen((string) $v) : strlen((string) $v); };
+        $fail = function ($field, $message) use ($back_url, $rating, $review_title, $review_details) {
+            $this->session->set_flashdata('error', $message);
+            $this->session->set_flashdata('error_field', $field);
+            $this->session->set_flashdata('pr_old', array(
+                'rating'         => $rating,
+                'review_title'   => $review_title,
+                'review_details' => $review_details,
+            ));
+            redirect($back_url);
+        };
+
+        // Server-side validation (browser-required is not enough — JS off, bots, etc.).
+        if ($product_hash === '') {
+            $this->session->set_flashdata('error', 'Missing product reference.');
+            redirect('webshop/index');
+            return;
+        }
+        if ($rating < 1 || $rating > 5) {
+            $fail('rating', 'Please choose a rating between 1 and 5 stars.');
+            return;
+        }
+        if ($review_title === '' || $len($review_title) < 3) {
+            $fail('review_title', 'Please give your review a short title (min 3 characters).');
+            return;
+        }
+        if ($review_details === '' || $len($review_details) < 10) {
+            $fail('review_details', 'Please add a few words about your experience (min 10 characters).');
             return;
         }
 
-        $productDetails = $this->webshop_model->get_product_by_hash($product_hash);
+        // Resolve the product through the API model (single source of truth).
+        try {
+            $productDetails = $this->webshop_api_model->get_product_by_hash($product_hash);
+        } catch (Exception $e) {
+            log_message('error', 'submit_product_review: get_product_by_hash threw: ' . $e->getMessage());
+            $this->session->set_flashdata('error', 'Could not look up the product. Please try again.');
+            redirect($back_url);
+            return;
+        }
         if ($productDetails === false || !is_array($productDetails) || !isset($productDetails['item'])) {
             $this->session->set_flashdata('error', 'Invalid product.');
             redirect('webshop/index');
@@ -2007,41 +2046,55 @@ XSL;
         }
 
         $product = is_object($productDetails['item']) ? (array) $productDetails['item'] : $productDetails['item'];
+        $product_id = isset($product['id']) ? (int) $product['id'] : 0;
+        if ($product_id <= 0) {
+            $this->session->set_flashdata('error', 'Invalid product.');
+            redirect($back_url);
+            return;
+        }
 
         $ws_sess = $this->session->userdata('webshop');
         $customer_id = 0;
-        $customer_name = 'Guest';
+        $customer_name = '';
         if ($ws_sess) {
-            $customer_id = is_object($ws_sess) ? (isset($ws_sess->user_id) ? $ws_sess->user_id : 0) : (isset($ws_sess['user_id']) ? $ws_sess['user_id'] : 0);
-            $customer_name = is_object($ws_sess) ? (isset($ws_sess->name) ? $ws_sess->name : 'Customer') : (isset($ws_sess['name']) ? $ws_sess['name'] : 'Customer');
+            $customer_id   = is_object($ws_sess) ? (isset($ws_sess->user_id) ? (int) $ws_sess->user_id : 0) : (isset($ws_sess['user_id']) ? (int) $ws_sess['user_id'] : 0);
+            $customer_name = is_object($ws_sess) ? (isset($ws_sess->name) ? (string) $ws_sess->name : '') : (isset($ws_sess['name']) ? (string) $ws_sess['name'] : '');
+        }
+        if ($customer_name === '') {
+            $customer_name = $customer_id > 0 ? 'Customer' : 'Guest';
         }
 
+        // Match the field names that ElintOm's Webshop_api::submitproductreview reads.
         $reviewData = array(
-            'product_id'        => isset($product['id']) ? $product['id'] : 0,
-            'product_name'      => isset($product['name']) ? $product['name'] : 'Unknown Product',
-            'variant_id'        => 0,
-            'variant_name'      => '',
-            'customer_id'       => $customer_id,
-            'customer_name'     => $customer_name,
-            'reviews_date'      => date('Y-m-d H:i:s'),
-            'reviews_rattings'  => $rating,
-            'reviews_title'     => html_escape($review_title),
-            'reviews_details'   => html_escape($review_details),
-            'customer_images'   => '',
-            'like_count'        => 0,
-            'dislike_count'     => 0,
-            'is_active'         => 1,
-            'is_delete'         => 0,
-            'updated_at'        => date('Y-m-d H:i:s')
+            'product_id'    => $product_id,
+            'rating'        => $rating,
+            'review'        => $review_details,
+            'review_title'  => $review_title,
+            'product_name'  => isset($product['name']) ? (string) $product['name'] : 'Product',
+            'variant_id'    => 0,
+            'variant_name'  => '',
+            'customer_id'   => $customer_id,
+            'customer_name' => $customer_name,
         );
 
-        if ($this->webshop_model->add_product_review($reviewData)) {
-            $this->session->set_flashdata('message', 'Review submitted successfully.');
-        } else {
-            $this->session->set_flashdata('error', 'Failed to submit review. Please try again.');
+        try {
+            $result = $this->webshop_api_model->submit_product_review($reviewData);
+        } catch (Exception $e) {
+            log_message('error', 'submit_product_review: api call threw: ' . $e->getMessage());
+            $result = array('status' => 'ERROR', 'msg' => 'Service temporarily unavailable. Please try again.');
         }
 
-        redirect('webshop/product_reviews/' . rawurlencode($product_hash));
+        if ($result && isset($result['status']) && $result['status'] === 'SUCCESS') {
+            log_message('info', 'submit_product_review: review saved for product_id=' . $product_id . ' rating=' . $rating);
+            $this->session->set_flashdata('message', 'Review submitted successfully. Thank you for your feedback!');
+        } else {
+            log_message('error', 'submit_product_review: failed for product_id=' . $product_id
+                . ' msg=' . (isset($result['msg']) ? $result['msg'] : 'no msg'));
+            $msg = (isset($result['msg']) && $result['msg'] !== '') ? (string) $result['msg'] : 'Failed to submit review. Please try again.';
+            $this->session->set_flashdata('error', $msg);
+        }
+
+        redirect($back_url);
     }
 
     private function build_entity_meta_tags($entity_tags)

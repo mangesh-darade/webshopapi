@@ -1345,6 +1345,57 @@ class Webshop_api_model extends CI_Model {
      * @param int $limit
      * @return array
      */
+    /**
+     * Submit a customer product review through ElintOm.
+     *
+     * Required keys on $data:
+     *   product_id, rating (1-5), review (body), review_title.
+     * Optional:
+     *   product_name, variant_id, variant_name, customer_id, customer_name.
+     *
+     * Returns ['status' => 'SUCCESS', 'msg' => ...] or ['status' => 'ERROR', 'msg' => ...].
+     * Never throws — transport errors are converted to ERROR responses.
+     */
+    public function submit_product_review(array $data) {
+        $pid    = isset($data['product_id']) ? (int) $data['product_id'] : 0;
+        $rating = isset($data['rating']) ? (int) $data['rating'] : 0;
+        $review = isset($data['review']) ? trim((string) $data['review']) : '';
+        $title  = isset($data['review_title']) ? trim((string) $data['review_title']) : '';
+        if ($pid <= 0 || $rating < 1 || $rating > 5 || $review === '') {
+            return ['status' => 'ERROR', 'msg' => 'product_id, rating (1-5) and review body are required.'];
+        }
+
+        $payload = array(
+            'product_id'    => $pid,
+            'rating'        => $rating,
+            'review'        => $review,
+            'review_title'  => $title,
+            'product_name'  => isset($data['product_name']) ? (string) $data['product_name'] : '',
+            'variant_id'    => isset($data['variant_id']) ? (int) $data['variant_id'] : 0,
+            'variant_name'  => isset($data['variant_name']) ? (string) $data['variant_name'] : '',
+            'customer_id'   => (isset($data['customer_id']) && (int) $data['customer_id'] > 0) ? (int) $data['customer_id'] : '',
+            'customer_name' => isset($data['customer_name']) && $data['customer_name'] !== '' ? (string) $data['customer_name'] : 'Customer',
+        );
+
+        try {
+            $res = $this->api->add_product_review($payload);
+        } catch (Exception $e) {
+            log_message('error', 'Webshop_api_model::submit_product_review transport error: ' . $e->getMessage());
+            return ['status' => 'ERROR', 'msg' => 'Unable to reach the review service. Please try again.'];
+        }
+
+        if ($res && isset($res->status) && strtoupper((string) $res->status) === 'SUCCESS') {
+            return ['status' => 'SUCCESS', 'msg' => isset($res->message) ? (string) $res->message : (isset($res->msg) ? (string) $res->msg : 'Review saved.')];
+        }
+
+        $apiErr = method_exists($this->api, 'get_last_error') ? $this->api->get_last_error() : null;
+        if (!$res && $apiErr) {
+            log_message('error', 'Webshop_api_model::submit_product_review api error: ' . $apiErr);
+        }
+        $msg = $res && isset($res->msg) ? (string) $res->msg : 'Could not save the review.';
+        return ['status' => 'ERROR', 'msg' => $msg];
+    }
+
     public function get_product_reviews($product_id, $limit = 100) {
         $pid = (int) $product_id;
         if ($pid <= 0) {

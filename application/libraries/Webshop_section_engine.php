@@ -47,15 +47,20 @@ class Webshop_section_engine
 
             // Header/Footer types no longer trigger specific layout flags.
             // They will be treated as regular sections if they have content.
+            //
+            // For category/product types we only propagate the configured *title*
+            // — the section itself is rendered as HTML through `render_components()`
+            // and merged into `home_section_html_block`. Setting `home_has_category_grid`
+            // or `home_has_product_grid` to true here would re-trigger the legacy
+            // hard-coded "Shop by Category" / "Featured Products" panels in the
+            // theme `index.php`, causing the same section to render twice.
             if ($type === 'category_grid' || $type === 'category_carousel') {
-                $patch['home_has_category_grid'] = true;
                 if (isset($cfg['title']) && trim((string) $cfg['title']) !== '') {
                     $patch['home_category_grid_title'] = (string) $cfg['title'];
                 }
                 continue;
             }
             if ($type === 'product_grid' || $type === 'product_carousel') {
-                $patch['home_has_product_grid'] = true;
                 if (isset($cfg['title']) && trim((string) $cfg['title']) !== '') {
                     $patch['home_product_grid_title'] = (string) $cfg['title'];
                 }
@@ -131,6 +136,16 @@ class Webshop_section_engine
         foreach ($sections as $section) {
             $sec = is_object($section) ? (array) $section : (is_array($section) ? $section : array());
             $type = $this->normalize_section_type($sec);
+
+            // `header` and `footer` are page chrome — the theme's header.php /
+            // footer.php already render them. Rendering them again as a body
+            // section produces visible duplicate footers/headers on the page.
+            // The admin dropdown keeps these options for a future "override
+            // site chrome" feature; for now they are no-ops in the body.
+            if ($type === 'header' || $type === 'footer') {
+                continue;
+            }
+
             $view = $this->resolve_component_view($type);
             if ($view === '') {
                 continue;
