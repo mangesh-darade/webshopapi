@@ -2,12 +2,17 @@
 <?php
 $ws = isset($webshop_settings) && is_object($webshop_settings) ? $webshop_settings : new stdClass();
 $shop_name  = isset($Settings->site_name) && $Settings->site_name !== '' ? $Settings->site_name : (isset($ws->site_name) ? $ws->site_name : 'My Shop');
-$logo_url   = '';
+$logo_url = '';
 if (!empty($ws->logo) || !empty($ws->header_logo)) {
-    $logo_file = !empty($ws->header_logo) ? $ws->header_logo : $ws->logo;
-    $logo_url  = isset($uploads) && $uploads !== ''
-        ? rtrim($uploads, '/') . '/' . ltrim($logo_file, '/')
-        : '';
+    $logo_file = trim((string) (!empty($ws->header_logo) ? $ws->header_logo : $ws->logo));
+    if ($logo_file !== '') {
+        $uploadsBase = isset($uploads) ? (string) $uploads : '';
+        if ($uploadsBase !== '') {
+            $logo_url = webshop_media_src($uploadsBase, $logo_file);
+        } elseif (preg_match('#^https?://#i', $logo_file)) {
+            $logo_url = $logo_file;
+        }
+    }
 }
 $cms_nav   = isset($cms_nav_pages) && is_array($cms_nav_pages) ? $cms_nav_pages : array();
 $cart_cnt  = isset($cart_items) && is_array($cart_items) ? count($cart_items) : 0;
@@ -19,7 +24,8 @@ $webshop_url = base_url('webshop');
         <!-- Logo -->
         <a class="gp-logo" href="<?= $webshop_url ?>">
             <?php if ($logo_url !== ''): ?>
-                <img src="<?= htmlspecialchars($logo_url, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($shop_name, ENT_QUOTES, 'UTF-8') ?>" class="gp-logo-img">
+                <img src="<?= htmlspecialchars($logo_url, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($shop_name, ENT_QUOTES, 'UTF-8') ?>" class="gp-logo-img" decoding="async" onerror="this.style.display='none';var fb=document.getElementById('gp-logo-text-fallback');if(fb){fb.style.display='inline';fb.removeAttribute('aria-hidden');}">
+                <span id="gp-logo-text-fallback" class="gp-logo-text" style="display:none" aria-hidden="true"><?= htmlspecialchars($shop_name, ENT_QUOTES, 'UTF-8') ?></span>
             <?php else: ?>
                 <span class="gp-logo-text"><?= htmlspecialchars($shop_name, ENT_QUOTES, 'UTF-8') ?></span>
             <?php endif; ?>

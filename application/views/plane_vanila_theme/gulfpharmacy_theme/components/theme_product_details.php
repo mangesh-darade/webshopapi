@@ -25,7 +25,8 @@ $discountPercent = ($mrp > $price && $price > 0) ? round((($mrp - $price) / $mrp
 $productTaxRate = isset($product['tax_rate']) ? $product['tax_rate'] : 0;
 $productTaxMethod = isset($product['tax_method']) ? $product['tax_method'] : 0;
 $isLoggedIn = isset($this->session->webshop) && !empty($this->session->webshop->is_login) && !empty($this->session->webshop->user_id);
-$noImage = webshop_media_src($uploadsBase, 'no_image.png');
+$noImgSrc = webshop_no_image_src($uploadsBase, $thumbsBase);
+$noImgSrcAttr = htmlspecialchars($noImgSrc, ENT_QUOTES, 'UTF-8');
 $gallery = array();
 foreach ($galleryImages as $img) {
     $row = is_array($img) ? $img : (array) $img;
@@ -38,7 +39,7 @@ foreach ($galleryImages as $img) {
     );
 }
 if (empty($gallery)) {
-    $main = !empty($product['image']) ? webshop_media_src($uploadsBase, $product['image']) : $noImage;
+    $main = webshop_product_image_src($uploadsBase, $thumbsBase, $product);
     $gallery[] = array('full' => $main, 'thumb' => $main);
 }
 ?>
@@ -105,10 +106,10 @@ if (empty($gallery)) {
     <div class="pd-card pd-gallery">
       <div class="pd-thumbs" id="pdThumbs">
         <?php foreach ($gallery as $i => $img) { ?>
-          <div class="pd-thumb <?= $i === 0 ? 'active' : ''; ?>" data-full="<?= htmlspecialchars($img['full'], ENT_QUOTES, 'UTF-8'); ?>"><img loading="lazy" src="<?= htmlspecialchars($img['thumb'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?= htmlspecialchars($productName, ENT_QUOTES, 'UTF-8'); ?>"></div>
+          <div class="pd-thumb <?= $i === 0 ? 'active' : ''; ?>" data-full="<?= htmlspecialchars($img['full'], ENT_QUOTES, 'UTF-8'); ?>"><img loading="lazy" src="<?= htmlspecialchars($img['thumb'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?= htmlspecialchars($productName, ENT_QUOTES, 'UTF-8'); ?>" onerror="this.onerror=null;this.src='<?= $noImgSrcAttr ?>';"></div>
         <?php } ?>
       </div>
-      <div class="pd-mainimg" id="pdMain"><img id="pdMainImg" src="<?= htmlspecialchars($gallery[0]['full'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?= htmlspecialchars($productName, ENT_QUOTES, 'UTF-8'); ?>"></div>
+      <div class="pd-mainimg" id="pdMain"><img id="pdMainImg" src="<?= htmlspecialchars($gallery[0]['full'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?= htmlspecialchars($productName, ENT_QUOTES, 'UTF-8'); ?>" onerror="this.onerror=null;this.src='<?= $noImgSrcAttr ?>';"></div>
     </div>
     <div class="pd-card pd-summary">
       <h1 class="pd-title"><?= htmlspecialchars($productName, ENT_QUOTES, 'UTF-8'); ?></h1>
@@ -199,6 +200,7 @@ if (empty($gallery)) {
 </div>
 <script>
 (function(){
+    var pdNoImageSrc=<?= json_encode($noImgSrc, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
     var t=document.querySelectorAll('#pdThumbs .pd-thumb'),m=document.getElementById('pdMainImg');
     for(var i=0;i<t.length;i++){
         (function(ix){
@@ -208,6 +210,7 @@ if (empty($gallery)) {
                 m.style.opacity='0.25';
                 var im=new Image();
                 im.onload=function(){m.src=t[ix].getAttribute('data-full');m.style.opacity='1';};
+                im.onerror=function(){m.src=pdNoImageSrc;m.style.opacity='1';};
                 im.src=t[ix].getAttribute('data-full');
             });
         })(i);

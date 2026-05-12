@@ -26,6 +26,11 @@ $thumbsBase    = isset($thumbs)  ? (string) $thumbs  : '';
 $symbol        = isset($Settings->symbol) ? $Settings->symbol : '';
 $shopName      = isset($Settings->site_name) ? $Settings->site_name : 'Shop';
 
+// Shared fallback so <img> 404s degrade to the same placeholder as products with no image field
+// (mirrors the onerror pattern in webshop_normalize_html_media_urls()).
+$noImgSrc      = webshop_no_image_src($uploadsBase, $thumbsBase);
+$noImgSrcAttr  = htmlspecialchars($noImgSrc, ENT_QUOTES, 'UTF-8');
+
 /* ── Helpers ─────────────────────────────────────────────── */
 $getImg = function($item) use ($uploadsBase, $thumbsBase) {
     $row = is_array($item) ? $item : (array) $item;
@@ -224,15 +229,10 @@ $getCategory = function($item) {
                         <!-- Image -->
                         <a href="<?= $detailUrl ?>" style="display:block">
                             <div class="pc-img-wrap">
-                                <?php if ($imgSrc !== ''): ?>
-                                    <img src="<?= htmlspecialchars($imgSrc, ENT_QUOTES, 'UTF-8') ?>"
-                                         alt="<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>"
-                                         loading="lazy"
-                                         onerror="this.style.display='none';this.parentNode.querySelector('.pc-no-img').style.display='flex'">
-                                    <span class="pc-no-img" style="display:none">🖼️</span>
-                                <?php else: ?>
-                                    <span class="pc-no-img">🖼️</span>
-                                <?php endif; ?>
+                                <img src="<?= htmlspecialchars($imgSrc !== '' ? $imgSrc : $noImgSrc, ENT_QUOTES, 'UTF-8') ?>"
+                                     alt="<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>"
+                                     loading="lazy"
+                                     onerror="this.onerror=null;this.src='<?= $noImgSrcAttr ?>';">
                             </div>
                         </a>
 

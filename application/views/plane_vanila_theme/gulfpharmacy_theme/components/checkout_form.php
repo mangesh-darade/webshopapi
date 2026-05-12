@@ -146,11 +146,10 @@ foreach ($cart_items as $ci) {
                     <input type="hidden" name="shipping_country" id="shipping_country" value="">
                 <?php endif; ?>
 
-                <div class="form-group mt-4">
-                    <label class="checkbox-container">
+                <div class="form-group terms-group">
+                    <label class="checkbox-container" for="checkoutTerms">
                         <input type="checkbox" name="terms" id="checkoutTerms" required>
-                        <span class="checkmark"></span>
-                        I agree to the <a href="#">terms and conditions</a> *
+                        <span class="checkbox-text">I agree to the <a href="#">terms and conditions</a> *</span>
                     </label>
                 </div>
 
@@ -225,8 +224,35 @@ foreach ($cart_items as $ci) {
     .form-row { display: flex; gap: 16px; flex-wrap: wrap; }
     .form-group { margin-bottom: 18px; flex: 1; min-width: 180px; }
     .form-group label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.875rem; color: var(--co-text); }
-    .form-group input, .form-group select { width: 100%; padding: 10px 14px; border: 1.5px solid var(--co-border); border-radius: 8px; font-size: 0.95rem; transition: border-color .2s; box-sizing: border-box; }
-    .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--co-primary); box-shadow: 0 0 0 3px rgba(15,76,129,.08); }
+    /* Terms row: label is not a field caption — reset block label rules and use flex row. */
+    .terms-group > label.checkbox-container {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 0;
+        font-weight: 500;
+        font-size: 0.9375rem;
+        line-height: 1.5;
+        cursor: pointer;
+        width: 100%;
+        max-width: 100%;
+        padding: 14px 16px;
+        border: 1px solid var(--co-border);
+        border-radius: 10px;
+        background: #f8fafc;
+        box-sizing: border-box;
+    }
+    .terms-group > label.checkbox-container:focus-within {
+        border-color: var(--co-primary);
+        box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.08);
+    }
+    /* Scope text-field styling so checkbox/radio inputs keep their native widget. */
+    .form-group input:not([type="checkbox"]):not([type="radio"]),
+    .form-group select { width: 100%; padding: 10px 14px; border: 1.5px solid var(--co-border); border-radius: 8px; font-size: 0.95rem; transition: border-color .2s; box-sizing: border-box; }
+    .form-group input:not([type="checkbox"]):not([type="radio"]):focus,
+    .form-group select:focus { outline: none; border-color: var(--co-primary); box-shadow: 0 0 0 3px rgba(15,76,129,.08); }
+    .form-group input[type="checkbox"],
+    .form-group input[type="radio"] { width: 18px; height: 18px; margin: 0; padding: 0; flex-shrink: 0; accent-color: var(--co-primary); cursor: pointer; }
     .address-selector { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin-bottom: 16px; }
     .address-card { border: 2px solid var(--co-border); border-radius: 12px; padding: 14px; cursor: pointer; display: flex; gap: 12px; align-items: flex-start; transition: border-color .2s; }
     .address-card:has(input:checked) { border-color: var(--co-primary); background: rgba(15,76,129,.04); }
@@ -244,9 +270,24 @@ foreach ($cart_items as $ci) {
     .payment-option input { accent-color: var(--co-primary); }
     .place-order-btn { width: 100%; margin-top: 20px; background: var(--co-primary); color: #fff; border: none; padding: 14px; border-radius: 10px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: background .2s; }
     .place-order-btn:hover { background: #0c3d69; }
-    .checkbox-container { display: flex; align-items: center; gap: 10px; font-size: 14px; cursor: pointer; }
-    .checkbox-container input { accent-color: var(--co-primary); }
-    .mt-4 { margin-top: 20px; }
+    .terms-group {
+        margin-top: 28px;
+        margin-bottom: 0;
+        padding-top: 20px;
+        border-top: 1px solid var(--co-border);
+        flex: 1 1 100%;
+        min-width: 100%;
+    }
+    .terms-group .checkbox-container { margin-bottom: 0; }
+    .terms-group input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        margin: 2px 0 0 0;
+        flex-shrink: 0;
+        align-self: flex-start;
+    }
+    .terms-group > label.checkbox-container .checkbox-text { flex: 1; min-width: 0; padding-top: 1px; }
+    .terms-group > label.checkbox-container a { color: var(--co-primary); text-decoration: underline; }
 </style>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
