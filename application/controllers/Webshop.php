@@ -107,7 +107,140 @@ class Webshop extends MY_Controller
         }
         // $this->data['custom_pages'] = $this->webshop_model->get_custom_pages();
     }
+      /**
+     * Generic CMS page renderer for URLs defined in ElintOm CMS tables.
+     * Example: /webshop/cms_page/contact-us, /webshop/cms_page/health-blog
+     */
+    public function cms_page($slug = '')
+    {
+        $parts = func_get_args();
+        if (!empty($parts)) {
+            $slug = implode('/', array_map('trim', $parts));
+        }
+        $urlPath = '/' . ltrim((string) $slug, '/');
+        if ($urlPath === '//') {
+            $urlPath = '/';
+        }
 
+        $cmsPage = $this->webshop_model->get_cms_page_by_url($urlPath);
+        if (!is_object($cmsPage)) {
+            show_404();
+            return;
+        }
+        if (isset($cmsPage->status) && strtolower((string) $cmsPage->status) !== '' && strtolower((string) $cmsPage->status) !== 'published') {
+            show_404();
+            return;
+        }
+
+        $this->data['page_title'] = isset($cmsPage->page_title) ? $cmsPage->page_title : '';
+        $this->data['meta_tags'] = isset($cmsPage->meta_tags) ? $cmsPage->meta_tags : '';
+
+        // Enrich meta with entity-level tags (AI / Schema / SEO / Technical / GEO / Social).
+        $pageEntityId = isset($cmsPage->id) ? (int) $cmsPage->id : 0;
+        if ($pageEntityId > 0 && method_exists($this->webshop_model, 'get_entity_tag_map')) {
+            $pageTagMap = $this->webshop_model->get_entity_tag_map('page', $pageEntityId);
+            if (is_array($pageTagMap) && !empty($pageTagMap)) {
+                $pageEntityMetaTags = $this->build_entity_meta_tags($pageTagMap);
+                if ($pageEntityMetaTags !== '') {
+                    // Entity tags override plain CMS meta string for head injection.
+                    $this->data['meta_tags'] = $pageEntityMetaTags;
+                }
+                $entityMetaTitle = $this->resolve_entity_meta_title($pageTagMap);
+                if ($entityMetaTitle !== '') {
+                    $this->data['page_title'] = $entityMetaTitle;
+                }
+            }
+            $pageTagRows = $this->webshop_model->get_entity_tag_rows('page', $pageEntityId);
+            $this->data['entity_tag_groups'] = $this->group_entity_tags_for_view(
+                is_array($pageTagRows) ? $pageTagRows : array()
+            );
+        }
+
+        $this->data['is_dynamic_cms_page'] = true;
+        $this->data['dynamic_cms_slug'] = $urlPath;
+        $this->data['dynamic_cms_page_type'] = isset($cmsPage->page_type) ? (string) $cmsPage->page_type : '';
+        $this->data['home_page_cms'] = $cmsPage;
+        $this->data['home_section_html_block'] = '';
+        $pageType = isset($cmsPage->page_type) ? strtolower(trim((string) $cmsPage->page_type)) : '';
+        $isHomeType = $pageType === 'home' || $urlPath === '/';
+        $this->data['home_has_category_grid'] = $isHomeType;
+        $this->data['home_has_product_grid'] = $isHomeType;
+        $this->data['home_has_header_section'] = isset($cmsPage->show_header) ? (bool) $cmsPage->show_header : true;
+        $this->data['home_has_footer_section'] = isset($cmsPage->show_footer) ? (bool) $cmsPage->show_footer : true;
+        $this->data['home_category_grid_title'] = '';
+        $this->data['home_product_grid_title'] = '';
+        $this->data['page_banner_image_url'] = isset($cmsPage->page_banner_image_url) ? (string) $cmsPage->page_banner_image_url : '';
+        $this->data['page_logo_image_url'] = isset($cmsPage->page_logo_image_url) ? (string) $cmsPage->page_logo_image_url : '';
+        $this->data['cms_header_sections_html'] = isset($cmsPage->header_html) ? (string) $cmsPage->header_html : '';
+        $this->data['cms_footer_sections_html'] = isset($cmsPage->footer_html) ? (string) $cmsPage->footer_html : '';
+
+        $sections = isset($cmsPage->sections) && is_array($cmsPage->sections) ? $cmsPage->sections : array();
+        // Same as index(): map flags from all section rows (header/footer/category/product types), not body-only.
+        $this->apply_cms_sections_to_view_data($sections, false);
+
+        $composedCmsHtml = '';
+        if (!empty($cmsPage->logo_html)) {
+            $composedCmsHtml .= (string) $cmsPage->logo_html;
+        }
+        if (!empty($cmsPage->banner_html)) {
+            $composedCmsHtml .= (string) $cmsPage->banner_html;
+        }
+
+        $pageBodyHtml = isset($cmsPage->page_text) ? trim((string) $cmsPage->page_text) : '';
+        $bodyForRender = $this->filter_body_sections($sections);
+        $localBodyHtml = trim($this->webshop_section_engine->render_components($bodyForRender, $this->data));
+        $composedBodyHtml = '';
+        if ($pageBodyHtml !== '') {
+            $composedBodyHtml .= $pageBodyHtml;
+        }
+        if ($localBodyHtml !== '') {
+            $composedBodyHtml .= ($composedBodyHtml !== '' ? "\n" : '') . $localBodyHtml;
+        }
+        if ($composedBodyHtml !== '') {
+            $this->data['home_section_html_block'] = $composedCmsHtml . $composedBodyHtml;
+            $this->data['home_has_category_grid'] = false;
+            $this->data['home_has_product_grid'] = false;
+        } elseif ($composedCmsHtml !== '') {
+            $this->data['home_section_html_block'] = $composedCmsHtml . (string) $this->data['home_section_html_block'];
+        }
+        if ($pageBodyHtml === '' && $localBodyHtml === ''
+            && $this->cms_section_list_includes_types($bodyForRender, array('category_grid', 'category_carousel'))
+            && empty($this->data['main_categories'])) {
+            $this->data['home_has_category_grid'] = false;
+        }
+
+        // Expose body HTML for the dedicated cms_page.php view
+        $this->data['cms_body_html'] = isset($this->data['home_section_html_block'])
+            ? (string)$this->data['home_section_html_block'] : '';
+        $this->data['cms_page'] = $cmsPage;
+
+        // Reuse already-rendered section HTML; avoid rendering each section again.
+        $this->data['cms_page_sections'] = $localBodyHtml !== '' ? array($localBodyHtml) : array();
+
+        // Non-home CMS pages → dedicated cms_page.php view (full layout)
+        // Home-type pages → theme index (with dynamic sections)
+        $useThemeIndex = $isHomeType
+            || $this->webshop_settings->webshop_theme === 'restaurant'
+            || $this->webshop_settings->webshop_theme === 'nw'
+            || $this->webshop_settings->webshop_theme === 'gulfpharmacy';
+
+        if ($useThemeIndex) {
+            if ($this->webshop_settings->webshop_theme == 'restaurant') {
+                $this->load_view("restaurant/index", $this->data);
+            } else if ($this->webshop_settings->webshop_theme == 'nw') {
+                $this->load_view("nw_theme/index", $this->data);
+            } else if ($this->webshop_settings->webshop_theme == 'gulfpharmacy') {
+                $this->load_view("gulfpharmacy_theme/index", $this->data);
+            } else if ($this->webshop_settings->webshop_theme == 'Electronic') {
+                $this->load_view("Electronic/index", $this->data);
+            } else {
+                $this->load_view("index", $this->data);
+            }
+        } else {
+            // Static / blog / category CMS pages → universal cms_page view
+            $this->load_view("cms_page", $this->data);
+        }
+    }
     public function service_off()
     {
         $this->load_view("service_off", $this->data);
@@ -306,138 +439,61 @@ XSL;
     }
 
     /**
-     * Resolve storefront view from canonical webshop view tree.
+     * Resolve storefront view under plane_vanila_theme (gulfpharmacy, nw_theme, restaurant).
+     * Order: components/{suffix}, pages/{suffix}, theme root {suffix}. Strips a redundant
+     * gulfpharmacy_theme/ prefix when callers pass paths like gulfpharmacy_theme/index.
      */
     private function resolve_webshop_view_path($method)
     {
         $method = trim((string) $method, '/');
         if ($method === '') {
-            return 'webshop/index';
+            $method = 'index';
         }
 
-        $theme = (isset($this->webshop_settings) && is_object($this->webshop_settings) && isset($this->webshop_settings->webshop_theme))
-            ? (string) $this->webshop_settings->webshop_theme : '';
+        $suffix = $method;
+        $base = 'plane_vanila_theme/gulfpharmacy_theme/';
+     
+        if (strpos($suffix, 'gulfpharmacy_theme/') === 0) {
+            $suffix = substr($suffix, strlen('gulfpharmacy_theme/'));
+        } elseif (strpos($suffix, 'nw_theme/') === 0) {
+            $base = 'plane_vanila_theme/Electronic/';
+            $suffix = substr($suffix, strlen('Electronic/'));
+        } elseif (strpos($suffix, 'restaurant/') === 0) {
+            $base = 'plane_vanila_theme/restaurant/';
+            $suffix = substr($suffix, strlen('restaurant/'));
+        }
 
-        $theme_folders = array(
-            'nw'           => 'webshop/nw_theme',
-            'gulfpharmacy' => 'webshop/gulfpharmacy_theme',
-            'restaurant'   => 'webshop/webshop_restaurant_t1',
+        $suffix = trim((string) $suffix, '/');
+        if ($suffix === '') {
+            $suffix = 'index';
+        }
+
+        $candidates = array();
+        if (strpos($suffix, 'components/') === 0) {
+            $candidates[] = $base . $suffix;
+        } else {
+            $candidates[] = $base . 'components/' . $suffix;
+            $candidates[] = $base . 'pages/' . $suffix;
+            $candidates[] = $base . $suffix;
+        }
+
+        foreach ($candidates as $rel) {
+            if (is_file(VIEWPATH . $rel . '.php')) {
+                return $rel;
+            }
+        }
+
+        $tried = array();
+        foreach ($candidates as $rel) {
+            $tried[] = $rel . '.php';
+        }
+
+        log_message('error', 'resolve_webshop_view_path: no view for method=' . $method . ' tried=' . implode(', ', $tried));
+        show_error(
+            'Unable to load storefront view. Tried: '
+            . htmlspecialchars(implode(', ', $tried), ENT_QUOTES, 'UTF-8'),
+            500
         );
-
-        // 1. Prefer plane_vanila_theme for shared storefront pages
-        // (login/register/cart/checkout/product pages) so component flow stays consistent.
-        $planeVanilaPath = $this->resolve_plane_vanila_view_path($method);
-        if ($planeVanilaPath !== '') {
-            return $planeVanilaPath;
-        }
-
-        // 2. Try theme-specific path
-        if ($theme !== '' && isset($theme_folders[$theme])) {
-            $folder = $theme_folders[$theme];
-            $candidate = $folder . '/' . $method . '.php';
-            if (is_file(VIEWPATH . $candidate)) {
-                return $folder . '/' . $method;
-            }
-        }
-
-        // 3. Fallback to default webshop/ directory
-        $path = VIEWPATH . 'webshop/' . $method . '.php';
-        if (is_file($path)) {
-            return 'webshop/' . $method;
-        }
-
-        // 4. Auto-resolve to theme components if migrated
-        $theme_comp = 'plane_vanila_theme/' . $theme . '_theme/components/' . $method;
-        if (is_file(VIEWPATH . $theme_comp . '.php')) {
-            return $theme_comp;
-        }
-
-        // 5. Fallback to gulfpharmacy components (User request)
-        $gp_comp = 'plane_vanila_theme/gulfpharmacy_theme/components/' . $method;
-        if (is_file(VIEWPATH . $gp_comp . '.php')) {
-            return $gp_comp;
-        }
-
-        // 6. Fallback to default webshop/components/ (if it existed)
-        $compPath = VIEWPATH . 'webshop/components/' . $method . '.php';
-        if (is_file($compPath)) {
-            return 'webshop/components/' . $method;
-        }
-
-        return 'webshop/' . $method;
-    }
-
-    /**
-     * Prefer plane_vanila_theme for storefront landing pages when available.
-     * This keeps all controller data mapping intact and only changes the view file source.
-     */
-    private function resolve_plane_vanila_view_path($method)
-    {
-        $method = trim((string) $method, '/');
-        if ($method === '') {
-            return '';
-        }
-
-        $theme = isset($this->webshop_settings->webshop_theme) ? (string) $this->webshop_settings->webshop_theme : '';
-        $themeFolder = ($theme !== '') ? $theme . '_theme' : '';
-
-        // 1. Direct path check within plane_vanila_theme
-        $directPath = VIEWPATH . 'plane_vanila_theme/' . $method . '.php';
-        if (is_file($directPath)) {
-            return 'plane_vanila_theme/' . $method;
-        }
-
-        // 2. Theme-specific component resolution
-        if ($themeFolder !== '') {
-            // Handle both "components/foo" and just "foo"
-            $baseName = str_replace('components/', '', $method);
-            
-            // Prefer full page shells (pages/foo) over naked components so routes like
-            // wishlist get header/footer from theme_loader (page_open/page_close).
-            $candidates = [
-                $themeFolder . '/pages/' . $baseName,
-                $themeFolder . '/components/' . $baseName,
-                $themeFolder . '/' . $baseName
-            ];
-
-            foreach ($candidates as $cand) {
-                $path = VIEWPATH . 'plane_vanila_theme/' . $cand . '.php';
-                if (is_file($path)) {
-                    return 'plane_vanila_theme/' . $cand;
-                }
-            }
-        }
-
-        // 3. Fallback to shared gulfpharmacy components
-        if ($theme !== 'gulfpharmacy') {
-            $baseName = str_replace('components/', '', $method);
-            $fallback = 'gulfpharmacy_theme/components/' . $baseName;
-            $path = VIEWPATH . 'plane_vanila_theme/' . $fallback . '.php';
-            if (is_file($path)) {
-                return 'plane_vanila_theme/' . $fallback;
-            }
-        }
-
-        // 4. Legacy allowed list check
-        $allowed = array(
-            'category_products',
-            'cart',
-            'login',
-            'register',
-            'checkout',
-            'payments',
-            'order_success',
-            'forgot_password',
-            'payment_declined',
-            'payment_success',
-        );
-        if (in_array($method, $allowed, true)) {
-            $path = VIEWPATH . 'plane_vanila_theme/' . $method . '.php';
-            if (is_file($path)) {
-                return 'plane_vanila_theme/' . $method;
-            }
-        }
-
         return '';
     }
 
@@ -1507,7 +1563,6 @@ XSL;
             if ($theme) {
                 $this->webshop_model->setTheme($theme);
             }
-
             if ($this->webshop_settings->webshop_theme == 'restaurant') {
                 $this->load_view("restaurant/index", $this->data);
             } else if ($this->webshop_settings->webshop_theme == 'nw') {
@@ -1728,138 +1783,7 @@ XSL;
         $this->load_view("products", $this->data);
     }
 
-    /**
-     * Generic CMS page renderer for URLs defined in ElintOm CMS tables.
-     * Example: /webshop/cms_page/contact-us, /webshop/cms_page/health-blog
-     */
-    public function cms_page($slug = '')
-    {
-        $parts = func_get_args();
-        if (!empty($parts)) {
-            $slug = implode('/', array_map('trim', $parts));
-        }
-        $urlPath = '/' . ltrim((string) $slug, '/');
-        if ($urlPath === '//') {
-            $urlPath = '/';
-        }
-
-        $cmsPage = $this->webshop_model->get_cms_page_by_url($urlPath);
-        if (!is_object($cmsPage)) {
-            show_404();
-            return;
-        }
-        if (isset($cmsPage->status) && strtolower((string) $cmsPage->status) !== '' && strtolower((string) $cmsPage->status) !== 'published') {
-            show_404();
-            return;
-        }
-
-        $this->data['page_title'] = isset($cmsPage->page_title) ? $cmsPage->page_title : '';
-        $this->data['meta_tags'] = isset($cmsPage->meta_tags) ? $cmsPage->meta_tags : '';
-
-        // Enrich meta with entity-level tags (AI / Schema / SEO / Technical / GEO / Social).
-        $pageEntityId = isset($cmsPage->id) ? (int) $cmsPage->id : 0;
-        if ($pageEntityId > 0 && method_exists($this->webshop_model, 'get_entity_tag_map')) {
-            $pageTagMap = $this->webshop_model->get_entity_tag_map('page', $pageEntityId);
-            if (is_array($pageTagMap) && !empty($pageTagMap)) {
-                $pageEntityMetaTags = $this->build_entity_meta_tags($pageTagMap);
-                if ($pageEntityMetaTags !== '') {
-                    // Entity tags override plain CMS meta string for head injection.
-                    $this->data['meta_tags'] = $pageEntityMetaTags;
-                }
-                $entityMetaTitle = $this->resolve_entity_meta_title($pageTagMap);
-                if ($entityMetaTitle !== '') {
-                    $this->data['page_title'] = $entityMetaTitle;
-                }
-            }
-            $pageTagRows = $this->webshop_model->get_entity_tag_rows('page', $pageEntityId);
-            $this->data['entity_tag_groups'] = $this->group_entity_tags_for_view(
-                is_array($pageTagRows) ? $pageTagRows : array()
-            );
-        }
-
-        $this->data['is_dynamic_cms_page'] = true;
-        $this->data['dynamic_cms_slug'] = $urlPath;
-        $this->data['dynamic_cms_page_type'] = isset($cmsPage->page_type) ? (string) $cmsPage->page_type : '';
-        $this->data['home_page_cms'] = $cmsPage;
-        $this->data['home_section_html_block'] = '';
-        $pageType = isset($cmsPage->page_type) ? strtolower(trim((string) $cmsPage->page_type)) : '';
-        $isHomeType = $pageType === 'home' || $urlPath === '/';
-        $this->data['home_has_category_grid'] = $isHomeType;
-        $this->data['home_has_product_grid'] = $isHomeType;
-        $this->data['home_has_header_section'] = isset($cmsPage->show_header) ? (bool) $cmsPage->show_header : true;
-        $this->data['home_has_footer_section'] = isset($cmsPage->show_footer) ? (bool) $cmsPage->show_footer : true;
-        $this->data['home_category_grid_title'] = '';
-        $this->data['home_product_grid_title'] = '';
-        $this->data['page_banner_image_url'] = isset($cmsPage->page_banner_image_url) ? (string) $cmsPage->page_banner_image_url : '';
-        $this->data['page_logo_image_url'] = isset($cmsPage->page_logo_image_url) ? (string) $cmsPage->page_logo_image_url : '';
-        $this->data['cms_header_sections_html'] = isset($cmsPage->header_html) ? (string) $cmsPage->header_html : '';
-        $this->data['cms_footer_sections_html'] = isset($cmsPage->footer_html) ? (string) $cmsPage->footer_html : '';
-
-        $sections = isset($cmsPage->sections) && is_array($cmsPage->sections) ? $cmsPage->sections : array();
-        // Same as index(): map flags from all section rows (header/footer/category/product types), not body-only.
-        $this->apply_cms_sections_to_view_data($sections, false);
-
-        $composedCmsHtml = '';
-        if (!empty($cmsPage->logo_html)) {
-            $composedCmsHtml .= (string) $cmsPage->logo_html;
-        }
-        if (!empty($cmsPage->banner_html)) {
-            $composedCmsHtml .= (string) $cmsPage->banner_html;
-        }
-
-        $pageBodyHtml = isset($cmsPage->page_text) ? trim((string) $cmsPage->page_text) : '';
-        $bodyForRender = $this->filter_body_sections($sections);
-        $localBodyHtml = trim($this->webshop_section_engine->render_components($bodyForRender, $this->data));
-        $composedBodyHtml = '';
-        if ($pageBodyHtml !== '') {
-            $composedBodyHtml .= $pageBodyHtml;
-        }
-        if ($localBodyHtml !== '') {
-            $composedBodyHtml .= ($composedBodyHtml !== '' ? "\n" : '') . $localBodyHtml;
-        }
-        if ($composedBodyHtml !== '') {
-            $this->data['home_section_html_block'] = $composedCmsHtml . $composedBodyHtml;
-            $this->data['home_has_category_grid'] = false;
-            $this->data['home_has_product_grid'] = false;
-        } elseif ($composedCmsHtml !== '') {
-            $this->data['home_section_html_block'] = $composedCmsHtml . (string) $this->data['home_section_html_block'];
-        }
-        if ($pageBodyHtml === '' && $localBodyHtml === ''
-            && $this->cms_section_list_includes_types($bodyForRender, array('category_grid', 'category_carousel'))
-            && empty($this->data['main_categories'])) {
-            $this->data['home_has_category_grid'] = false;
-        }
-
-        // Expose body HTML for the dedicated cms_page.php view
-        $this->data['cms_body_html'] = isset($this->data['home_section_html_block'])
-            ? (string)$this->data['home_section_html_block'] : '';
-        $this->data['cms_page'] = $cmsPage;
-
-        // Reuse already-rendered section HTML; avoid rendering each section again.
-        $this->data['cms_page_sections'] = $localBodyHtml !== '' ? array($localBodyHtml) : array();
-
-        // Non-home CMS pages → dedicated cms_page.php view (full layout)
-        // Home-type pages → theme index (with dynamic sections)
-        $useThemeIndex = $isHomeType
-            || $this->webshop_settings->webshop_theme === 'restaurant'
-            || $this->webshop_settings->webshop_theme === 'nw'
-            || $this->webshop_settings->webshop_theme === 'gulfpharmacy';
-
-        if ($useThemeIndex) {
-            if ($this->webshop_settings->webshop_theme == 'restaurant') {
-                $this->load_view("restaurant/index", $this->data);
-            } else if ($this->webshop_settings->webshop_theme == 'nw') {
-                $this->load_view("nw_theme/index", $this->data);
-            } else if ($this->webshop_settings->webshop_theme == 'gulfpharmacy') {
-                $this->load_view("gulfpharmacy_theme/index", $this->data);
-            } else {
-                $this->load_view("index", $this->data);
-            }
-        } else {
-            // Static / blog / category CMS pages → universal cms_page view
-            $this->load_view("cms_page", $this->data);
-        }
-    }
+  
 
     private function hydrate_static_cms_payload($slug, $target_key)
     {
@@ -6516,26 +6440,7 @@ XSL;
             $this->cms_page('about-us');
             return;
         }
-        $this->data['about_us'] = $this->webshop_model->about_usdata($page_key = 'aboutus');
-        $this->hydrate_static_cms_payload('/about-us', 'about_us');
-        $this->data['website_setting'] = $this->webshop_model->get_website_setting();
-        if ($this->webshop_settings->webshop_theme == 'restaurant') {
-            $this->load_view("webshop_restaurant_t1/about_us", $this->data);
-        }
        
-        if ($this->webshop_settings->webshop_theme == 'nw') {
-            $this->load_view("nw_theme/about_us", $this->data);
-        }
-        if ($this->webshop_settings->webshop_theme == 'gulfpharmacy') {
-            $this->load_view("gulfpharmacy_theme/about_us", $this->data);
-        }
-        if (
-            $this->webshop_settings->webshop_theme != 'restaurant'
-            && $this->webshop_settings->webshop_theme != 'nw'
-            && $this->webshop_settings->webshop_theme != 'gulfpharmacy'
-        ) {
-            $this->load_view("gulfpharmacy_theme/about_us", $this->data);
-        }
     }
 
     public function terms_and_conditions()
@@ -6545,25 +6450,7 @@ XSL;
             $this->cms_page('terms');
             return;
         }
-        $theme = $this->webshop_settings->webshop_theme;
-        $this->data['terms_and_conditions'] = $this->webshop_model->terms_conditions($page_key = 'terms_conditions');
-        $this->hydrate_static_cms_payload('/terms', 'terms_and_conditions');
-        $this->data['website_setting'] = $this->webshop_model->get_website_setting();
-        if ($this->webshop_settings->webshop_theme == 'restaurant') {
-            // $this->data['terms_and_conditions'] = $this->webshop_model->terms_conditions($page_key = 'terms_conditions');
-            // $this->data['website_setting'] = $this->webshop_model->get_website_setting();
-            // $setting_map = [];
-            // foreach ($raw_settings as $row) {
-            //     $setting_map[$row->fields] = $row->value;
-            // }
-            $this->load_view("webshop_restaurant_t1/terms_and_conditions", $this->data);
-        } else if ($theme == "nw") {
-            $this->load_view("nw_theme/terms_and_conditions", $this->data);
-        } else if ($theme == "gulfpharmacy") {
-            $this->load_view("gulfpharmacy_theme/terms_and_conditions", $this->data);
-        } else {
-            $this->load_view("gulfpharmacy_theme/terms_and_conditions", $this->data);
-        }
+       
     }
 
     public function privacy_policy()
@@ -6573,25 +6460,7 @@ XSL;
             $this->cms_page('privacy-policy');
             return;
         }
-        $theme = $this->webshop_settings->webshop_theme;
-        $this->data['privacy_policy'] = $this->webshop_model->privacy_policy($page_key = 'policy');
-        $this->hydrate_static_cms_payload('/privacy-policy', 'privacy_policy');
-        $this->data['website_setting'] = $this->webshop_model->get_website_setting();
-        if ($this->webshop_settings->webshop_theme == 'restaurant') {
-            // $this->data['privacy_policy'] = $this->webshop_model->privacy_policy($page_key = 'policy');
-            // $this->data['website_setting'] = $this->webshop_model->get_website_setting();
-            // $setting_map = [];
-            // foreach ($raw_settings as $row) {
-            //     $setting_map[$row->fields] = $row->value;
-            // }
-            $this->load_view("webshop_restaurant_t1/privacy_policy", $this->data);
-        } else if ($theme == "nw") {
-            $this->load_view("nw_theme/privacy_policy", $this->data);
-        } else if ($theme == "gulfpharmacy") {
-            $this->load_view("gulfpharmacy_theme/privacy_policy", $this->data);
-        } else {
-            $this->load_view("gulfpharmacy_theme/privacy_policy", $this->data);
-        }
+       
     }
 
     public function contact_us()
