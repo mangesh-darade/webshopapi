@@ -5,9 +5,10 @@ $cfg      = isset($config)  && is_array($config)  ? $config  : array();
 $dynData  = isset($data)    && is_array($data)     ? $data    : array();
 $items    = isset($items)   && is_array($items)    ? $items
           : (isset($dynData['categories']) && is_array($dynData['categories']) ? $dynData['categories'] : array());
-$title    = isset($title) ? trim((string) $title) : '';
-if ($title === '' && isset($cfg['title']) && $cfg['title'] !== '') $title = (string) $cfg['title'];
-if ($title === '') $title = 'Shop by Category';
+$title = isset($title) ? trim((string) $title) : '';
+if ($title === '' && isset($cfg['title']) && trim((string) $cfg['title']) !== '') {
+    $title = (string) $cfg['title'];
+}
 $cols     = (isset($cfg['columns_desktop']) && (int)$cfg['columns_desktop'] > 0) ? (int)$cfg['columns_desktop'] : 5;
 $uploadsB = isset($uploads) ? rtrim($uploads, '/') . '/' : '';
 if (empty($items)) return;
@@ -23,7 +24,8 @@ $cg_assets = isset($assets) ? $assets : base_url('assets/webshop/');
         <?php foreach ($items as $cat):
             $cat    = is_object($cat) ? (array)$cat : (is_array($cat) ? $cat : array());
             $catId  = isset($cat['id'])   ? (int)$cat['id']   : 0;
-            $catName = htmlspecialchars(isset($cat['name']) ? $cat['name'] : '', ENT_QUOTES, 'UTF-8');
+            $rawNm = isset($cat['name']) ? (string) $cat['name'] : '';
+            $catName = htmlspecialchars(html_entity_decode($rawNm, ENT_QUOTES, 'UTF-8'), ENT_QUOTES, 'UTF-8');
             $catImgSrc = '';
             if (isset($thumbs) && isset($uploads) && $catId > 0) {
                 $catImgSrc = htmlspecialchars(webshop_category_image_src($uploads, $thumbs, (object)$cat), ENT_QUOTES, 'UTF-8');
@@ -34,9 +36,11 @@ $cg_assets = isset($assets) ? $assets : base_url('assets/webshop/');
         <a href="<?= base_url('webshop/category_products/' . $catId) ?>" class="gp-cg-card category-grid">
             <div>
                 <?php if ($catImgSrc !== ''): ?>
-                <img src="<?= $catImgSrc ?>" alt="<?= $catName ?>" loading="lazy">
+                <div class="gp-cg-img-wrap">
+                    <img src="<?= $catImgSrc ?>" alt="<?= $catName ?>" loading="lazy" class="gp-cg-img">
+                </div>
                 <?php else: ?>
-                <div class="gp-cg-no-img">
+                <div class="gp-cg-img-wrap gp-cg-no-img">
                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/></svg>
                 </div>
                 <?php endif; ?>

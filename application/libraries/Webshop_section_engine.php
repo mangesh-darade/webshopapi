@@ -66,8 +66,15 @@ class Webshop_section_engine
                 }
                 continue;
             }
-            if ($type === 'html_block' && isset($cfg['content']) && trim((string) $cfg['content']) !== '') {
-                $htmlBlocks[] = (string) $cfg['content'];
+            if ($type === 'html_block') {
+                $merged = $this->merged_html_block_cfg($sec);
+                $chunk = isset($merged['content']) ? trim((string) $merged['content']) : '';
+                if ($chunk === '' && isset($merged['html'])) {
+                    $chunk = trim((string) $merged['html']);
+                }
+                if ($chunk !== '') {
+                    $htmlBlocks[] = $chunk;
+                }
             }
         }
 
@@ -117,6 +124,85 @@ class Webshop_section_engine
             }
         }
         return array();
+    }
+
+    /**
+     * Resolve html_block section config when CMS stores JSON in config_json, raw HTML in section_contain,
+     * or raw markup in config_json instead of a JSON object (ElintOm variants).
+     *
+     * @param array $section
+     * @return array
+     */
+    private function merged_html_block_cfg(array $section)
+    {
+        $config = $this->section_row_config($section);
+        $cfg = $this->decode_config($config);
+        if (empty($cfg) && $config !== null && $config !== '') {
+            if (is_string($config)) {
+                $trim = trim($config);
+                if ($trim !== '') {
+                    $tryAssoc = json_decode($trim, true);
+                    if (is_array($tryAssoc)) {
+                        $cfg = $tryAssoc;
+                    } else {
+                        $scalar = json_decode($trim);
+                        if (is_string($scalar)) {
+                            $cfg['content'] = $scalar;
+                        } elseif (isset($trim[0]) && $trim[0] !== '{' && $trim[0] !== '[') {
+                            $cfg['content'] = $config;
+                        }
+                    }
+                }
+            }
+        }
+        if (isset($cfg['html']) && trim((string) $cfg['html']) !== ''
+            && (!isset($cfg['content']) || trim((string) $cfg['content']) === '')) {
+            $cfg['content'] = (string) $cfg['html'];
+        }
+        $haveContent = isset($cfg['content']) && trim((string) $cfg['content']) !== '';
+        if (!$haveContent && isset($section['section_contain'])) {
+            $sc = trim((string) $section['section_contain']);
+            if ($sc !== '') {
+                $try = json_decode($sc, true);
+                if (is_array($try)) {
+                    $cfg = array_merge($cfg, $try);
+                    if ((!isset($cfg['content']) || trim((string) $cfg['content']) === '') && isset($cfg['html'])) {
+                        $cfg['content'] = (string) $cfg['html'];
+                    }
+                } else {
+                    $scalarSc = json_decode($sc);
+                    if (is_string($scalarSc)) {
+                        $cfg['content'] = $scalarSc;
+                    } else {
+                        $cfg['content'] = $sc;
+                    }
+                }
+            }
+        }
+        return $cfg;
+    }
+
+    /**
+     * View variables for html_block component.
+     *
+     * @param array $section
+     * @return array
+     */
+    private function build_html_block_view_data(array $section)
+    {
+        $cfg = $this->merged_html_block_cfg($section);
+        $content = isset($cfg['content']) ? (string) $cfg['content'] : '';
+        if (trim($content) === '' && isset($cfg['html'])) {
+            $content = (string) $cfg['html'];
+        }
+        $title = isset($cfg['title']) && trim((string) $cfg['title']) !== ''
+            ? (string) $cfg['title']
+            : (isset($cfg['heading']) ? (string) $cfg['heading'] : '');
+        return array(
+            'title' => $title,
+            'content' => $content,
+            'config' => $cfg,
+        );
     }
 
     /**
@@ -223,7 +309,7 @@ class Webshop_section_engine
             $items = $this->fetch_products_for_section_config($cfg);
         }
         return array(
-            'title' => isset($cfg['title']) && trim((string) $cfg['title']) !== '' ? (string) $cfg['title'] : 'Featured Products',
+            'title' => isset($cfg['title']) && trim((string) $cfg['title']) !== '' ? (string) $cfg['title'] : '',
             'products_per_page' => isset($cfg['products_per_page']) ? (int) $cfg['products_per_page'] : 8,
             'columns_desktop' => isset($cfg['columns_desktop']) ? (int) $cfg['columns_desktop'] : 4,
             'items' => $items,
@@ -244,7 +330,7 @@ class Webshop_section_engine
             $items = $this->fetch_categories_for_section_config($cfg);
         }
         return array(
-            'title' => isset($cfg['title']) && trim((string) $cfg['title']) !== '' ? (string) $cfg['title'] : 'Shop by Category',
+            'title' => isset($cfg['title']) && trim((string) $cfg['title']) !== '' ? (string) $cfg['title'] : '',
             'columns_desktop' => isset($cfg['columns_desktop']) ? (int) $cfg['columns_desktop'] : 4,
             'items' => $items,
         );
@@ -258,17 +344,6 @@ class Webshop_section_engine
             'content' => isset($cfg['content']) ? (string) $cfg['content'] : '',
             'image' => isset($cfg['image']) ? (string) $cfg['image'] : (isset($seed['image']) ? (string) $seed['image'] : ''),
             'link' => isset($cfg['link']) ? (string) $cfg['link'] : '#',
-        );
-    }
-
-    public function getHtmlBlockData($config)
-    {
-        $cfg = $this->decode_config($config);
-        return array(
-            'title' => isset($cfg['title']) && trim((string) $cfg['title']) !== ''
-                ? (string) $cfg['title']
-                : (isset($cfg['heading']) ? (string) $cfg['heading'] : ''),
-            'content' => isset($cfg['content']) ? (string) $cfg['content'] : '',
         );
     }
 
@@ -289,7 +364,7 @@ class Webshop_section_engine
             return $this->getCategoryCarouselData($config, $seed);
         }
         if ($type === 'html_block') {
-            return $this->getHtmlBlockData($config);
+            return $this->build_html_block_view_data($section);
         }
         if ($type === 'banner' || $type === 'hero_banner') {
             return $this->getBannerData($config, $seed);
@@ -329,9 +404,6 @@ class Webshop_section_engine
     {
         $cfg = $this->decode_config($config);
         $base = $this->getCategoryGridData($config, $seed);
-        if (!isset($cfg['title']) || trim((string) $cfg['title']) === '') {
-            $base['title'] = 'Browse categories';
-        }
         return $base;
     }
 

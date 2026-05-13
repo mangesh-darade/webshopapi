@@ -14,6 +14,8 @@ $orderId        = isset($order['id'])                            ? $order['id'] 
 $refNo          = isset($order['reference_no'])                  ? $order['reference_no'] : $orderId;
 $grandTotal     = isset($order['grand_total'])                   ? (float) $order['grand_total'] : 0;
 $formattedTotal = $symbol . ' ' . number_format($grandTotal, 2);
+// Same ISO as checkout / API settings — controller sets payment_currency_iso on GET.
+$payCurrencyIso = isset($payment_currency_iso) ? trim((string) $payment_currency_iso) : '';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -62,6 +64,7 @@ $formattedTotal = $symbol . ' ' . number_format($grandTotal, 2);
                 <input type="hidden" name="reference_no" value="<?= htmlspecialchars((string) $refNo, ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="customer_id" value="<?= htmlspecialchars((string) $customerId, ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="amount" value="<?= htmlspecialchars(number_format($grandTotal, 2, '.', ''), ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="currency" value="<?= htmlspecialchars($payCurrencyIso, ENT_QUOTES, 'UTF-8') ?>">
 
                 <div class="pay-gateways">
                     <?php

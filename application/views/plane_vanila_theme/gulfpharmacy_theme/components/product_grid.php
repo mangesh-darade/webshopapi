@@ -7,7 +7,6 @@ $items    = isset($items)   && is_array($items)    ? $items
           : (isset($dynData['products']) && is_array($dynData['products']) ? $dynData['products'] : array());
 $title    = isset($title) ? trim((string) $title) : '';
 if ($title === '' && isset($cfg['title']) && $cfg['title'] !== '') $title = (string) $cfg['title'];
-if ($title === '') $title = 'Featured Products';
 $cols     = (isset($cfg['columns_desktop']) && (int)$cfg['columns_desktop'] > 0) ? (int)$cfg['columns_desktop'] : 4;
 $uploadsB = isset($uploads) ? rtrim($uploads, '/') . '/' : base_url('assets/uploads/');
 $currency = (isset($webshop_settings) && is_object($webshop_settings) && isset($webshop_settings->currency_symbol))
@@ -82,8 +81,12 @@ $pg_assets = isset($assets) ? $assets : base_url('assets/webshop/');
                 <?php endif; ?>
                 <a href="<?= $url ?>" class="gp-product-name" data-product-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>"><?= $name ?></a>
                 <div class="gp-product-pricing">
+                    <?php if ($price > 0): ?>
                     <span class="gp-price-current"><?= $currency ?><?= number_format($price, 2) ?></span>
-                    <?php if ($orig > 0): ?>
+                    <?php else: ?>
+                    <span class="gp-price-current is-muted" title="<?= htmlspecialchars('Price not available', ENT_QUOTES, 'UTF-8') ?>">&mdash;</span>
+                    <?php endif; ?>
+                    <?php if ($orig > 0 && $price > 0): ?>
                     <span class="gp-price-old"><?= $currency ?><?= number_format($orig, 2) ?></span>
                     <?php endif; ?>
                 </div>

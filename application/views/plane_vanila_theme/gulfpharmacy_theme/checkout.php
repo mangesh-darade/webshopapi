@@ -71,7 +71,71 @@ if ($default_checkout_addr_id < 1 && !empty($checkout_addresses)) {
 $use_saved_checkout_addresses = ($checkout_customer_id > 0 && !empty($checkout_addresses));
 $manage_addresses_url = base_url('webshop/your_account#addresses');
 
-$subtotal = 0;
+/*
+ * Order totals breakdown — mirrors the exact math performed by
+ * Webshop::submit_order() so the "Total" shown here always equals the
+ * grand_total stored on the order (and therefore the amount charged on the
+ * payment screen and at the gateway).
+ *
+ *   tax_method == 1 (EXCLUSIVE — catalogue price is pre-tax):
+ *     line_total      = qty * price        (display: pre-tax line)
+ *     line_tax        = qty * price * rate / 100
+ *     subtotal       += line_total
+ *     tax_extra      += line_tax           (added on top of subtotal)
+ *
+ *   tax_method == 0 (INCLUSIVE — catalogue price already contains tax):
+ *     line_total      = qty * price        (display: customer-facing line)
+ *     line_tax        = qty * price * rate / (100 + rate)
+ *     subtotal       += line_total
+ *     tax_included   += line_tax           (informational, already in subtotal)
+ *
+ *   grand_total = subtotal + tax_extra + shipping - discount
+ */
+$subtotal       = 0.0;
+$tax_included   = 0.0;
+$tax_extra      = 0.0;
+$tax_rates_used = array();
+
+if (is_array($cart_items)) {
+    foreach ($cart_items as $ci_row) {
+        if (!is_array($ci_row)) { continue; }
+        $ci_qty  = isset($ci_row['quantity']) ? (float) $ci_row['quantity'] : 0.0;
+        $ci_unit = (isset($ci_row['product_price']) && (float) $ci_row['product_price'] > 0)
+            ? (float) $ci_row['product_price']
+            : (isset($ci_row['price']) ? (float) $ci_row['price'] : 0.0);
+        $ci_rate = isset($ci_row['tax_rate']) ? (float) $ci_row['tax_rate'] : 0.0;
+        $ci_meth = isset($ci_row['tax_method']) ? (int) $ci_row['tax_method'] : 0;
+        $ci_line = $ci_unit * $ci_qty;
+        $subtotal += $ci_line;
+        if ($ci_rate > 0 && $ci_line > 0) {
+            if ($ci_meth === 1) {
+                $tax_extra += $ci_line * $ci_rate / 100.0;
+            } else {
+                $tax_included += $ci_line * $ci_rate / (100.0 + $ci_rate);
+            }
+            // Stable key so each distinct rate is shown once.
+            $tax_rates_used[number_format($ci_rate, 4, '.', '')] = $ci_rate;
+        }
+    }
+}
+
+// Shipping resolution — same source Webshop_checkout exposes to the view.
+$ship_amount = isset($shipping_charges) && is_numeric($shipping_charges) ? (float) $shipping_charges : 0.0;
+$free_above  = isset($free_shipping_above) && is_numeric($free_shipping_above) ? (float) $free_shipping_above : 0.0;
+$customer_facing_total_pre_ship = $subtotal + $tax_extra;
+if ($ship_amount > 0 && $free_above > 0 && $customer_facing_total_pre_ship >= $free_above) {
+    $ship_amount = 0.0;
+}
+
+$grand_total_display = $subtotal + $tax_extra + $ship_amount;
+
+// Single-line VAT label: "VAT 5%" when one rate; "VAT" when multiple rates.
+$tax_rate_label = '';
+if (count($tax_rates_used) === 1) {
+    $only_rate = (float) reset($tax_rates_used);
+    $rate_fmt = rtrim(rtrim(number_format($only_rate, 2, '.', ''), '0'), '.');
+    $tax_rate_label = $rate_fmt !== '' ? (' ' . $rate_fmt . '%') : '';
+}
 ?>
 <!doctype html>
 <html lang="en">
@@ -103,13 +167,24 @@ $subtotal = 0;
         </div>
         <h1 class="pv-page-title">Billing &amp; Shipping Info</h1>
 
+        <?php if ($checkout_customer_id <= 0): ?>
+        <div class="pv-guest-banner" role="status" aria-live="polite">
+            <div class="pv-guest-banner-body">
+                <strong>Checking out as a guest</strong>
+                <span>Already have an account?
+                    <a href="<?= base_url('webshop/login?return_page=webshop/checkout') ?>">Sign in</a>
+                    to use saved addresses and track your order.
+                </span>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <div class="pv-checkout-layout">
             <div>
                 <form name="checkout" id="custinfoform" method="post" action="<?= base_url('webshop/submit_order') ?>" novalidate>
 
                     <?php if (is_array($cart_items) && count($cart_items)):
-                        foreach ($cart_items as $itemKey => $item):
-                            $subtotal += ((float) $item['quantity'] * (float) $item['product_price']); ?>
+                        foreach ($cart_items as $itemKey => $item): ?>
                             <input type="hidden" name="item_id[<?= $itemKey ?>]" value="<?= htmlspecialchars((string) $item['product_id'], ENT_QUOTES, 'UTF-8') ?>">
                             <input type="hidden" name="option_id[<?= $itemKey ?>]" value="<?= htmlspecialchars((string) $item['variant_id'], ENT_QUOTES, 'UTF-8') ?>">
                             <input type="hidden" name="option_price[<?= $itemKey ?>]" value="<?= htmlspecialchars((string) $item['variant_price'], ENT_QUOTES, 'UTF-8') ?>">
@@ -432,9 +507,30 @@ $subtotal = 0;
                     </div>
                     <?php endforeach; endif; ?>
                     <hr style="border:none;border-top:1px solid var(--gp-border);margin:12px 0">
-                    <div class="pv-summary-row"><span>Subtotal</span><span><?= $this->sma->formatMoney($subtotal) ?></span></div>
-                    <div class="pv-summary-row"><span>Shipping</span><span>TBD</span></div>
-                    <div class="pv-summary-total"><span>Estimated total</span><span><?= $this->sma->formatMoney($subtotal) ?></span></div>
+                    <div class="pv-summary-row">
+                        <span>Subtotal</span>
+                        <span><?= $this->sma->formatMoney($subtotal) ?></span>
+                    </div>
+                    <?php if ($tax_included > 0): ?>
+                    <div class="pv-summary-row pv-summary-row-sub">
+                        <span>VAT<?= htmlspecialchars($tax_rate_label, ENT_QUOTES, 'UTF-8') ?> <small>(included)</small></span>
+                        <span><?= $this->sma->formatMoney($tax_included) ?></span>
+                    </div>
+                    <?php endif; ?>
+                    <?php if ($tax_extra > 0): ?>
+                    <div class="pv-summary-row">
+                        <span>VAT<?= htmlspecialchars($tax_rate_label, ENT_QUOTES, 'UTF-8') ?></span>
+                        <span><?= $this->sma->formatMoney($tax_extra) ?></span>
+                    </div>
+                    <?php endif; ?>
+                    <div class="pv-summary-row">
+                        <span>Shipping</span>
+                        <span><?= $ship_amount > 0 ? $this->sma->formatMoney($ship_amount) : 'Free' ?></span>
+                    </div>
+                    <div class="pv-summary-total">
+                        <span>Total</span>
+                        <span><?= $this->sma->formatMoney($grand_total_display) ?></span>
+                    </div>
                 </div>
             </aside>
 

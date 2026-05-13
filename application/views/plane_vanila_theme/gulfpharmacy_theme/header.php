@@ -1,18 +1,13 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 <?php
 $ws = isset($webshop_settings) && is_object($webshop_settings) ? $webshop_settings : new stdClass();
-$shop_name  = isset($Settings->site_name) && $Settings->site_name !== '' ? $Settings->site_name : (isset($ws->site_name) ? $ws->site_name : 'My Shop');
-$logo_url = '';
-if (!empty($ws->logo) || !empty($ws->header_logo)) {
-    $logo_file = trim((string) (!empty($ws->header_logo) ? $ws->header_logo : $ws->logo));
-    if ($logo_file !== '') {
-        $uploadsBase = isset($uploads) ? (string) $uploads : '';
-        if ($uploadsBase !== '') {
-            $logo_url = webshop_media_src($uploadsBase, $logo_file);
-        } elseif (preg_match('#^https?://#i', $logo_file)) {
-            $logo_url = $logo_file;
-        }
-    }
+$S  = isset($Settings) && is_object($Settings) ? $Settings : new stdClass();
+$uploadsBase = isset($uploads) ? (string) $uploads : '';
+$logo_url = webshop_resolve_header_logo_url($uploadsBase, $S, $ws, '');
+
+$shop_name = webshop_store_display_name($S, $ws);
+if ($shop_name === '') {
+    $shop_name = 'Shop';
 }
 $cms_nav   = isset($cms_nav_pages) && is_array($cms_nav_pages) ? $cms_nav_pages : array();
 $cart_cnt  = isset($cart_items) && is_array($cart_items) ? count($cart_items) : 0;

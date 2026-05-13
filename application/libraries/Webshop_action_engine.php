@@ -46,11 +46,51 @@ class Webshop_action_engine
             );
         }
 
+        // Authoritative pricing: never trust client-posted price values. Some
+        // entry points (category listing, wishlist) only post the product id,
+        // which would otherwise store product_price=0 and break the cart total.
+        // Always resolve the current price from the API so the cart, checkout
+        // and payment screens stay consistent.
+        $api_product = $this->resolve_product_pricing($product_id);
+        if (is_array($api_product) && !empty($api_product)) {
+            $api_price = isset($api_product['price']) ? (float) $api_product['price'] : 0.0;
+            $api_tax_rate = isset($api_product['tax_rate']) ? (float) $api_product['tax_rate'] : 0.0;
+            $api_tax_method = isset($api_product['tax_method']) ? (int) $api_product['tax_method'] : 0;
+            $api_promo = isset($api_product['promo_price']) ? (float) $api_product['promo_price'] : 0.0;
+
+            if ($api_price > 0) {
+                $price = $api_price;
+                $product_unit_price = $api_price;
+            }
+            if ($api_tax_rate > 0 && $tax_rate <= 0) {
+                $tax_rate = $api_tax_rate;
+            }
+            if ($api_tax_method > 0 && $tax_method <= 0) {
+                $tax_method = $api_tax_method;
+            }
+            if ($api_promo > 0 && $promotion_price <= 0) {
+                $promotion_price = $api_promo;
+            }
+        }
+
         $item_key = ((int) $variant_id > 0) ? ($product_id . '_' . $variant_id) : (string) $product_id;
         $this->ensure_cart_session();
 
         if (isset($_SESSION['cart'][$item_key])) {
             $_SESSION['cart'][$item_key]['quantity'] += $quantity;
+            // Refresh price on existing row so a stale 0-price entry from an
+            // older add_to_cart call is corrected the next time the buyer
+            // adds the same product.
+            if ($price > 0) {
+                $_SESSION['cart'][$item_key]['product_price'] = $product_unit_price;
+                $_SESSION['cart'][$item_key]['price'] = $price;
+            }
+            if ($tax_rate > 0) {
+                $_SESSION['cart'][$item_key]['tax_rate'] = $tax_rate;
+            }
+            if ($tax_method > 0) {
+                $_SESSION['cart'][$item_key]['tax_method'] = $tax_method;
+            }
         } else {
             $_SESSION['cart'][$item_key] = array(
                 'product_id' => $product_id,
@@ -76,6 +116,40 @@ class Webshop_action_engine
         );
     }
 
+    /**
+     * Resolve authoritative product pricing from the API (or local DB fallback).
+     * Returned shape mirrors {@see Webshop_api_model::_flatten_product_for_order()}.
+     *
+     * @param  int $product_id
+     * @return array Empty array on failure.
+     */
+    protected function resolve_product_pricing($product_id)
+    {
+        $pid = (int) $product_id;
+        if ($pid < 1) {
+            return array();
+        }
+        if (!isset($this->CI->webshop_model) || !is_object($this->CI->webshop_model)) {
+            return array();
+        }
+        try {
+            $row = $this->CI->webshop_model->get_product_by_id(
+                $pid,
+                'id,price,eshop_price,tax_rate,tax_method,promo_price,promotion,start_date,end_date'
+            );
+        } catch (\Exception $e) {
+            log_message('error', 'Webshop_action_engine::resolve_product_pricing — ' . $e->getMessage());
+            return array();
+        } catch (\Throwable $e) {
+            log_message('error', 'Webshop_action_engine::resolve_product_pricing — ' . $e->getMessage());
+            return array();
+        }
+        if (!is_array($row) || !isset($row[$pid]) || !is_array($row[$pid]) || empty($row[$pid])) {
+            return array();
+        }
+        return $row[$pid];
+    }
+
     public function update_cart($postData)
     {
         $item_key = $this->post_string($postData, 'itemKey');
@@ -92,42 +166,31 @@ class Webshop_action_engine
 
     public function add_to_wishlist($postData, $user_id)
     {
-        $product_id = $this->post_int($postData, 'product_id');
-        if ($product_id <= 0) {
-            $product_id = $this->post_int($postData, 'item_id');
-        }
-
-        $option_id = $this->post_int($postData, 'variant_id');
-        if ($option_id <= 0) {
-            $option_id = $this->post_int($postData, 'option_id');
-        }
-        if ($product_id <= 0) {
-            return array(
-                'status' => 'FAIL',
-                'error' => 'Invalid product',
-            );
-        }
-        if ((int) $user_id <= 0) {
-            return array(
-                'status' => 'FAIL',
-                'error' => 'User session invalid',
-            );
-        }
-
-        $wishlist = $this->CI->webshop_model->add_to_wishlist(array(
-            'product_id' => $product_id,
-            'option_id' => $option_id,
-            'user_id' => (int) $user_id,
-        ));
-
-        return array(
-            'status' => 'SUCCESS',
-            'count' => is_array($wishlist) ? count($wishlist) : 0,
-            'items' => $wishlist,
-        );
+        return $this->wishlist_mutate($postData, $user_id, 'add');
     }
 
     public function remove_from_wishlist($postData, $user_id)
+    {
+        return $this->wishlist_mutate($postData, $user_id, 'remove');
+    }
+
+    /**
+     * Shared body for add/remove wishlist actions.
+     *
+     * Calls the API model with the scalar signature
+     * (user_id, product_id, option_id) — NOT the single-array legacy DB-model
+     * signature. The previous version passed array('product_id'=>..,'user_id'=>..)
+     * which PHP bound to $user_id, leaving $product_id/$option_id as NULL on
+     * the API side: the call always failed silently and the engine still
+     * returned SUCCESS, so the heart toggle "worked" visually but nothing
+     * was ever persisted in sma_eshop_wishlist.
+     *
+     * @param array  $postData
+     * @param int    $user_id
+     * @param string $op  'add' | 'remove'
+     * @return array
+     */
+    protected function wishlist_mutate($postData, $user_id, $op)
     {
         $product_id = $this->post_int($postData, 'product_id');
         if ($product_id <= 0) {
@@ -138,29 +201,46 @@ class Webshop_action_engine
         if ($option_id <= 0) {
             $option_id = $this->post_int($postData, 'option_id');
         }
+
         if ($product_id <= 0) {
             return array(
                 'status' => 'FAIL',
-                'error' => 'Invalid product',
+                'error'  => 'Invalid product',
             );
         }
-        if ((int) $user_id <= 0) {
+        $uid = (int) $user_id;
+        if ($uid <= 0) {
+            // Distinct error code lets the storefront JS redirect to login
+            // instead of surfacing a generic "unable to update" alert.
             return array(
                 'status' => 'FAIL',
-                'error' => 'User session invalid',
+                'error'  => 'User session invalid',
+                'code'   => 'NOT_LOGGED_IN',
             );
         }
 
-        $wishlist = $this->CI->webshop_model->remove_from_wishlist(array(
-            'product_id' => $product_id,
-            'option_id' => $option_id,
-            'user_id' => (int) $user_id,
-        ));
+        $model = $this->CI->webshop_model;
+        $ok = ($op === 'remove')
+            ? $model->remove_from_wishlist($uid, $product_id, $option_id ?: null)
+            : $model->add_to_wishlist($uid, $product_id, $option_id ?: null);
+
+        if (!$ok) {
+            return array(
+                'status' => 'FAIL',
+                'error'  => ($op === 'remove')
+                    ? 'Unable to remove from favourites.'
+                    : 'Unable to add to favourites.',
+            );
+        }
+
+        $count = 0;
+        if (method_exists($model, 'get_wishlist_count')) {
+            $count = (int) $model->get_wishlist_count($uid);
+        }
 
         return array(
             'status' => 'SUCCESS',
-            'count' => is_array($wishlist) ? count($wishlist) : 0,
-            'items' => $wishlist,
+            'count'  => $count,
         );
     }
 

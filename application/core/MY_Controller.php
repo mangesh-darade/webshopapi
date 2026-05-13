@@ -5,6 +5,9 @@ class MY_Controller extends CI_Controller {
     /** @var string|null Absolute uploads base (…/assets/mdata/{host}/uploads/ or …/mdata/{tenant}/uploads/) from getsettings or NULL; public for Webshop_api_model::get_media_uploads_base() */
     public $api_media_uploads_base = null;
 
+    /** @var object { header: array, footer: array } rows from getsettings website_setting_sections (Storefront DB slots per section) */
+    public $api_website_setting_sections;
+
     function __construct()
     {
         parent::__construct();
@@ -22,6 +25,23 @@ class MY_Controller extends CI_Controller {
             $this->api_website_setting = isset($api_data->website_setting)
                 ? $api_data->website_setting
                 : array();
+            $sec = isset($api_data->website_setting_sections) ? $api_data->website_setting_sections : null;
+            if ($sec === null) {
+                $this->api_website_setting_sections = (object) array('header' => array(), 'footer' => array());
+            } elseif (is_array($sec)) {
+                $this->api_website_setting_sections = (object) $sec;
+            } else {
+                $this->api_website_setting_sections = is_object($sec) ? $sec : (object) array('header' => array(), 'footer' => array());
+            }
+            /* footer/header may decode as JSON objects with numeric keys — normalize to row lists (do not wipe). */
+            $h_raw = isset($this->api_website_setting_sections->header) ? $this->api_website_setting_sections->header : array();
+            $f_raw = isset($this->api_website_setting_sections->footer) ? $this->api_website_setting_sections->footer : array();
+            $this->api_website_setting_sections->header = function_exists('webshop_normalize_setting_section_row_list')
+                ? webshop_normalize_setting_section_row_list($h_raw)
+                : (is_array($h_raw) ? array_values($h_raw) : array());
+            $this->api_website_setting_sections->footer = function_exists('webshop_normalize_setting_section_row_list')
+                ? webshop_normalize_setting_section_row_list($f_raw)
+                : (is_array($f_raw) ? array_values($f_raw) : array());
             $this->_normalize_settings_from_api();
             if (!isset($this->Settings->active_webshop)) {
                 $this->Settings->active_webshop = 1;

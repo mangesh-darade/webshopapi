@@ -392,7 +392,10 @@ XSL;
             // Handle both "components/foo" and just "foo"
             $baseName = str_replace('components/', '', $method);
             
+            // Prefer full page shells (pages/foo) over naked components so routes like
+            // wishlist get header/footer from theme_loader (page_open/page_close).
             $candidates = [
+                $themeFolder . '/pages/' . $baseName,
                 $themeFolder . '/components/' . $baseName,
                 $themeFolder . '/' . $baseName
             ];
@@ -426,6 +429,7 @@ XSL;
             'order_success',
             'forgot_password',
             'payment_declined',
+            'payment_success',
         );
         if (in_array($method, $allowed, true)) {
             $path = VIEWPATH . 'plane_vanila_theme/' . $method . '.php';
@@ -435,6 +439,18 @@ XSL;
         }
 
         return '';
+    }
+
+    /**
+     * Merge layout globals ($assets, Settings, webshop_settings, cart, …) into a view payload.
+     * Payment callbacks must use this or CSS/header partials render unstyled (broken relative URLs / missing $assets).
+     *
+     * @param array $extra View-specific variables.
+     * @return array
+     */
+    private function theme_view_data(array $extra = array())
+    {
+        return array_merge($this->data, $extra);
     }
 
     public function load_view($method = '', $data = array())
@@ -1424,7 +1440,7 @@ XSL;
             $this->data['cms_footer_sections_html'] = '';
             $this->data['page_banner_image_url'] = '';
             $this->data['page_logo_image_url'] = '';
-            $this->data['home_category_grid_title'] = 'Shop by Category';
+            $this->data['home_category_grid_title'] = '';
             $this->data['home_product_grid_title'] = '';
             $cmsSections = array();
             if (is_object($this->data['home_page_cms'])) {
@@ -1519,7 +1535,7 @@ XSL;
             'home_has_product_grid' => isset($this->data['home_has_product_grid']) ? (bool) $this->data['home_has_product_grid'] : true,
             'home_has_footer_section' => isset($this->data['home_has_footer_section']) ? (bool) $this->data['home_has_footer_section'] : true,
             'home_section_html_block' => isset($this->data['home_section_html_block']) ? (string) $this->data['home_section_html_block'] : '',
-            'home_category_grid_title' => isset($this->data['home_category_grid_title']) ? (string) $this->data['home_category_grid_title'] : 'Shop by Category',
+            'home_category_grid_title' => isset($this->data['home_category_grid_title']) ? (string) $this->data['home_category_grid_title'] : '',
             'home_product_grid_title' => isset($this->data['home_product_grid_title']) ? (string) $this->data['home_product_grid_title'] : '',
         );
         $patch = $this->webshop_section_engine->map_sections_to_home_patch($sections, (bool) $reset_visibility, $seed);
@@ -1539,6 +1555,11 @@ XSL;
      */
     private function ensure_plane_theme_home_catalog_data(array $cmsSections)
     {
+        // When CMS returned rendered HTML (sections + page_text), never stack legacy strips — avoids duplicate Featured/Product carousel.
+        $block = isset($this->data['home_section_html_block']) ? trim((string) $this->data['home_section_html_block']) : '';
+        if ($block !== '') {
+            return;
+        }
         $mainCats = isset($this->data['main_categories']) && is_array($this->data['main_categories'])
             ? $this->data['main_categories'] : array();
         $hasCatSec = $this->cms_section_list_includes_types($cmsSections, array('category_grid', 'category_carousel'));
@@ -1767,7 +1788,7 @@ XSL;
         $this->data['home_has_product_grid'] = $isHomeType;
         $this->data['home_has_header_section'] = isset($cmsPage->show_header) ? (bool) $cmsPage->show_header : true;
         $this->data['home_has_footer_section'] = isset($cmsPage->show_footer) ? (bool) $cmsPage->show_footer : true;
-        $this->data['home_category_grid_title'] = 'Shop by Category';
+        $this->data['home_category_grid_title'] = '';
         $this->data['home_product_grid_title'] = '';
         $this->data['page_banner_image_url'] = isset($cmsPage->page_banner_image_url) ? (string) $cmsPage->page_banner_image_url : '';
         $this->data['page_logo_image_url'] = isset($cmsPage->page_logo_image_url) ? (string) $cmsPage->page_logo_image_url : '';
@@ -2599,6 +2620,11 @@ XSL;
                     }
                     $address_id = $this->input->post('default_shipping_address');
                     $address = $this->webshop_model->get_customer_address($customer_id, $address_id);
+                    if (empty($address) || !isset($address[$address_id])) {
+                        $this->session->set_flashdata('error_message', 'Could not resolve selected address. Please try again.');
+                        redirect('webshop/checkout');
+                        return;
+                    }
                     $billing_address = $address[$address_id];
                     $shipping_address = $address[$address_id];
 
@@ -2680,9 +2706,10 @@ XSL;
                     } else {
                         if ($this->input->post('billing_address_1') !== false && $this->input->post('billing_address_1') !== null) {
                             $country_code_raw = $this->input->post('billing_country', true);
+                            $country = '';
                             if ($country_code_raw) {
                                 $country_parts = explode('~', $country_code_raw);
-                                $country = $country_parts[1];
+                                $country = isset($country_parts[1]) ? $country_parts[1] : '';
                             }
                             $billing_address = array(
                                 "company_id" => isset($customer['id']) ? $customer['id'] : 0,
@@ -2692,8 +2719,7 @@ XSL;
                                 "line2" => $this->input->post('billing_address_2'),
                                 "city" => $this->input->post('billing_city'),
                                 "postal_code" => $this->input->post('billing_postcode'),
-                                "state" => $billing_stateData[0],
-                                "state_code" => $billing_stateData[1],
+                                "state" => $this->input->post('billing_state'),
                                 "country" => $country,
                                 "phone" => $this->input->post('billing_phone'),
                                 "email_id" => $this->input->post('billing_email'),
@@ -2732,9 +2758,10 @@ XSL;
                                 if (!$country_code_raw) {
                                     $country_code_raw = $this->input->post('billing_country');
                                 }
+                                $country = '';
                                 if ($country_code_raw) {
                                     $country_parts = explode('~', $country_code_raw);
-                                    $country = $country_parts[1];
+                                    $country = isset($country_parts[1]) ? $country_parts[1] : '';
                                 }
                                 $shipping_address = array(
                                     "company_id" => isset($customer['id']) ? $customer['id'] : 0,
@@ -2834,6 +2861,13 @@ XSL;
                         $selectData = "id,code,article_code,name,unit AS unit_id,eshop_price As price,weight,cf1,cf2,tax_rate AS tax_id , tax_method, type AS product_type, sale_unit AS sale_unit_id, mrp, hsn_code, storage_type, promotion, promo_price,start_date,end_date";
 
                         $productData = $this->webshop_model->get_product_by_id($product_id, $selectData);
+
+                        if (empty($productData) || !isset($productData[$product_id])) {
+                            log_message('error', 'Checkout error: Product ' . $product_id . ' could not be resolved via API.');
+                            $this->session->set_flashdata('error_message', 'One or more items in your cart are no longer available. Please check your cart.');
+                            redirect('webshop/cart');
+                            return;
+                        }
 
                         $product = $productData[$product_id];
 
@@ -3017,22 +3051,44 @@ XSL;
 
                 if (count($products) && !empty($order)) {
 
-                    $order_id = $this->webshop_api_model->add_order($order, $products);
-                    // add_order may return `true` (boolean) when the API succeeds without returning an id.
-                    // Normalise to a usable string identifier.
-                    if ($order_id === true) {
-                        $order_id = 'ES-' . date('Ymd') . '-' . strtoupper(substr(uniqid('', true), -6));
+                    $payment_method = (string) $this->input->post('payment_method');
+                    $customer_id    = isset($customer['id']) ? $customer['id'] : 0;
+                    $is_online      = in_array($payment_method, array('razorpay', 'ccavenue', 'paytm', 'instamojo', 'online'), true);
+
+                    if ($is_online) {
+                        $temp_id = 'TMP_' . substr(md5(uniqid(mt_rand(), true)), 0, 8);
+                        $this->session->set_userdata('order_id', $temp_id);
+                        $this->session->set_userdata('pending_order_payload', array(
+                            'order'    => $order,
+                            'products' => $products,
+                            'customer' => $customer,
+                        ));
+                        $this->session->set_userdata('pending_payment_order', array(
+                            'order_id'     => $temp_id,
+                            'customer_id'  => $customer_id,
+                            'reference_no' => isset($order['reference_no']) ? $order['reference_no'] : $temp_id,
+                            'grand_total'  => isset($order['grand_total']) ? (float) $order['grand_total'] : 0.0,
+                            'currency_iso' => $this->resolve_currency_iso_at_checkout_submit(),
+                            'method'       => $payment_method,
+                        ));
+                        redirect("webshop/payments?order=$temp_id&customer=$customer_id");
+                        return;
                     }
+
+                    $order_id = $this->webshop_api_model->add_order($order, $products);
                     $this->session->set_userdata('order_id', $order_id);
+                    $this->session->set_userdata('checkout_currency_iso', $this->resolve_currency_iso_at_checkout_submit());
 
                     if ($order_id) {
-                        // Clear cart before redirect so no stale data remains.
-                        unset($_SESSION['cart']);
-                        $this->session->unset_userdata('cart');
+                        $this->session->set_userdata('pending_payment_order', array(
+                            'order_id'     => $order_id,
+                            'customer_id'  => $customer_id,
+                            'reference_no' => isset($order['reference_no']) ? $order['reference_no'] : '',
+                            'grand_total'  => isset($order['grand_total']) ? (float) $order['grand_total'] : 0.0,
+                            'currency_iso' => $this->resolve_currency_iso_at_checkout_submit(),
+                            'method'       => $payment_method,
+                        ));
 
-                        // Fire WhatsApp notification — wrapped so any output or error
-                        // does NOT prevent the redirect from working.
-                        // Uses \Throwable to catch both Exception and PHP-7 Error (e.g. null-DB).
                         try {
                             if (isset($this->db) && isset($order['billing_address_id']) && $order['billing_address_id']) {
                                 $wa_customer = $this->getShippingAddress($order['billing_address_id']);
@@ -3042,20 +3098,10 @@ XSL;
                                 }
                             }
                         } catch (\Throwable $e) {
-                            // Non-critical — continue to redirect.
                             log_message('error', 'WhatsApp notify failed for order ' . $order_id . ': ' . $e->getMessage());
                         }
 
-                        $payment_method = (string) $this->input->post('payment_method');
-                        $customer_id    = isset($customer['id']) ? $customer['id'] : 0;
-
-                        if ($payment_method === 'cod' || $payment_method === '') {
-                            redirect("webshop/order_success?order=$order_id&customer=$customer_id");
-                        } elseif (in_array($payment_method, array('razorpay', 'ccavenue', 'paytm', 'instamojo', 'online'), true)) {
-                            redirect("webshop/payments?order=$order_id&customer=$customer_id");
-                        } else {
-                            redirect("webshop/order_success?order=$order_id&customer=$customer_id");
-                        }
+                        redirect("webshop/order_success?order=$order_id&customer=$customer_id");
                         return;
                     }
 
@@ -3080,6 +3126,8 @@ XSL;
             redirect('webshop/cart/invalid');
         }
     }
+
+
 
     public function send_invoice_by_email(array $para)
     {
@@ -3112,23 +3160,406 @@ XSL;
         return $this->_send_basic_email($to_email, $subject, $message);
     }
 
+    /**
+     * Normalize to ISO 4217 3-letter code or empty string.
+     *
+     * @param mixed $raw
+     * @return string
+     */
+    private function _normalize_currency_iso($raw)
+    {
+        $s = preg_replace('/[^A-Za-z]/', '', (string) $raw);
+        $code = strtoupper(strlen($s) >= 3 ? substr($s, 0, 3) : $s);
+        return strlen($code) === 3 ? $code : '';
+    }
+
+    /**
+     * Currency shown with checkout totals — from API webshop settings / POS settings (same source as checkout screen).
+     *
+     * @return string 3-letter ISO or empty
+     */
+    private function get_checkout_currency_iso()
+    {
+        if (isset($this->webshop_settings->currency_code)) {
+            $c = $this->_normalize_currency_iso($this->webshop_settings->currency_code);
+            if ($c !== '') {
+                return $c;
+            }
+        }
+        if (isset($this->Settings->default_currency)) {
+            return $this->_normalize_currency_iso($this->Settings->default_currency);
+        }
+        return '';
+    }
+
+    /**
+     * Persist at order submit — matches storefront currency used on checkout before cart is cleared.
+     *
+     * @return string
+     */
+    private function resolve_currency_iso_at_checkout_submit()
+    {
+        $store = $this->get_checkout_currency_iso();
+        if ($store !== '') {
+            return $store;
+        }
+        return $this->_normalize_currency_iso($this->get_default_currency_code_for_schema());
+    }
+
+    /**
+     * Currency for payment gateway: POST (payments form) → session from checkout → store settings → schema default.
+     *
+     * @return string
+     */
+    private function resolve_payment_currency_iso()
+    {
+        $post = $this->_normalize_currency_iso($this->input->post('currency'));
+        if ($post !== '') {
+            return $post;
+        }
+        $sess = $this->_normalize_currency_iso($this->session->userdata('checkout_currency_iso'));
+        if ($sess !== '') {
+            return $sess;
+        }
+        $store = $this->get_checkout_currency_iso();
+        if ($store !== '') {
+            return $store;
+        }
+        return $this->_normalize_currency_iso($this->get_default_currency_code_for_schema());
+    }
+
+    /**
+     * CCAvenue expects the same ISO code as checkout; no region-specific hardcoding — configure store + gateway to match.
+     *
+     * @param string $requested_code From encrypted handler / POST (may be empty)
+     * @return string
+     */
+    private function _resolve_ccavenue_currency($requested_code)
+    {
+        $code = $this->_normalize_currency_iso($requested_code);
+        if ($code !== '') {
+            return $code;
+        }
+        return $this->resolve_payment_currency_iso();
+    }
+
+    /**
+     * Read country from API/local address row (multiple possible keys).
+     *
+     * @param array $addr
+     * @return string Trimmed display/country text or empty
+     */
+    private function _address_country_text(array $addr)
+    {
+        foreach (array('country', 'country_name', 'Country') as $k) {
+            if (!isset($addr[$k])) {
+                continue;
+            }
+            $raw = (string) $addr[$k];
+            // Unicode whitespace trim — NBSP-only values must not pass as "non-empty".
+            if (function_exists('preg_replace')) {
+                $raw = preg_replace('/^\p{Z}+|\p{Z}+$/u', '', $raw);
+            }
+            $raw = trim(strip_tags($raw));
+            if ($raw !== '') {
+                return $raw;
+            }
+        }
+        if (isset($addr['country_code'])) {
+            $cc = trim((string) $addr['country_code']);
+            if (preg_match('/^[A-Za-z]{2,3}$/', $cc)) {
+                return $cc;
+            }
+        }
+        return '';
+    }
+
+    /**
+     * CCAvenue validates billing_country strictly (error 21009 if blank). Docs/samples use full country names
+     * (e.g. "India"), max ~50 alphabetic characters — some ME merchant profiles reject 2-letter ISO as "missing".
+     *
+     * @param string $raw
+     * @return string Non-empty country name (truncated to 50)
+     */
+    private function _normalize_ccavenue_country_string($raw)
+    {
+        $defaultFull = 'United Arab Emirates';
+        $s = (string) $raw;
+        if (function_exists('preg_replace')) {
+            $s = preg_replace('/^\p{Z}+|\p{Z}+$/u', '', $s);
+        }
+        $s = trim(strip_tags($s));
+        if ($s === '' || $s === '-' || strtoupper($s) === 'N/A') {
+            return $defaultFull;
+        }
+
+        // Two-letter ISO → full English name (CCAvenue initiate samples use full names).
+        if (preg_match('/^[A-Za-z]{2}$/', $s)) {
+            $iso = strtoupper($s);
+            static $isoToFull = array(
+                'AE' => 'United Arab Emirates',
+                'IN' => 'India',
+                'PK' => 'Pakistan',
+                'SA' => 'Saudi Arabia',
+                'KW' => 'Kuwait',
+                'QA' => 'Qatar',
+                'BH' => 'Bahrain',
+                'OM' => 'Oman',
+                'EG' => 'Egypt',
+                'GB' => 'United Kingdom',
+                'US' => 'United States',
+                'CA' => 'Canada',
+                'AU' => 'Australia',
+                'SG' => 'Singapore',
+                'MY' => 'Malaysia',
+                'PH' => 'Philippines',
+                'BD' => 'Bangladesh',
+                'LK' => 'Sri Lanka',
+                'NP' => 'Nepal',
+                'FR' => 'France',
+                'DE' => 'Germany',
+                'IT' => 'Italy',
+                'ES' => 'Spain',
+                'NL' => 'Netherlands',
+                'BE' => 'Belgium',
+                'IE' => 'Ireland',
+                'ZA' => 'South Africa',
+                'NG' => 'Nigeria',
+                'KE' => 'Kenya',
+            );
+            if (isset($isoToFull[$iso])) {
+                $s = $isoToFull[$iso];
+            }
+        }
+
+        $lower = function_exists('mb_strtolower') ? mb_strtolower($s, 'UTF-8') : strtolower($s);
+        static $aliases = array(
+            'united arab emirates' => 'United Arab Emirates',
+            'u.a.e.'               => 'United Arab Emirates',
+            'uae'                  => 'United Arab Emirates',
+            'india'                => 'India',
+            'pakistan'             => 'Pakistan',
+            'saudi arabia'         => 'Saudi Arabia',
+            'kuwait'               => 'Kuwait',
+            'qatar'                => 'Qatar',
+            'bahrain'              => 'Bahrain',
+            'oman'                 => 'Oman',
+            'egypt'                => 'Egypt',
+            'united kingdom'       => 'United Kingdom',
+            'united states'        => 'United States',
+            'usa'                  => 'United States',
+            'canada'               => 'Canada',
+            'australia'            => 'Australia',
+            'singapore'            => 'Singapore',
+            'malaysia'             => 'Malaysia',
+            'philippines'          => 'Philippines',
+            'bangladesh'           => 'Bangladesh',
+            'sri lanka'            => 'Sri Lanka',
+            'nepal'                => 'Nepal',
+            'france'               => 'France',
+            'germany'              => 'Germany',
+            'italy'                => 'Italy',
+            'spain'                => 'Spain',
+            'netherlands'          => 'Netherlands',
+            'belgium'              => 'Belgium',
+            'ireland'              => 'Ireland',
+            'south africa'         => 'South Africa',
+            'nigeria'              => 'Nigeria',
+            'kenya'                => 'Kenya',
+        );
+        if (isset($aliases[$lower])) {
+            $s = $aliases[$lower];
+        } elseif (strpos($lower, 'emirates') !== false) {
+            $s = 'United Arab Emirates';
+        }
+
+        if (function_exists('mb_strlen') && function_exists('mb_substr') && mb_strlen($s, 'UTF-8') > 50) {
+            return mb_substr($s, 0, 50, 'UTF-8');
+        }
+        if (!function_exists('mb_strlen') && strlen($s) > 50) {
+            return substr($s, 0, 50);
+        }
+        return $s;
+    }
+
+    /**
+     * Last-mile value for encrypted merchant_data: CCAvenue validates billing_country as Latin "Alphabets".
+     * Arabic-only or punctuation-only values become blank at the gateway → 21009. UAE/GCC spaced names are
+     * normalized to the single token "UAE" to match strict parsers.
+     *
+     * @param string $normalized Output of {@see _normalize_ccavenue_country_string()}
+     * @return string Non-empty ASCII letters (and single spaces where kept), max 50
+     */
+    private function _finalize_ccavenue_country_field($normalized)
+    {
+        $s = trim((string) $normalized);
+        // Latin letters and spaces only (documentation: Alphabets).
+        $latin = preg_replace('/[^A-Za-z\s]/', '', $s);
+        $latin = preg_replace('/\s+/', ' ', $latin);
+        $latin = trim($latin);
+        if ($latin === '') {
+            return 'UAE';
+        }
+        $compact = strtolower(str_replace(' ', '', $latin));
+        if (strpos($compact, 'unitedarabemirates') !== false || $compact === 'uae'
+            || strpos($compact, 'emirates') !== false) {
+            return 'UAE';
+        }
+        if (strlen($latin) > 50) {
+            return substr($latin, 0, 50);
+        }
+        return $latin;
+    }
+
+    /**
+     * CCAvenue requires non-empty billing_* and delivery_* on many merchant profiles; empty fields cause gateway errors.
+     *
+     * @param int        $customer_id companies.id (webshop customer)
+     * @param array|false $order       Row from get_order_by_id (API or DB)
+     * @return array Keys: billing_name, billing_company, billing_address, billing_city, billing_state, billing_country, billing_zip, billing_tel, billing_email
+     */
+    private function _resolve_ccavenue_billing($customer_id, $order)
+    {
+        $defaults = array(
+            'billing_name'    => 'Customer',
+            'billing_company' => '-',
+            'billing_address' => 'Address not provided',
+            'billing_city'    => 'Dubai',
+            'billing_state'   => 'Dubai',
+            'billing_country' => 'United Arab Emirates',
+            'billing_zip'     => '00000',
+            'billing_tel'     => '0500000000',
+            'billing_email'   => 'customer@example.com',
+        );
+        $customer_id = (int) $customer_id;
+        if (empty($order) || !is_array($order)) {
+            return $defaults;
+        }
+        $bid = isset($order['billing_address_id']) ? (int) $order['billing_address_id'] : 0;
+        if ($bid < 1 || $customer_id < 1) {
+            return $defaults;
+        }
+        $addr_map = $this->webshop_api_model->get_customer_address($customer_id, $bid);
+        $addr = array();
+        if (is_array($addr_map)) {
+            if (isset($addr_map[$bid]) && is_array($addr_map[$bid])) {
+                $addr = $addr_map[$bid];
+            } else {
+                foreach ($addr_map as $row) {
+                    if (is_array($row) && isset($row['id']) && (int) $row['id'] === $bid) {
+                        $addr = $row;
+                        break;
+                    }
+                }
+            }
+        }
+        if (empty($addr)) {
+            return $defaults;
+        }
+        $name = isset($addr['address_name']) ? trim((string) $addr['address_name']) : '';
+        $line1 = isset($addr['line1']) ? trim((string) $addr['line1']) : '';
+        $line2 = isset($addr['line2']) ? trim((string) $addr['line2']) : '';
+        $street = trim($line1 . ($line2 !== '' ? ', ' . $line2 : ''));
+        $city = isset($addr['city']) ? trim((string) $addr['city']) : '';
+        $state = isset($addr['state']) ? trim((string) $addr['state']) : '';
+        $country = $this->_address_country_text($addr);
+        $zip = isset($addr['postal_code']) ? preg_replace('/\s+/', '', (string) $addr['postal_code']) : '';
+        $phone = isset($addr['phone']) ? preg_replace('/[^\d+]/', '', (string) $addr['phone']) : '';
+        $email = isset($addr['email_id']) ? trim((string) $addr['email_id']) : (isset($addr['email']) ? trim((string) $addr['email']) : '');
+        if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $email = $defaults['billing_email'];
+        }
+        if ($email === '') {
+            $email = $defaults['billing_email'];
+        }
+        if ($zip === '') {
+            $zip = $defaults['billing_zip'];
+        }
+        if ($phone === '') {
+            $phone = $defaults['billing_tel'];
+        }
+        $trunc = function ($str, $max) {
+            $str = (string) $str;
+            if (function_exists('mb_substr')) {
+                return mb_substr($str, 0, $max);
+            }
+            return strlen($str) > $max ? substr($str, 0, $max) : $str;
+        };
+        return array(
+            'billing_name'    => $name !== '' ? $trunc($name, 120) : $defaults['billing_name'],
+            'billing_company' => isset($addr['company_name']) && trim((string) $addr['company_name']) !== ''
+                ? $trunc(trim((string) $addr['company_name']), 120) : $defaults['billing_company'],
+            'billing_address' => $street !== '' ? $trunc($street, 240) : $defaults['billing_address'],
+            'billing_city'    => $city !== '' ? $trunc($city, 60) : $defaults['billing_city'],
+            'billing_state'   => $state !== '' ? $trunc($state, 60) : $defaults['billing_state'],
+            'billing_country' => $this->_finalize_ccavenue_country_field(
+                $this->_normalize_ccavenue_country_string(
+                    $country !== '' ? $trunc($country, 60) : $defaults['billing_country']
+                )
+            ),
+            'billing_zip'     => $trunc($zip, 24),
+            'billing_tel'     => $trunc($phone, 40),
+            'billing_email'   => $email,
+        );
+    }
+
     public function payment_ccavResponseHandler()
     {
 
         $this->load->helper('crypto_helper');
-        $ci = get_instance();
-        $ci->config->load('payment_gateways', TRUE);
-        $payment_config = $ci->config->item('payment_gateways');
-        $ccavenue = $payment_config['ccavenue'];
-        $workingKey = isset($ccavenue['API_KEY']) ? $ccavenue['API_KEY'] : '';
-        $encResponse = isset($_POST["encResp"]) ? $_POST["encResp"] : '';
-        if ($workingKey === '' || $encResponse === '') {
-            $this->session->set_flashdata('error_message', 'Payment response is invalid.');
-            $this->load_view('payment_declined', []);
+
+        // Same credential source as payment_ccavRequestHandler / payments(): API first, then local config.
+        // Response decrypt must use the **same** working key used to encrypt the request or decryption fails.
+        $ccavenue = array();
+        $apiCredentials = $this->webshop_model->get_gateway_credentials();
+        if (!empty($apiCredentials['ccavenue'])) {
+            $ccavenue = $apiCredentials['ccavenue'];
+        } else {
+            $ci = get_instance();
+            $ci->config->load('payment_gateways', TRUE);
+            $pc = $ci->config->item('payment_gateways');
+            $ccavenue = isset($pc['ccavenue']) ? $pc['ccavenue'] : array();
+        }
+        $workingKey = isset($ccavenue['API_KEY']) ? trim((string) $ccavenue['API_KEY']) : '';
+
+        $encResponse = isset($_POST['encResp']) ? (string) $_POST['encResp'] : '';
+        if ($encResponse === '' && isset($_POST['encresp'])) {
+            $encResponse = (string) $_POST['encresp'];
+        }
+
+        if ($encResponse === '') {
+            $this->session->set_flashdata(
+                'error_message',
+                'No payment data was received. Complete payment on the CCAvenue page, or open the payment link from your order again. Refreshing this page will not work.'
+            );
+            $this->load_view('payment_declined', $this->theme_view_data(array(
+                'error_message' => 'No payment response was posted. Use your order payment link again.',
+            )));
+            return;
+        }
+        if ($workingKey === '') {
+            $this->session->set_flashdata(
+                'error_message',
+                'CCAvenue working key is not configured. Add it in ElintOm gateway settings or application/config/payment_gateways.php.'
+            );
+            $this->load_view('payment_declined', $this->theme_view_data(array(
+                'error_message' => 'CCAvenue decryption key is missing.',
+            )));
             return;
         }
 
         $rcvdString = decrypt($encResponse, $workingKey);
+        if ($rcvdString === '') {
+            log_message('error', 'CCAvenue response decrypt failed or empty (wrong working key vs gateway).');
+            $this->session->set_flashdata(
+                'error_message',
+                'Could not decrypt the payment response. Ensure the CCAvenue working key in ElintOm matches this merchant account.'
+            );
+            $this->load_view('payment_declined', $this->theme_view_data(array(
+                'error_message' => 'Payment response could not be decrypted.',
+            )));
+            return;
+        }
         $order_status = "";
         $responseMap = [];
         $decryptValues = explode('&', $rcvdString);
@@ -3142,19 +3573,78 @@ XSL;
 
         $order_status = isset($responseMap['order_status']) ? $responseMap['order_status'] : '';
 
-        // 2. If success, insert into payment table
+        // 2. If success, persist payment on ElintOm (API mode) or local DB (legacy).
         if ($order_status === 'Success') {
-            $order_id =  $this->webshop_model->CcavenuePayAfterSale($responseMap);
-            $this->load_view('payment_success', $responseMap);
-        } else {
-            $order = isset($responseMap['order_id']) ? $responseMap['order_id'] : null;
-            if ($order) {
-                $this->db->where('id', $order);
-                $this->db->update('sma_orders', ['payment_status' => 'Failed']);
+            $oid_map = isset($responseMap['order_id']) ? trim((string) $responseMap['order_id']) : '';
+            // If this was a deferred order (TMP_ prefix), create it in ElintOm now.
+            if (strpos($oid_map, 'TMP_') === 0) {
+                $payload = $this->session->userdata('pending_order_payload');
+                if ($payload && is_array($payload)) {
+                    $real_oid = $this->webshop_api_model->add_order($payload['order'], $payload['products']);
+                    if ($real_oid) {
+                        $responseMap['order_id'] = $real_oid;
+                        $oid_map = (string) $real_oid;
+                    }
+                }
             }
-            $response_data = $responseMap;
-            $response_data['error_message'] = isset($responseMap['status_message']) ? $responseMap['status_message'] : 'Payment declined or failed.';
-            $this->load_view('payment_declined', $response_data);
+
+            if ($this->webshop_api_model->uses_elintom_api_for_orders()) {
+                $this->webshop_api_model->record_ccavenue_payment_remote($responseMap);
+            } else {
+                $this->webshop_model->CcavenuePayAfterSale($responseMap);
+            }
+            $success_payload = array('payment_gateway_response' => $responseMap);
+            $oid_ok = isset($responseMap['order_id']) ? trim((string) $responseMap['order_id']) : '';
+            if ($oid_ok !== '') {
+                $orow = $this->webshop_model->get_order_by_id($oid_ok);
+                if (!empty($orow) && is_array($orow)) {
+                    $success_payload['order'] = $orow;
+                    $success_payload['items'] = $this->webshop_model->get_order_items_by_order_id($oid_ok);
+                }
+            }
+            // Payment confirmed — safe to clear the cart and pending-payment snapshot.
+            if (isset($_SESSION['cart'])) {
+                unset($_SESSION['cart']);
+            }
+            $this->session->unset_userdata('order_id');
+            $this->session->unset_userdata('pending_payment_order');
+            $this->session->unset_userdata('checkout_currency_iso');
+            $this->load_view('payment_success', $this->theme_view_data($success_payload));
+        } else {
+            $declined_oid = isset($responseMap['order_id']) ? trim((string) $responseMap['order_id']) : '';
+            $declined_ref = isset($responseMap['reference_no']) ? trim((string) $responseMap['reference_no']) : '';
+            $decline_reason = isset($responseMap['status_message']) && $responseMap['status_message'] !== ''
+                ? (string) $responseMap['status_message']
+                : 'Payment declined at gateway';
+
+            // Mark the order Cancelled so it does not appear as a pending sale in ElintOm.
+            if ($declined_oid !== '' || $declined_ref !== '') {
+                if ($this->webshop_api_model->uses_elintom_api_for_orders()) {
+                    $this->webshop_api_model->cancel_order_remote(
+                        (int) $declined_oid,
+                        $declined_ref,
+                        $decline_reason
+                    );
+                } elseif (isset($this->db) && $declined_oid !== '') {
+                    $this->db->where('id', $declined_oid);
+                    $this->db->update('sma_orders', array(
+                        'sale_status'    => 'Cancelled',
+                        'payment_status' => 'Failed',
+                    ));
+                }
+            }
+
+            // Cart is intentionally preserved so the buyer can retry without
+            // re-adding items. Clear only the order-bound session entries.
+            $this->session->unset_userdata('order_id');
+            $this->session->unset_userdata('pending_payment_order');
+            $this->session->unset_userdata('checkout_currency_iso');
+
+            $response_data = array(
+                'payment_gateway_response' => $responseMap,
+                'error_message' => $decline_reason,
+            );
+            $this->load_view('payment_declined', $this->theme_view_data($response_data));
         }
     }
 
@@ -3184,9 +3674,11 @@ XSL;
             }
         }
 
-        $getField = function ($key) use ($postData) {
-            if (is_array($postData) && array_key_exists($key, $postData)) {
-                return $postData[$key];
+        // Snapshot merged CCAvenue fields from caller — do not reassign this variable later (closure safety).
+        $incoming = is_array($postData) ? $postData : array();
+        $getField = function ($key) use ($incoming) {
+            if (array_key_exists($key, $incoming)) {
+                return $incoming[$key];
             }
             return $this->input->post($key);
         };
@@ -3198,42 +3690,141 @@ XSL;
 
         if ($working_key === '' || $access_code === '' || $merchant_id === '') {
             $this->session->set_flashdata('error_message', 'CCAvenue configuration is missing.');
-            $this->load_view('payment_declined', []);
+            $this->load_view('payment_declined', $this->theme_view_data(array(
+                'error_message' => 'CCAvenue configuration is missing.',
+            )));
             return;
         }
 
-        // Collect form data
-        $postData = array(
-            "integration_type" => 'iframe_normal',
-            "reference_no" => $getField('reference_no'),
-            "customer_id" => $getField('customer_id'),
-            "date" => $getField('date'),
-            "language" => $getField('language'),
-            "amount" => $getField('amount'),
-            "currency" => $getField('currency'),
-            "billing_name" => htmlspecialchars((string) $getField('billing_name')),
-            "billing_company" => htmlspecialchars((string) $getField('billing_company')),
-            "billing_address" => htmlspecialchars((string) $getField('billing_address')),
-            "billing_city" => htmlspecialchars((string) $getField('billing_city')),
-            "billing_state" => htmlspecialchars((string) $getField('billing_state')),
-            "billing_country" => htmlspecialchars((string) $getField('billing_country')),
-            "billing_zip" => htmlspecialchars((string) $getField('billing_zip')),
-            "billing_tel" => htmlspecialchars((string) $getField('billing_tel')),
-            "billing_email" => htmlspecialchars((string) $getField('billing_email')),
-            "redirect_url" => htmlspecialchars((string) $getField('redirect_url')),
-            "cancel_url" => htmlspecialchars((string) $getField('cancel_url')),
-            "merchant_id" => $merchant_id,
-            "order_id" => $getField('order_id')
+        $clean = function ($v, $max_len = 500) {
+            $v = trim(strip_tags((string) $v));
+            if (function_exists('mb_strlen')) {
+                return mb_strlen($v) > $max_len ? mb_substr($v, 0, $max_len) : $v;
+            }
+            return strlen($v) > $max_len ? substr($v, 0, $max_len) : $v;
+        };
+
+        // Collect form data (billing_* and date must be non-empty; wrong region currency → CCAvenue 31002).
+        $merchant_row = array(
+            'integration_type' => 'iframe_normal',
+            'reference_no'     => $clean($getField('reference_no'), 120),
+            'customer_id'      => $clean($getField('customer_id'), 32),
+            'date'             => $clean($getField('date'), 32),
+            'language'         => $clean($getField('language'), 8) !== '' ? $clean($getField('language'), 8) : 'EN',
+            'amount'           => $clean($getField('amount'), 32),
+            'currency'         => $clean($getField('currency'), 8),
+            'billing_name'     => $clean($getField('billing_name'), 120),
+            'billing_company'  => $clean($getField('billing_company'), 120),
+            'billing_address'  => $clean($getField('billing_address'), 240),
+            'billing_city'     => $clean($getField('billing_city'), 60),
+            'billing_state'    => $clean($getField('billing_state'), 60),
+            'billing_country'  => $clean($getField('billing_country'), 60),
+            'billing_zip'      => $clean($getField('billing_zip'), 24),
+            'billing_tel'      => $clean($getField('billing_tel'), 40),
+            'billing_email'    => $clean($getField('billing_email'), 120),
+            // Callback URLs must stay literal (no HTML entity encoding of & etc.).
+            'redirect_url'     => trim((string) $getField('redirect_url')),
+            'cancel_url'       => trim((string) $getField('cancel_url')),
+            'merchant_id'      => $merchant_id,
+            'order_id'         => $clean($getField('order_id'), 64),
         );
+
+        $bill_fb = array(
+            'billing_name'    => 'Customer',
+            'billing_company' => '-',
+            'billing_address' => 'Address not provided',
+            'billing_city'    => 'Dubai',
+            'billing_state'   => 'Dubai',
+            'billing_country' => 'United Arab Emirates',
+            'billing_zip'     => '00000',
+            'billing_tel'     => '0500000000',
+            'billing_email'   => 'customer@example.com',
+        );
+        foreach ($bill_fb as $bk => $bv) {
+            if (!isset($merchant_row[$bk]) || $merchant_row[$bk] === '') {
+                $merchant_row[$bk] = $bv;
+            }
+        }
+        // Whitespace-only counts as empty for CCAvenue (error 21009 billing_country).
+        if (isset($merchant_row['billing_country']) && function_exists('preg_replace')) {
+            $bcTrim = preg_replace('/^\p{Z}+|\p{Z}+$/u', '', (string) $merchant_row['billing_country']);
+            if ($bcTrim === '') {
+                $merchant_row['billing_country'] = $bill_fb['billing_country'];
+            }
+        }
+        $merchant_row['billing_country'] = $this->_finalize_ccavenue_country_field(
+            $this->_normalize_ccavenue_country_string(
+                isset($merchant_row['billing_country']) ? $merchant_row['billing_country'] : ''
+            )
+        );
+        if ($merchant_row['billing_email'] !== '' && !filter_var($merchant_row['billing_email'], FILTER_VALIDATE_EMAIL)) {
+            $merchant_row['billing_email'] = $bill_fb['billing_email'];
+        }
+        if ($merchant_row['date'] === '') {
+            $merchant_row['date'] = date('d/m/Y H:i:s');
+        }
+        // Official CCAvenue error 31002 = invalid currency for merchant/region (not generic "bad field").
+        $merchant_row['currency'] = $this->_resolve_ccavenue_currency(isset($merchant_row['currency']) ? $merchant_row['currency'] : '');
+
+        // Many merchant profiles require delivery_* (official missing-parameter codes 21012–21018).
+        $merchant_row['delivery_name']     = $merchant_row['billing_name'];
+        $merchant_row['delivery_address']  = $merchant_row['billing_address'];
+        $merchant_row['delivery_city']     = $merchant_row['billing_city'];
+        $merchant_row['delivery_state']    = $merchant_row['billing_state'];
+        $merchant_row['delivery_country']  = $merchant_row['billing_country'];
+        $merchant_row['delivery_zip']      = $merchant_row['billing_zip'];
+        $merchant_row['delivery_tel']      = $merchant_row['billing_tel'];
+
+        $amt_send = (float) str_replace(',', '', (string) $merchant_row['amount']);
+        if ($amt_send < 0.01) {
+            $this->session->set_flashdata(
+                'error_message',
+                'Invalid payment amount. Please start again from checkout.'
+            );
+            $this->load_view('payment_declined', $this->theme_view_data(array(
+                'error_message' => 'Invalid payment amount.',
+            )));
+            return;
+        }
+        $merchant_row['amount'] = number_format($amt_send, 2, '.', '');
+
+        // Canonical parameter order (CCAvenue samples); billing_country must appear with a non-blank Latin value.
+        $ccavenue_key_order = array(
+            'merchant_id', 'order_id', 'currency', 'amount', 'redirect_url', 'cancel_url',
+            'language', 'billing_name', 'billing_address', 'billing_city', 'billing_state',
+            'billing_zip', 'billing_country', 'billing_tel', 'billing_email',
+            'delivery_name', 'delivery_address', 'delivery_city', 'delivery_state',
+            'delivery_zip', 'delivery_country', 'delivery_tel',
+            'integration_type', 'reference_no', 'customer_id', 'date',
+        );
+        $ordered_row = array();
+        foreach ($ccavenue_key_order as $ok) {
+            if (array_key_exists($ok, $merchant_row)) {
+                $ordered_row[$ok] = $merchant_row[$ok];
+            }
+        }
+        foreach ($merchant_row as $ok => $ov) {
+            if (!array_key_exists($ok, $ordered_row)) {
+                $ordered_row[$ok] = $ov;
+            }
+        }
+        $merchant_row = $ordered_row;
 
         // Build the merchant data string
         $merchant_data = '';
-        foreach ($postData as $key => $value) {
-            $merchant_data .= $key . '=' . urlencode($value) . '&';
+        foreach ($merchant_row as $key => $value) {
+            $merchant_data .= $key . '=' . urlencode((string) $value) . '&';
         }
 
         // Encrypt the merchant data
         $encrypted_data = encrypt($merchant_data, $working_key, $merchant_id);
+        if ($encrypted_data === '' || $encrypted_data === null) {
+            $this->session->set_flashdata('error_message', 'Could not initiate payment encryption. Check CCAvenue working key.');
+            $this->load_view('payment_declined', $this->theme_view_data(array(
+                'error_message' => 'Payment initiation failed.',
+            )));
+            return;
+        }
         $transaction_url = !empty($api_url) ? $api_url : "https://secure.ccavenue.com/transaction/transaction.do?command=initiateTransaction";
         $iframe_url = $transaction_url . "&encRequest=" . urlencode($encrypted_data) . "&access_code=" . urlencode($access_code);
 
@@ -3249,13 +3840,84 @@ XSL;
 
     public function payment_cancel()
     {
-        $data = '';
         $order_id = $this->session->userdata('order_id');
+        $pending  = $this->session->userdata('pending_payment_order');
+        $reference_no = (is_array($pending) && isset($pending['reference_no'])) ? (string) $pending['reference_no'] : '';
+
+        // Roll back the order so it does NOT remain in ElintOm as a ghost sale.
+        // Two paths:
+        //   1. API mode (DB-less storefront) → call ElintOm /webshop_api/cancelorder
+        //   2. Legacy local DB mode → mark the row Cancelled directly.
         if ($order_id) {
-            $this->db->where('id', $order_id);
-            $this->db->update('sma_orders', ['payment_status' => 'Failed']);
+            if ($this->webshop_api_model->uses_elintom_api_for_orders()) {
+                $this->webshop_api_model->cancel_order_remote((int) $order_id, $reference_no, 'Buyer cancelled at payment gateway');
+            } elseif (isset($this->db)) {
+                $this->db->where('id', $order_id);
+                $this->db->update('sma_orders', array(
+                    'sale_status'    => 'Cancelled',
+                    'payment_status' => 'Failed',
+                ));
+            }
         }
-        $this->load_view("payment_declined", $data);
+
+        // Cart is intentionally preserved here — the buyer should be able to
+        // retry payment or edit their cart instead of losing the items.
+        $this->session->unset_userdata('order_id');
+        $this->session->unset_userdata('pending_payment_order');
+        $this->session->unset_userdata('checkout_currency_iso');
+
+        $customer_hint = $this->_get_webshop_session_user_id();
+        $cancel_payload = array(
+            'error_message' => 'Payment was cancelled. Your cart is still ready for checkout.',
+            'order_id'      => $order_id ? $order_id : null,
+            'customer_id'   => $customer_hint > 0 ? $customer_hint : null,
+        );
+        $this->load_view('payment_declined', $this->theme_view_data($cancel_payload));
+    }
+
+    /**
+     * Standalone declined page (GET) — e.g. Instamojo redirect or bookmarked retry entry.
+     * Without this method, _remap may 404 because theme slug views live under plane_vanila_theme, not legacy webshop/.
+     *
+     * Query: order, customer (optional). Flash error_message from prior redirect is shown when set.
+     */
+    public function payment_declined()
+    {
+        $flash = $this->session->flashdata('error_message');
+        $order_id_q = $this->input->get('order');
+        $payload = array(
+            'order_id'    => $order_id_q,
+            'customer_id' => $this->input->get('customer'),
+        );
+        if ($flash !== null && $flash !== '') {
+            $payload['error_message'] = $flash;
+        }
+
+        // If we landed here with an order id and a pending payment session, roll
+        // the order back to Cancelled so it doesn't appear as a live sale in ElintOm.
+        $pending = $this->session->userdata('pending_payment_order');
+        $reference_no = (is_array($pending) && isset($pending['reference_no'])) ? (string) $pending['reference_no'] : '';
+        if ($order_id_q !== null && $order_id_q !== '') {
+            if ($this->webshop_api_model->uses_elintom_api_for_orders()) {
+                $this->webshop_api_model->cancel_order_remote(
+                    (int) $order_id_q,
+                    $reference_no,
+                    $flash !== null && $flash !== '' ? (string) $flash : 'Payment declined'
+                );
+            } elseif (isset($this->db)) {
+                $this->db->where('id', $order_id_q);
+                $this->db->update('sma_orders', array(
+                    'sale_status'    => 'Cancelled',
+                    'payment_status' => 'Failed',
+                ));
+            }
+            // Cart stays intact; only release the order-bound session pointers.
+            $this->session->unset_userdata('order_id');
+            $this->session->unset_userdata('pending_payment_order');
+            $this->session->unset_userdata('checkout_currency_iso');
+        }
+
+        $this->load_view('payment_declined', $this->theme_view_data($payload));
     }
 
     public function payments()
@@ -3278,20 +3940,35 @@ XSL;
                         if (!empty($gwCreds['ccavenue'])) {
                             $ccCreds = $gwCreds['ccavenue'];
                         }
-                        $ccHandlerData = array(
+                        $posted_oid = $this->input->post('order_id');
+                        $posted_cust = (int) $this->input->post('customer_id');
+                        $posted_amt = (float) str_replace(',', '', (string) $this->input->post('amount'));
+                        if ($posted_amt < 0.01) {
+                            $this->session->set_flashdata(
+                                'error_message',
+                                'Payment amount is missing or zero. Please open the payment link again from checkout or your account orders.'
+                            );
+                            redirect(base_url('webshop/payments?order=' . urlencode((string) $posted_oid) . '&customer=' . urlencode((string) $posted_cust)));
+                            return;
+                        }
+                        $order_row = $this->webshop_model->get_order_by_id($posted_oid);
+                        $billing_cc = $this->_resolve_ccavenue_billing($posted_cust, $order_row);
+                        $currency_cc = $this->_resolve_ccavenue_currency($this->input->post('currency'));
+                        $ccHandlerData = array_merge($billing_cc, array(
                             'reference_no' => $this->input->post('reference_no'),
                             'customer_id'  => $this->input->post('customer_id'),
-                            'amount'       => $this->input->post('amount'),
+                            'amount'       => number_format($posted_amt, 2, '.', ''),
                             'order_id'     => $this->input->post('order_id'),
                             'redirect_url' => base_url('webshop/payment_ccavResponseHandler'),
                             'cancel_url'   => base_url('webshop/payment_cancel'),
                             'language'     => 'EN',
-                            'currency'     => isset($this->webshop_settings->currency_code) ? $this->webshop_settings->currency_code : 'INR',
+                            'currency'     => $currency_cc,
+                            'date'         => date('d/m/Y H:i:s'),
                             'API_KEY'      => isset($ccCreds['API_KEY'])     ? $ccCreds['API_KEY']     : '',
                             'ACCESS_CODE'  => isset($ccCreds['ACCESS_CODE']) ? $ccCreds['ACCESS_CODE'] : '',
                             'MERCHANT_ID'  => isset($ccCreds['MERCHANT_ID']) ? $ccCreds['MERCHANT_ID'] : '',
                             'API_URL'      => isset($ccCreds['API_URL'])     ? $ccCreds['API_URL']     : '',
-                        );
+                        ));
                         $this->payment_ccavRequestHandler($ccHandlerData);
                         break;
 
@@ -3374,26 +4051,40 @@ XSL;
 
             $order = $this->webshop_model->get_order_by_id($order_id);
 
+            // Authoritative fallback total: submit_order() snapshotted the computed
+            // grand_total into session right after the order was created. Use that
+            // when the API order row isn't readable yet (API mode + race), so the
+            // payment screen never shows 0 and the wrong amount never reaches the gateway.
+            $pending = $this->session->userdata('pending_payment_order');
+            $pending_total = (is_array($pending) && isset($pending['grand_total'])) ? (float) $pending['grand_total'] : 0.0;
+            $pending_ref   = (is_array($pending) && isset($pending['reference_no'])) ? (string) $pending['reference_no'] : '';
+
             // Orders created via Elintom API mode are not mirrored to the local DB.
             // Build a minimal stub from URL/session data so the payment page still renders.
             if (empty($order) || !is_array($order)) {
-                // Try to retrieve the grand total from the session-stored order id.
-                $session_order_id = $this->session->userdata('order_id');
-                $grand_total_stub  = 0;
-                // Fall back to cart subtotal from the session if available.
-                if (isset($_SESSION['cart']) && is_array($_SESSION['cart'])) {
+                $grand_total_stub = $pending_total;
+                // Fall back to cart subtotal from the session if the snapshot is missing.
+                if ($grand_total_stub <= 0 && isset($_SESSION['cart']) && is_array($_SESSION['cart'])) {
                     foreach ($_SESSION['cart'] as $ci) {
-                        $p = isset($ci['product_price']) ? (float) $ci['product_price']
-                           : (isset($ci['price']) ? (float) $ci['price'] : 0.0);
+                        $p = isset($ci['product_price']) && (float) $ci['product_price'] > 0
+                            ? (float) $ci['product_price']
+                            : (isset($ci['price']) ? (float) $ci['price'] : 0.0);
                         $grand_total_stub += $p * (float) (isset($ci['quantity']) ? $ci['quantity'] : 1);
                     }
                 }
                 $order = array(
                     'id'                 => $order_id,
-                    'reference_no'       => 'ES-' . $order_id,
+                    'reference_no'       => $pending_ref !== '' ? $pending_ref : 'ES-' . $order_id,
                     'grand_total'        => $grand_total_stub,
                     'billing_address_id' => null,
                 );
+            } elseif ($pending_total > 0) {
+                // Even when the API returned the order, prefer the snapshot if the API
+                // row was created with grand_total=0 (legacy POS configurations) so the
+                // amount sent to the gateway always matches what the buyer saw at checkout.
+                if (!isset($order['grand_total']) || (float) $order['grand_total'] <= 0) {
+                    $order['grand_total'] = $pending_total;
+                }
             }
 
             $this->data['order'] = $order;
@@ -3404,6 +4095,8 @@ XSL;
             $this->data['billing_address'] = $billing_address_id
                 ? $this->webshop_model->get_address_by_id($billing_address_id)
                 : array();
+
+            $this->data['payment_currency_iso'] = $this->resolve_payment_currency_iso();
 
             /* echo "###################";
               print_r($this->data['payments_gatway']);
@@ -3442,6 +4135,9 @@ XSL;
             unset($_SESSION['cart']);
         }
         $this->session->unset_userdata('order_id');
+        $this->session->unset_userdata('pending_payment_order');
+        $this->session->unset_userdata('checkout_currency_iso');
+        $this->session->unset_userdata('pending_order_payload');
 
         if (isset($this->webshop_settings->webshop_theme) && $this->webshop_settings->webshop_theme == 'restaurant') {
             redirect('webshop?order_status=success');
@@ -5368,11 +6064,23 @@ XSL;
                 $pay_res = serialize($paymentDetail);
                 $this->webshop_model->updateInstamojoEshopTransaction($payment_request_id, array('success_response' => $pay_res));
                 if (isset($paymentDetail["status"]) && in_array($paymentDetail["status"], array('Credit', 'credit', 'Completed'))):
+                    
+                    // If this was a deferred order (TMP_ prefix), create it in ElintOm now.
+                    if (strpos((string)$order_id, 'TMP_') === 0) {
+                        $payload = $this->session->userdata('pending_order_payload');
+                        if ($payload && is_array($payload)) {
+                            $real_oid = $this->webshop_api_model->add_order($payload['order'], $payload['products']);
+                            if ($real_oid) {
+                                $order_id = $real_oid;
+                            }
+                        }
+                    }
+
                     $res = $this->webshop_model->instomojoEshopAfterSale($paymentDetail, $order_id);
                     if ($res):
                         $this->data['sale'] = $this->webshop_model->get_order_by_id($order_id);
                         $this->data['success'] = 'Payment done successfully';
-
+ 
                         unset($_SESSION['cart']);
                         redirect("webshop/order_success?order=$order_id"); //&customer=$customer_id
                     endif;
@@ -5405,19 +6113,25 @@ XSL;
      */
     public function paytm_init($paytmpayment)
     {
+        $order_id = isset($paytmpayment['order_id']) ? $paytmpayment['order_id'] : 0;
+        $order = null;
+        $customer = null;
 
-        $order_id = $paytmpayment['order_id'];
-
-
-        if ((int) $order_id > 0):
-            $_req = $this->webshop_model->getPaytmTransaction(array('order_id' => $order_id));
-            if ($_req->id):
-                $this->session->set_flashdata('error', "Paytm" . lang('payment_process_already_initiated'));
-                redirect('webshop');
-            endif;
+        if (strpos((string)$order_id, 'TMP_') === 0) {
+            $payload = $this->session->userdata('pending_order_payload');
+            if ($payload && is_array($payload)) {
+                $order = (object) $payload['order'];
+                $customer_data = $payload['customer'];
+                $customer = is_array($customer_data) ? (object) $customer_data : $customer_data;
+            }
+        } elseif ((int)$order_id > 0) {
             $order = $this->site->getSaleByIDEshop($order_id);
+            if ($order && isset($order->customer_id)) {
+                $customer = $this->site->getCompanyByID($order->customer_id);
+            }
+        }
 
-            if ($order->id == $order_id):
+        if ($order) {
 
 
                 $customer = $this->site->getCompanyByID($order->customer_id);
@@ -5472,8 +6186,7 @@ XSL;
                 } catch (Exception $e) {
                     echo $e->getMessage();
                 }
-            endif;
-        endif;
+        }
     }
 
     /**
@@ -5536,6 +6249,17 @@ XSL;
                 $sid = $ORDERID;
                 $tracking_id = $_TXNID;
 
+                // If this was a deferred order (TMP_ prefix), create it in ElintOm now.
+                if (strpos((string)$sid, 'TMP_') === 0) {
+                    $payload = $this->session->userdata('pending_order_payload');
+                    if ($payload && is_array($payload)) {
+                        $real_oid = $this->webshop_api_model->add_order($payload['order'], $payload['products']);
+                        if ($real_oid) {
+                            $sid = (string) $real_oid;
+                        }
+                    }
+                }
+
                 $getorderdetails = $this->site->getSaleByIDEshop($sid);
                 $ref_No = $getorderdetails->reference_no;
 
@@ -5577,14 +6301,25 @@ XSL;
     public function razorpay_init($data)
     {
 
-        $sale_id = $data['order_id'];
-        //        $this->input->get('sid');
-        if ((int) $sale_id > 0) {
+        $sale_id = isset($data['order_id']) ? $data['order_id'] : 0;
+        $sale = null;
+        $customer = null;
 
+        if (strpos((string)$sale_id, 'TMP_') === 0) {
+            $payload = $this->session->userdata('pending_order_payload');
+            if ($payload && is_array($payload)) {
+                $sale = (object) $payload['order'];
+                $customer_data = $payload['customer'];
+                $customer = is_array($customer_data) ? (object) $customer_data : $customer_data;
+            }
+        } elseif ((int)$sale_id > 0) {
             $sale = $this->site->getSaleByIDEshop($sale_id);
-            if ($sale->id == $sale_id) {
-
+            if ($sale) {
                 $customer = $this->site->getCompanyByID($sale->customer_id);
+            }
+        }
+
+        if ($sale) {
 
 
                 $ci = get_instance();
@@ -5636,11 +6371,8 @@ XSL;
                 $this->data['data'] = $datapass;
                 // exit;
                 $this->load_view('razorpay', $this->data);
-            } else {
-                redirect('pos');
-            }
         } else {
-            redirect('pos');
+            redirect('webshop/checkout');
         }
     }
 
@@ -5704,7 +6436,15 @@ XSL;
 
 
         if ($success === true) {
-
+            if (strpos((string)$sid, 'TMP_') === 0) {
+                $payload = $this->session->userdata('pending_order_payload');
+                if ($payload && is_array($payload)) {
+                    $real_oid = $this->webshop_api_model->add_order($payload['order'], $payload['products']);
+                    if ($real_oid) {
+                        $sid = (string) $real_oid;
+                    }
+                }
+            }
             $res = $this->webshop_model->RazorPayAfterSale($attributes, $sid);
 
             if ($res):

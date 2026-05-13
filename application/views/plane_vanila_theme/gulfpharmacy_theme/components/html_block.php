@@ -10,11 +10,19 @@ if ($content === '' && isset($cfg['content'])) $content = (string)$cfg['content'
 if ($content === '' && isset($data['content'])) $content = (string)$data['content'];
 $uploadsB = isset($uploads) ? $uploads : '';
 if (trim($content) === '') return;
+$preparedBlock = webshop_prepare_cms_html_for_output($content, $uploadsB);
+$extracted = webshop_extract_cms_embedded_assets($preparedBlock);
+$embeddedHead = trim((string) $extracted['style_blocks'] . "\n" . (string) $extracted['link_tags']);
+$fragment = isset($extracted['html']) ? (string) $extracted['html'] : $preparedBlock;
 ?>
 <link rel="stylesheet" href="<?= isset($assets) ? $assets : base_url('assets/webshop/') ?>gulfpharmacy_theme/css/components.css">
+<?php if ($embeddedHead !== ''): ?>
+<?= $embeddedHead ?>
+
+<?php endif; ?>
 <div class="gp-component gp-html-block cms-html-block">
     <?php if ($title !== ''): ?>
     <h2 class="cms-hb-title"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h2>
     <?php endif; ?>
-    <?= isset($uploadsB) && $uploadsB ? webshop_normalize_html_media_urls($content, $uploadsB) : $content ?>
+    <?= webshop_normalize_html_media_urls($fragment, $uploadsB ? $uploadsB : '') ?>
 </div>

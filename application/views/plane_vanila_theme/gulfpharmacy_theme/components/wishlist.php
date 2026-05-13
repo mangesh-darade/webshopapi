@@ -2,60 +2,80 @@
 
 <?php
 /**
- * Wishlist Component
- * Displays a grid of user's favorite products.
+ * Wishlist component — Gulf Pharmacy (.wl-* styles in gulfpharmacy_theme/css/wishlist.css).
  */
 $wishlist_items = isset($wishlist['items']) ? $wishlist['items'] : array();
 $symbol = isset($Settings->symbol) ? $Settings->symbol : '$';
+$uploadsBase = isset($uploads) ? (string) $uploads : '';
+$thumbsBase = isset($thumbs) ? (string) $thumbs : '';
+$wlPlaceholder = webshop_no_image_src($uploadsBase, $thumbsBase);
+$wl_count = is_array($wishlist_items) ? count($wishlist_items) : 0;
 ?>
 
 <?php $wl_assets = isset($assets) ? $assets : base_url('assets/webshop/'); ?>
 <link rel="stylesheet" href="<?= $wl_assets ?>gulfpharmacy_theme/css/wishlist.css">
-<div class="wishlist-container">
-    <div class="wishlist-header">
-        <h2 class="section-title">My Wishlist</h2>
-        <p class="section-subtitle">Manage your favorite products and add them to your cart.</p>
-    </div>
+<div class="wl-shell wishlist-container">
+    <div class="wl-inner">
+        <nav class="wl-breadcrumb" aria-label="Breadcrumb">
+            <a href="<?= base_url('webshop') ?>">Home</a>
+            <span class="wl-breadcrumb-sep" aria-hidden="true">/</span>
+            <span class="wl-breadcrumb-current">Wishlist</span>
+        </nav>
+        <header class="wl-header">
+            <h1 class="wl-title">My Wishlist</h1>
+            <p class="wl-subtitle">Save your favorite products and quickly add them to your cart.</p>
+        </header>
 
-    <?php if (empty($wishlist_items)): ?>
-        <div class="empty-wishlist">
-            <div class="empty-icon">❤️</div>
-            <h3>Your wishlist is empty</h3>
-            <p>Go explore our products and save your favorites here!</p>
-            <a href="<?= base_url('webshop') ?>" class="btn-primary">Continue Shopping</a>
-        </div>
-    <?php else: ?>
-        <div class="wishlist-grid">
-            <?php foreach ($wishlist_items as $product): 
-                $p_id = isset($product['id']) ? $product['id'] : 0;
-                $p_name = isset($product['name']) ? $product['name'] : 'Product';
-                $p_price = isset($product['price']) ? (float)$product['price'] : 0;
-                $p_image = isset($product['image']) ? $product['image'] : 'no_image.png';
-                $p_hash = md5((string)$p_id);
-            ?>
-                <div class="wishlist-card" id="wishlist-item-<?= $p_id ?>">
-                    <div class="wishlist-item-image">
-                        <img src="<?= $api_media_uploads_base . $p_image ?>" alt="<?= html_escape($p_name) ?>" loading="lazy" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,<?= rawurlencode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none"><rect width="80" height="80" rx="8" fill="#F1F5F9"/><path d="M20 56l14-16 10 12 6-8 12 12H20z" fill="#CBD5E1"/><circle cx="28" cy="28" r="5" fill="#CBD5E1"/></svg>') ?>'">
-                        <button class="remove-btn" onclick="removeFromWishlist('<?= $p_id ?>')" title="Remove from Wishlist">&times;</button>
+        <?php if (empty($wishlist_items)): ?>
+            <div class="wl-empty" role="status">
+                <div class="wl-empty-icon" aria-hidden="true">❤️</div>
+                <h2>Your wishlist is empty</h2>
+                <p>Browse products and save your favorite items — they will appear here for fast checkout.</p>
+                <a href="<?= base_url('webshop') ?>" class="wl-empty-cta">Continue shopping</a>
+            </div>
+        <?php else: ?>
+            <div class="wl-grid<?= $wl_count === 1 ? ' wl-grid--single' : '' ?>">
+                <?php foreach ($wishlist_items as $product):
+                    $p_id = isset($product['id']) ? (int) $product['id'] : 0;
+                    $p_name = isset($product['name']) ? $product['name'] : 'Product';
+                    $p_price = isset($product['price']) ? (float) $product['price'] : 0;
+                    $p_hash = md5((string) $p_id);
+                    $p_img_src = webshop_product_image_src($uploadsBase, $thumbsBase, $product);
+                    $pd_url = base_url('webshop/product_details/' . $p_hash);
+                ?>
+                <article class="wl-card" id="wishlist-item-<?= (int) $p_id ?>">
+                    <div class="wl-card-toolbar">
+                        <span class="wl-card-badge" title="Saved" aria-hidden="true">♥</span>
+                        <button type="button" class="wl-remove" data-wishlist-remove="<?= (int) $p_id ?>" aria-label="Remove from wishlist"><span aria-hidden="true">&times;</span></button>
                     </div>
-                    <div class="wishlist-item-info">
-                        <h4 class="product-name">
-                            <a href="<?= base_url('webshop/product_details/' . $p_hash) ?>"><?= html_escape($p_name) ?></a>
-                        </h4>
-                        <div class="product-price">
-                            <span class="price-val"><?= $symbol ?> <?= number_format($p_price, 2) ?></span>
-                        </div>
-                        <div class="wishlist-actions">
-                            <button class="add-to-cart-btn" onclick="addToCart('<?= $p_id ?>')">
-                                <i class="fa fa-shopping-cart"></i> Add to Cart
-                            </button>
+                    <a class="wl-card-media" href="<?= htmlspecialchars($pd_url, ENT_QUOTES, 'UTF-8') ?>">
+                        <img class="wl-card-img"
+                             src="<?= htmlspecialchars($p_img_src, ENT_QUOTES, 'UTF-8') ?>"
+                             alt="<?= html_escape($p_name) ?>"
+                             loading="lazy"
+                             width="400"
+                             height="400"
+                             onerror="this.onerror=null;this.src='<?= htmlspecialchars($wlPlaceholder, ENT_QUOTES, 'UTF-8') ?>'">
+                    </a>
+                    <div class="wl-card-body">
+                        <h2 class="wl-card-title">
+                            <a href="<?= htmlspecialchars($pd_url, ENT_QUOTES, 'UTF-8') ?>"><?= html_escape($p_name) ?></a>
+                        </h2>
+                        <p class="wl-card-price"><?= htmlspecialchars((string) $symbol, ENT_QUOTES, 'UTF-8') ?> <?= number_format($p_price, 2) ?></p>
+                        <div class="wl-card-actions">
+                            <button type="button" class="wl-btn wl-btn--primary" data-wishlist-add="<?= (int) $p_id ?>">Add to cart</button>
+                            <a class="wl-btn wl-btn--outline" href="<?= htmlspecialchars($pd_url, ENT_QUOTES, 'UTF-8') ?>">View product</a>
                         </div>
                     </div>
-                </div>
-            <?php endforeach; ?>
-        </div>
-    <?php endif; ?>
+                </article>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+    </div>
 </div>
 
-<script>window.GP_WISHLIST_CTX=<?= json_encode(array('remove_url' => base_url('webshop/remove_wishlist/'), 'add_to_cart_url' => base_url('webshop/add_to_cart/')), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+<script>window.GP_WISHLIST_CTX=<?= json_encode(array(
+    'request_url' => base_url('webshop/webshop_request'),
+    'login_url'   => base_url('webshop/login'),
+), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
 <script defer src="<?= $wl_assets ?>gulfpharmacy_theme/js/wishlist.js"></script>

@@ -99,7 +99,7 @@ class Webshop_render_engine
             'home_has_product_grid' => isset($result['data']['home_has_product_grid']) ? (bool) $result['data']['home_has_product_grid'] : true,
             'home_has_footer_section' => isset($result['data']['home_has_footer_section']) ? (bool) $result['data']['home_has_footer_section'] : true,
             'home_section_html_block' => isset($result['data']['home_section_html_block']) ? (string) $result['data']['home_section_html_block'] : '',
-            'home_category_grid_title' => isset($result['data']['home_category_grid_title']) ? (string) $result['data']['home_category_grid_title'] : 'Shop by Category',
+            'home_category_grid_title' => isset($result['data']['home_category_grid_title']) ? (string) $result['data']['home_category_grid_title'] : '',
             'home_product_grid_title' => isset($result['data']['home_product_grid_title']) ? (string) $result['data']['home_product_grid_title'] : '',
         );
 

@@ -249,17 +249,13 @@ if (isset($webshop_settings) && is_object($webshop_settings)) {
                                 <span class="pc-rating-meta">(<?= htmlspecialchars($reviewPhrase, ENT_QUOTES, 'UTF-8') ?>)</span>
                             </div>
 
-                            <?php if ($price > 0): ?>
-                                <div class="pc-price-row">
-                                    <span class="pc-price"><?= htmlspecialchars($symbol, ENT_QUOTES, 'UTF-8') ?> <?= number_format($price, 2) ?></span>
-                                    <?php if ($mrp > 0 && $mrp > $price): ?>
-                                        <span class="pc-mrp"><?= htmlspecialchars($symbol, ENT_QUOTES, 'UTF-8') ?> <?= number_format($mrp, 2) ?></span>
-                                        <span class="pc-pct-off"><?= (int) $discount ?>% OFF</span>
-                                    <?php endif; ?>
-                                </div>
-                            <?php else: ?>
-                                <p class="pc-price-zero">Price on request</p>
-                            <?php endif; ?>
+                            <div class="pc-price-row">
+                                <span class="pc-price"><?= htmlspecialchars($symbol, ENT_QUOTES, 'UTF-8') ?> <?= number_format($price, 2) ?></span>
+                                <?php if ($mrp > 0 && $mrp > $price): ?>
+                                    <span class="pc-mrp"><?= htmlspecialchars($symbol, ENT_QUOTES, 'UTF-8') ?> <?= number_format($mrp, 2) ?></span>
+                                    <span class="pc-pct-off"><?= (int) $discount ?>% OFF</span>
+                                <?php endif; ?>
+                            </div>
 
                             <p class="pc-delivery">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M15 18h2M15 18h-5M17 18h2l4-4V8a2 2 0 0 0-2-2h-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="7" cy="18" r="2" stroke="currentColor" stroke-width="2"/></svg>

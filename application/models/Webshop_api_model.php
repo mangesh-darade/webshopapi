@@ -28,6 +28,12 @@ class Webshop_api_model extends CI_Model {
     /** @var array|null Cached tree from get_categories() within one request */
     protected $_categories_cache = null;
 
+    /** @var bool Memo guard so home_page_data() hits CMS/API at most once per HTTP request */
+    protected $_home_page_data_memo_set = false;
+
+    /** @var stdClass|null Memoized return value for home_page_data() */
+    protected $_home_page_data_memo = null;
+
     public function __construct() {
         parent::__construct();
 
@@ -297,16 +303,29 @@ class Webshop_api_model extends CI_Model {
      * @return stdClass
      */
     public function home_page_data() {
-        $apiPage = $this->get_cms_page_content('/');
-        if ($apiPage !== null) {
-            return $apiPage;
+        if ($this->_home_page_data_memo_set) {
+            return $this->_home_page_data_memo;
+        }
+
+        // ElintOm often registers the storefront home as `/home-page` (see CMS "URL" field), not `/`.
+        $candidates = array('/', '/home-page', '/home');
+        foreach ($candidates as $path) {
+            $apiPage = $this->get_cms_page_content($path);
+            if ($apiPage !== null) {
+                $this->_home_page_data_memo = $apiPage;
+                $this->_home_page_data_memo_set = true;
+                return $this->_home_page_data_memo;
+            }
         }
         $o = new stdClass();
         $o->page_key = 'home';
         $o->page_title = '';
         $o->page_text = '';
         $o->meta_tags = '';
-        return $o;
+        $o->cms_loaded_from_api = false;
+        $this->_home_page_data_memo = $o;
+        $this->_home_page_data_memo_set = true;
+        return $this->_home_page_data_memo;
     }
 
     /**
@@ -585,6 +604,14 @@ class Webshop_api_model extends CI_Model {
             array($resArr, $pageArr),
             array('page_logo_image_url', 'logo_image_url', 'logo_image')
         );
+        $o->page_summary = $pick_first_string(
+            array($resArr, $pageArr),
+            array('page_summary', 'summary', 'subtitle', 'tagline', 'announcement')
+        );
+        $o->page_description = $pick_first_string(
+            array($resArr, $pageArr),
+            array('short_description', 'excerpt', 'strapline')
+        );
         // Fallback: build static page body from mapped html_block sections.
         if ($o->page_text === '' && !empty($o->sections) && is_array($o->sections)) {
             $chunks = array();
@@ -611,6 +638,16 @@ class Webshop_api_model extends CI_Model {
                     $decoded = json_decode($sec['config_json'], true);
                     if (is_array($decoded)) {
                         $cfg = $decoded;
+                    } else {
+                        $scalar = json_decode($sec['config_json']);
+                        if (is_string($scalar)) {
+                            $cfg['content'] = $scalar;
+                        } else {
+                            $cj = trim((string) $sec['config_json']);
+                            if ($cj !== '' && isset($cj[0]) && $cj[0] !== '{' && $cj[0] !== '[') {
+                                $cfg['content'] = (string) $sec['config_json'];
+                            }
+                        }
                     }
                 }
                 if (isset($cfg['content']) && trim((string) $cfg['content']) !== '') {
@@ -627,6 +664,7 @@ class Webshop_api_model extends CI_Model {
                 $o->page_text = implode("\n", $chunks);
             }
         }
+        $o->cms_loaded_from_api = true;
         return $o;
     }
 
@@ -1396,6 +1434,7 @@ class Webshop_api_model extends CI_Model {
         return ['status' => 'ERROR', 'msg' => $msg];
     }
 
+
     public function get_product_reviews($product_id, $limit = 100) {
         $pid = (int) $product_id;
         if ($pid <= 0) {
@@ -1914,29 +1953,34 @@ class Webshop_api_model extends CI_Model {
         return false;
     }
 
-    public function getAddressDefault($customer_id, $addressType) {
-        $addresses = $this->get_customer_address($customer_id);
-        if (empty($addresses)) {
-            return false;
-        }
-        $typeWant = strtolower((string) $addressType);
-        foreach ($addresses as $addr) {
-            $a = is_object($addr) ? (array) $addr : $addr;
-            if (!is_array($a)) {
-                continue;
-            }
+    /**
+     * Resolves the primary/default address ID for a customer.
+     * In API mode, we fetch all addresses and return the one matching the type or the first one.
+     */
+    public function getAddressDefault($customer_id, $type = 'default') {
+        $cid = (int) $customer_id;
+        if ($cid < 1) return 0;
+
+        $addresses = $this->get_customer_address($cid);
+        if (empty($addresses)) return 0;
+
+        $typeWant = strtolower((string) $type);
+        foreach ($addresses as $aid => $addr) {
+            $a = (array) $addr;
             if (isset($a['address_type']) && strtolower((string) $a['address_type']) === $typeWant) {
-                return isset($a['id']) ? (int) $a['id'] : false;
+                return (int) $aid;
+            }
+            if (isset($a['is_default']) && (int) $a['is_default'] === 1) {
+                return (int) $aid;
             }
         }
-        foreach ($addresses as $addr) {
-            $a = is_object($addr) ? (array) $addr : $addr;
-            if (is_array($a) && !empty($a['id'])) {
-                return (int) $a['id'];
-            }
-        }
-        return false;
+
+        // Fallback: return the first available address if no specific match is found.
+        reset($addresses);
+        return (int) key($addresses);
     }
+
+
 
     /* ================================================================
      * PRODUCT — individual lookup (used by submit_order)
@@ -2044,8 +2088,16 @@ class Webshop_api_model extends CI_Model {
     public function add_order(array $order, array $items) {
         if ($this->api_mode || !$this->has_local_db()) {
             $res = $this->api->add_order($order, $items);
-            if ($res && isset($res->status) && $res->status === 'SUCCESS') {
-                return isset($res->order_id) ? (int) $res->order_id : true;
+            $ok = $res && isset($res->status) && strtoupper((string) $res->status) === 'SUCCESS';
+            if ($ok) {
+                if (isset($res->order_id) && (int) $res->order_id > 0) {
+                    return (int) $res->order_id;
+                }
+                if (isset($res->sale_id) && (int) $res->sale_id > 0) {
+                    return (int) $res->sale_id;
+                }
+                $this->_log_error('add_order');
+                return false;
             }
             if (!$this->has_local_db()) {
                 $this->_log_error('add_order');
@@ -2057,6 +2109,43 @@ class Webshop_api_model extends CI_Model {
             }
         }
         return $this->_fallback_webshop_model()->add_order($order, $items);
+    }
+
+    /** True when orders/payments must go through ElintOm HTTP API (no local POS DB). */
+    public function uses_elintom_api_for_orders() {
+        return $this->api_mode || !$this->has_local_db();
+    }
+
+    /**
+     * Tell ElintOm to record a successful CCAvenue payment (mirrors Webshop_model::CcavenuePayAfterSale there).
+     *
+     * @return bool
+     */
+    public function record_ccavenue_payment_remote(array $response_data) {
+        $res = $this->api->record_ccavenue_payment($response_data);
+        if ($res && isset($res->status) && strtoupper((string) $res->status) === 'SUCCESS') {
+            return true;
+        }
+        $this->_log_error('record_ccavenue_payment_remote');
+        return false;
+    }
+
+    /**
+     * Cancel an order on ElintOm when payment was aborted or declined at the gateway.
+     * Returns true on cancel success (or when the order was already Cancelled).
+     */
+    public function cancel_order_remote($order_id, $reference_no = '', $reason = '') {
+        $oid = (int) $order_id;
+        $ref = trim((string) $reference_no);
+        if ($oid < 1 && $ref === '') {
+            return false;
+        }
+        $res = $this->api->cancel_order($oid, $ref, (string) $reason);
+        if ($res && isset($res->status) && strtoupper((string) $res->status) === 'SUCCESS') {
+            return true;
+        }
+        $this->_log_error('cancel_order_remote');
+        return false;
     }
 
     /** In-request cache for gateway credentials (one API call per request). */
@@ -2083,27 +2172,64 @@ class Webshop_api_model extends CI_Model {
     private $_order_cache = array();
 
     public function get_order_by_id($order_id) {
-        $id = (int) $order_id;
-        if (isset($this->_order_cache[$id])) {
-            return $this->_order_cache[$id]['order'];
+        $raw = trim((string) $order_id);
+        if ($raw === '') {
+            return null;
         }
-        $res = $this->api->get_order($id);
-        if ($res && isset($res->status) && $res->status === 'SUCCESS' && isset($res->order)) {
-            $this->_order_cache[$id] = array(
+        // Non-numeric refs like ES-YYYYMMDD-xxxxxx must not be cast with (int) — that yields 0.
+        $cache_key = preg_match('/^ES-/i', $raw) ? $raw : (string) max(0, (int) $raw);
+        if ($cache_key === '0') {
+            return null;
+        }
+
+        if (isset($this->_order_cache[$cache_key])) {
+            return $this->_order_cache[$cache_key]['order'];
+        }
+
+        $id_num = (int) $raw;
+        $ref = null;
+        if (preg_match('/^ES-/i', $raw)) {
+            $ref = $raw;
+            $id_num = 0;
+        } elseif ($id_num <= 0) {
+            return null;
+        }
+
+        $res = $ref !== null ? $this->api->get_order(0, $ref) : $this->api->get_order($id_num);
+        $ok = $res && isset($res->status) && strtoupper((string) $res->status) === 'SUCCESS' && isset($res->order);
+        if ($ok) {
+            $this->_order_cache[$cache_key] = array(
                 'order' => (array) $res->order,
-                'items' => isset($res->items) ? array_map(function($i){ return (array) $i; }, (array) $res->items) : array(),
+                'items' => isset($res->items) ? array_map(function ($i) {
+                    return (array) $i;
+                }, (array) $res->items) : array(),
             );
-            return $this->_order_cache[$id]['order'];
+            return $this->_order_cache[$cache_key]['order'];
+        }
+        // Hybrid install: orders may exist only in the local POS DB.
+        if ($this->has_local_db()) {
+            $local = $this->_fallback_webshop_model()->get_order_by_id($order_id);
+            if (!empty($local) && is_array($local)) {
+                $this->_order_cache[$cache_key] = array(
+                    'order' => $local,
+                    'items' => $this->_fallback_webshop_model()->get_order_items_by_order_id($order_id),
+                );
+                return $local;
+            }
         }
         return null;
     }
 
     public function get_order_items_by_order_id($order_id) {
-        $id = (int) $order_id;
-        if (!isset($this->_order_cache[$id])) {
-            $this->get_order_by_id($id); // populates the cache
+        $raw = trim((string) $order_id);
+        $cache_key = preg_match('/^ES-/i', $raw) ? $raw : (string) max(0, (int) $raw);
+        if ($cache_key === '0') {
+            return array();
         }
-        return isset($this->_order_cache[$id]['items']) ? $this->_order_cache[$id]['items'] : array();
+        if (!isset($this->_order_cache[$cache_key])) {
+            $this->get_order_by_id($order_id);
+        }
+        return isset($this->_order_cache[$cache_key]['items']) ? $this->_order_cache[$cache_key]['items'] : array();
     }
 
     /**
@@ -2308,12 +2434,26 @@ class Webshop_api_model extends CI_Model {
 
     public function add_to_wishlist($user_id, $product_id, $option_id = null) {
         $res = $this->api->add_wishlist($user_id, $product_id, $option_id);
-        return $res && isset($res->status) && $res->status === 'SUCCESS';
+        if ($res && isset($res->status) && strtoupper((string) $res->status) === 'SUCCESS') {
+            return true;
+        }
+        $this->_log_error('add_to_wishlist');
+        if ($res && isset($res->msg)) {
+            log_message('error', 'Webshop_api_model::add_to_wishlist API: ' . (string) $res->msg);
+        }
+        return false;
     }
 
     public function remove_from_wishlist($user_id, $product_id, $option_id = null) {
         $res = $this->api->remove_wishlist($user_id, $product_id, $option_id);
-        return $res && isset($res->status) && $res->status === 'SUCCESS';
+        if ($res && isset($res->status) && strtoupper((string) $res->status) === 'SUCCESS') {
+            return true;
+        }
+        $this->_log_error('remove_from_wishlist');
+        if ($res && isset($res->msg)) {
+            log_message('error', 'Webshop_api_model::remove_from_wishlist API: ' . (string) $res->msg);
+        }
+        return false;
     }
 
     /* ================================================================

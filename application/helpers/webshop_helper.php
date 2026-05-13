@@ -124,6 +124,77 @@ function webshop_normalize_html_media_urls($html, $uploads_base) {
 }
 
 /**
+ * Decode entity-encoded CMS HTML (common when JSON/API stores escaped tags) then normalize media URLs.
+ *
+ * @param string $html
+ * @param string $uploads_base
+ * @return string
+ */
+function webshop_prepare_cms_html_for_output($html, $uploads_base)
+{
+    if (!is_string($html) || trim($html) === '') {
+        return '';
+    }
+    $s = $html;
+    $flags = defined('ENT_HTML5') ? (ENT_QUOTES | ENT_HTML5) : (ENT_QUOTES | ENT_HTML401);
+    for ($i = 0; $i < 4; $i++) {
+        $next = html_entity_decode($s, $flags, 'UTF-8');
+        if ($next === $s) {
+            break;
+        }
+        $s = $next;
+    }
+    return webshop_normalize_html_media_urls($s, $uploads_base);
+}
+
+/**
+ * Pull embedded &lt;style&gt; and stylesheet &lt;link&gt; tags out of CMS HTML so they can be placed in &lt;head&gt;
+ * (or printed before the fragment). Also strips accidental full-document wrappers when admins paste HTML exports.
+ *
+ * @param string $html
+ * @return array html, style_blocks, link_tags keys
+ */
+function webshop_extract_cms_embedded_assets($html)
+{
+    if (!is_string($html) || trim($html) === '') {
+        return array(
+            'html' => '',
+            'style_blocks' => '',
+            'link_tags' => '',
+        );
+    }
+    $out = $html;
+    $style_blocks = array();
+    $link_tags = array();
+
+    $out = preg_replace('#</head>\s*#i', '', $out);
+    $out = preg_replace('#<head\b[^>]*>\s*#i', '', $out);
+    $out = preg_replace('#<body\b[^>]*>\s*#i', '', $out);
+    $out = preg_replace('#</body>\s*#i', '', $out);
+    $out = preg_replace('#</html>\s*#i', '', $out);
+
+    $out = preg_replace_callback('#<style\b[^>]*>[\s\S]*?</style>#i', function ($m) use (&$style_blocks) {
+        $style_blocks[] = $m[0];
+        return '';
+    }, $out);
+
+    $out = preg_replace_callback('#<link\b[^>]*>#i', function ($m) use (&$link_tags) {
+        $tag = $m[0];
+        if (preg_match('/\brel\s*=\s*["\']stylesheet["\']/i', $tag)) {
+            $link_tags[] = $tag;
+            return '';
+        }
+        return $tag;
+    }, $out);
+
+    return array(
+        'html' => trim($out),
+        'style_blocks' => implode("\n", $style_blocks),
+        'link_tags' => implode("\n", $link_tags),
+    );
+}
+
+/**
  * Currency symbol from POS/API settings ($this->data['Settings']).
  *
  * @param object|null $Settings
@@ -398,31 +469,53 @@ function product_sale_price_webshop( $productData=[], $variant_price = NULL, $di
     $data['tax_rate'] = $productData['tax_rate'] . '%';
     $data['tax_method'] = $productData['tax_method'];
 
+    /*
+     * Tax math contract used by submit_order:
+     *   grand_total = sum(net_unit_price * qty) + sum(unit_tax * qty)
+     *               = sum(unit_price * qty)
+     *
+     * So `unit_price` is what the customer pays and equals net + tax, regardless
+     * of whether the catalogue price was stored tax-exclusive or tax-inclusive.
+     *
+     *   tax_method == 1 (EXCLUSIVE — price stored without tax):
+     *     unit_tax       = price * rate / 100
+     *     net_unit_price = price            (price has no tax in it)
+     *     unit_price     = price + unit_tax (customer pays this)
+     *
+     *   tax_method == 0 (INCLUSIVE — price already contains tax):
+     *     unit_tax       = price * rate / (100 + rate)   (extract tax portion)
+     *     net_unit_price = price - unit_tax              (net of tax)
+     *     unit_price     = price                         (customer pays the catalogue price)
+     *
+     * Historical regression: for tax_method=0, `net_unit_price` was being set to
+     * `price` instead of `price - unit_tax`. That made grand_total = price + tax,
+     * i.e. the buyer was charged the inclusive-tax catalogue price PLUS the same
+     * tax a second time (a buyer seeing $33 on checkout was billed $34.57 at the
+     * payment gateway when the rate was 5%). Restoring `price - unit_tax` for the
+     * inclusive branch makes the payment amount match what the checkout shows.
+     */
     if ($productData['tax_rate']) {
         if ($productData['tax_method'] == 1) {
 
-            $unit_tax = ($price * (float) $productData['tax_rate'] / 100 );
+            $unit_tax = ($price * (float) $productData['tax_rate'] / 100);
 
-            $data['unit_tax'] = $unit_tax;
+            $data['unit_tax']       = $unit_tax;
             $data['net_unit_price'] = $price;
-            // $data['unit_price'] = ((float) $price + $unit_tax);
-            $data['unit_price'] = $price;
+            $data['unit_price']     = $price + $unit_tax;
         } else {
 
             $unit_tax = (($price * (float) $productData['tax_rate']) / (100 + (float) $productData['tax_rate']));
 
-            $data['unit_tax'] = $unit_tax;
-            // $data['net_unit_price'] = $price - $unit_tax;
-            $data['net_unit_price'] = $price;
-            $data['unit_price'] = $price;
+            $data['unit_tax']       = $unit_tax;
+            $data['net_unit_price'] = $price - $unit_tax;
+            $data['unit_price']     = $price;
         }
     } else {
 
         $unit_tax = 0;
-        $data['unit_tax'] = $unit_tax;
-        // $data['net_unit_price'] = $price - $unit_tax;
+        $data['unit_tax']       = $unit_tax;
         $data['net_unit_price'] = $price;
-        $data['unit_price'] = $price;
+        $data['unit_price']     = $price;
     }
 
     return $data;
@@ -777,5 +870,616 @@ if(!function_exists('pos_settings')){
             return $q->row();
         }
         return FALSE; 
+    }
+}
+
+if (!function_exists('webshop_store_display_name')) {
+    /**
+     * Public store name for header/footer when the logo is absent or fails to load.
+     * Scans ElintOm getsettings payloads: pos_settings ($Settings) then webshop_settings, common key aliases.
+     *
+     * @param object|null $Settings        MY_Controller $Settings (API pos_settings)
+     * @param object|null $webshop_settings
+     * @return string Non-empty display name, or empty string if none found (caller may fallback).
+     */
+    function webshop_store_display_name($Settings = null, $webshop_settings = null) {
+        $blocks = array();
+        if (is_object($Settings)) {
+            $blocks[] = $Settings;
+        }
+        if (is_object($webshop_settings)) {
+            $blocks[] = $webshop_settings;
+        }
+        $keys = array(
+            'site_name',
+            'shop_name',
+            'store_name',
+            'eshop_name',
+            'company_name',
+            'business_name',
+            'app_name',
+            'meta_title',
+            'biller_name',
+        );
+        foreach ($blocks as $obj) {
+            foreach ($keys as $k) {
+                if (isset($obj->$k)) {
+                    $v = trim((string) $obj->$k);
+                    if ($v !== '') {
+                        return $v;
+                    }
+                }
+            }
+        }
+
+        // Optional getsettings `website_setting[]` rows (fields/value), ElintOm Storefront / NW payload.
+        $ws_field_names = array('site_name', 'shop_name', 'store_name', 'site_title', 'shop_title', 'store_title');
+        if (function_exists('webshop_ws_website_setting_bundles')) {
+            $seen = array();
+            foreach (webshop_ws_website_setting_bundles() as $items) {
+                foreach ($items as $item) {
+                    $f = webshop_ws_row_field_key($item);
+                    if ($f === '' || !in_array($f, $ws_field_names, true)) {
+                        continue;
+                    }
+                    if (isset($seen[$f])) {
+                        continue;
+                    }
+                    $seen[$f] = true;
+                    $v = webshop_ws_row_value_string($item);
+                    if ($v !== '') {
+                        return $v;
+                    }
+                }
+            }
+        }
+
+        return '';
+    }
+}
+
+if (!function_exists('webshop_ws_row_field_key')) {
+    /**
+     * Normalized `fields` key from a website_setting row (handles Fields/fields from JSON/API).
+     *
+     * @param mixed $item
+     * @return string Lowercase key or empty
+     */
+    function webshop_ws_row_field_key($item) {
+        $row = is_object($item) ? $item : (object) (array) $item;
+        foreach (array('fields', 'Fields', 'FIELDS') as $k) {
+            if (isset($row->$k) && trim((string) $row->$k) !== '') {
+                return strtolower(trim((string) $row->$k));
+            }
+        }
+        return '';
+    }
+}
+
+if (!function_exists('webshop_ws_row_value_string')) {
+    /**
+     * Value column from a website_setting row (handles Value/value).
+     *
+     * @param mixed $item
+     * @return string
+     */
+    function webshop_ws_row_value_string($item) {
+        $row = is_object($item) ? $item : (object) (array) $item;
+        foreach (array('value', 'Value', 'VALUE') as $k) {
+            if (isset($row->$k)) {
+                return trim((string) $row->$k);
+            }
+        }
+        return '';
+    }
+}
+
+if (!function_exists('webshop_ws_row_label_string')) {
+    /**
+     * Admin label from Storefront row when present; otherwise humanize field key.
+     *
+     * @param mixed  $item
+     * @param string $field_key_fallback lowercase fields key if known
+     * @return string
+     */
+    function webshop_ws_row_label_string($item, $field_key_fallback = '') {
+        $row = is_object($item) ? $item : (object) (array) $item;
+        foreach (array('label', 'Label', 'LABEL') as $k) {
+            if (isset($row->$k) && trim((string) $row->$k) !== '') {
+                return trim((string) $row->$k);
+            }
+        }
+        $fk = $field_key_fallback !== '' ? $field_key_fallback : webshop_ws_row_field_key($item);
+        if ($fk === '') {
+            return '';
+        }
+        return ucwords(str_replace('_', ' ', $fk));
+    }
+}
+
+if (!function_exists('webshop_ws_row_icons_string')) {
+    /**
+     * Optional Font Awesome fragment from a settings row.
+     *
+     * @param mixed $item
+     * @return string
+     */
+    function webshop_ws_row_icons_string($item) {
+        $row = is_object($item) ? $item : (object) (array) $item;
+        foreach (array('icons', 'Icons', 'ICONS') as $k) {
+            if (isset($row->$k) && trim((string) $row->$k) !== '') {
+                return trim((string) $row->$k);
+            }
+        }
+        return '';
+    }
+}
+
+if (!function_exists('webshop_ws_website_setting_bundles')) {
+    /**
+     * Rows from getsettings ($api_website_setting) plus controller view data when present.
+     *
+     * @return array<int, array<int, mixed>>
+     */
+    function webshop_ws_website_setting_bundles() {
+        $bundles = array();
+        if (!function_exists('get_instance')) {
+            return $bundles;
+        }
+        $CI = get_instance();
+        if (isset($CI->api_website_setting) && is_array($CI->api_website_setting)) {
+            $bundles[] = $CI->api_website_setting;
+        }
+        if (isset($CI->data['website_setting']) && is_array($CI->data['website_setting'])) {
+            $bundles[] = $CI->data['website_setting'];
+        }
+        return $bundles;
+    }
+}
+
+if (!function_exists('webshop_api_website_setting_sections')) {
+    /**
+     * Grouped storefront slots from getsettings (`website_setting_sections`: header / footer rows).
+     *
+     * @return object|array { header: array, footer: array }
+     */
+    function webshop_api_website_setting_sections() {
+        if (!function_exists('get_instance')) {
+            return (object) array('header' => array(), 'footer' => array());
+        }
+        $CI = get_instance();
+        if (isset($CI->api_website_setting_sections)) {
+            $w = $CI->api_website_setting_sections;
+            if (is_object($w) || is_array($w)) {
+                return $w;
+            }
+        }
+        return (object) array('header' => array(), 'footer' => array());
+    }
+}
+
+if (!function_exists('webshop_normalize_setting_section_row_list')) {
+    /**
+     * Ensure header/footer section payload is a 0..n-1 list of row objects (handles JSON object-vs-array quirks).
+     *
+     * @param mixed $rows
+     * @return array<int, mixed>
+     */
+    function webshop_normalize_setting_section_row_list($rows) {
+        if ($rows === null || $rows === '') {
+            return array();
+        }
+        if (is_array($rows)) {
+            return array_values($rows);
+        }
+        if (!is_object($rows)) {
+            return array();
+        }
+        foreach (array('fields', 'Fields') as $k) {
+            if (isset($rows->$k) && trim((string) $rows->$k) !== '') {
+                return array($rows);
+            }
+        }
+        $vars = get_object_vars($rows);
+        if ($vars === array()) {
+            return array();
+        }
+        $keys = array_keys($vars);
+        $numeric_list = true;
+        foreach ($keys as $k) {
+            if (!is_int($k) && !(is_string($k) && ctype_digit((string) $k))) {
+                $numeric_list = false;
+                break;
+            }
+        }
+        if ($numeric_list) {
+            return array_values($vars);
+        }
+        return array($rows);
+    }
+}
+
+if (!function_exists('webshop_website_setting_section_rows')) {
+    /**
+     * Active rows for one section (header or footer), same shape as flat website_setting rows plus section_type/label/sort_order when present.
+     *
+     * @param string $section header|footer
+     * @return array<int, mixed>
+     */
+    function webshop_website_setting_section_rows($section) {
+        $section = strtolower(trim((string) $section));
+        if ($section !== 'header' && $section !== 'footer') {
+            return array();
+        }
+        $wrap = webshop_api_website_setting_sections();
+        $rows = array();
+        if (is_array($wrap)) {
+            $rows = isset($wrap[$section]) ? $wrap[$section] : array();
+        } elseif (is_object($wrap)) {
+            $rows = isset($wrap->$section) ? $wrap->$section : array();
+        }
+        return webshop_normalize_setting_section_row_list($rows);
+    }
+}
+
+if (!function_exists('webshop_website_setting_lookup_row_in_section')) {
+    /**
+     * Find first row by field key within a single section (prefer when API exposes website_setting_sections).
+     *
+     * @param string $field_key e.g. logo_image, about_us
+     * @param string $section   header|footer
+     * @return object|null
+     */
+    function webshop_website_setting_lookup_row_in_section($field_key, $section) {
+        $field_key = strtolower(trim((string) $field_key));
+        if ($field_key === '') {
+            return null;
+        }
+        foreach (webshop_website_setting_section_rows($section) as $item) {
+            $f = webshop_ws_row_field_key($item);
+            if ($f === $field_key) {
+                $v = webshop_ws_row_value_string($item);
+                if ($v !== '') {
+                    return is_object($item) ? $item : (object) (array) $item;
+                }
+            }
+        }
+        return null;
+    }
+}
+
+if (!function_exists('webshop_website_setting_lookup_row')) {
+    /**
+     * Find first website_setting row by fields key (ElintOm Storefront header & footer / sma_website_setting).
+     *
+     * @param string $field_key e.g. logo_image, about_us
+     * @return object|null     Row with fields, value, icons
+     */
+    function webshop_website_setting_lookup_row($field_key) {
+        $field_key = strtolower(trim((string) $field_key));
+        if ($field_key === '' || !function_exists('get_instance')) {
+            return null;
+        }
+        foreach (webshop_ws_website_setting_bundles() as $items) {
+            foreach ($items as $item) {
+                $f = webshop_ws_row_field_key($item);
+                if ($f !== $field_key) {
+                    continue;
+                }
+                $v = webshop_ws_row_value_string($item);
+                if ($v !== '') {
+                    return is_object($item) ? $item : (object) (array) $item;
+                }
+            }
+        }
+        return null;
+    }
+}
+
+if (!function_exists('webshop_footer_identity_rows')) {
+    /**
+     * All footer storefront slots from API: field_key, admin label, value, icons — no hardcoded field names.
+     * Uses website_setting_sections.footer when present; otherwise flat website_setting minus keys that appear in header section.
+     *
+     * @return array<int, array{field_key:string,label:string,value:string,icons:string}>
+     */
+    function webshop_footer_identity_rows() {
+        $out = array();
+        $footer_section = function_exists('webshop_website_setting_section_rows')
+            ? webshop_website_setting_section_rows('footer')
+            : array();
+        if (!empty($footer_section)) {
+            foreach ($footer_section as $item) {
+                $fk = webshop_ws_row_field_key($item);
+                if ($fk === '') {
+                    continue;
+                }
+                $val = webshop_ws_row_value_string($item);
+                $out[] = array(
+                    'field_key' => $fk,
+                    'label'     => webshop_ws_row_label_string($item, $fk),
+                    'value'     => $val,
+                    'icons'     => webshop_ws_row_icons_string($item),
+                );
+            }
+            return $out;
+        }
+        $header_keys = array();
+        if (function_exists('webshop_website_setting_section_rows')) {
+            foreach (webshop_website_setting_section_rows('header') as $hitem) {
+                $hf = webshop_ws_row_field_key($hitem);
+                if ($hf !== '') {
+                    $header_keys[$hf] = true;
+                }
+            }
+        }
+        $seen = array();
+        foreach (webshop_ws_website_setting_bundles() as $items) {
+            foreach ($items as $item) {
+                $fk = webshop_ws_row_field_key($item);
+                if ($fk === '' || isset($seen[$fk])) {
+                    continue;
+                }
+                if (isset($header_keys[$fk])) {
+                    continue;
+                }
+                $val = webshop_ws_row_value_string($item);
+                $seen[$fk] = true;
+                $out[] = array(
+                    'field_key' => $fk,
+                    'label'     => webshop_ws_row_label_string($item, $fk),
+                    'value'     => $val,
+                    'icons'     => webshop_ws_row_icons_string($item),
+                );
+            }
+        }
+        return $out;
+    }
+}
+
+if (!function_exists('webshop_resolve_storefront_logo_image_url')) {
+    /**
+     * Absolute URL for logo_image row from getsettings website_setting[] (Storefront manager in ElintOm).
+     *
+     * @param string $uploads_base
+     * @return string
+     */
+    function webshop_resolve_storefront_logo_image_url($uploads_base) {
+        $row = function_exists('webshop_website_setting_lookup_row_in_section')
+            ? webshop_website_setting_lookup_row_in_section('logo_image', 'header') : null;
+        if (!$row) {
+            $row = webshop_website_setting_lookup_row('logo_image');
+        }
+        if (!$row) {
+            return '';
+        }
+        $p = webshop_ws_row_value_string($row);
+        if ($p === '') {
+            return '';
+        }
+        if (preg_match('#^https?://#i', $p)) {
+            return $p;
+        }
+        if ($uploads_base !== '') {
+            return webshop_media_src((string) $uploads_base, $p);
+        }
+        return '';
+    }
+}
+
+if (!function_exists('webshop_footer_external_url')) {
+    /**
+     * Normalize footer/social values that may be a bare URL or legacy HTML snippet with href=.
+     *
+     * @param string $raw
+     * @return string URL or empty
+     */
+    function webshop_footer_external_url($raw) {
+        $raw = trim((string) $raw);
+        if ($raw === '') {
+            return '';
+        }
+        if (preg_match('#^https?://#i', $raw)) {
+            return $raw;
+        }
+        if (preg_match('#https?://[^\s"\'<>]+#i', $raw, $m)) {
+            return $m[0];
+        }
+        return '';
+    }
+}
+
+if (!function_exists('webshop_footer_row_link_href')) {
+    /**
+     * Resolved href for a footer slot (http(s), tel:, or empty). Used to make icon/label clickable without duplicating body text.
+     *
+     * @param string $field_key
+     * @param string $value
+     * @return string safe attribute value or empty
+     */
+    function webshop_footer_row_link_href($field_key, $value) {
+        $fk = strtolower(trim((string) $field_key));
+        $val = trim((string) $value);
+        if ($val === '') {
+            return '';
+        }
+        if (preg_match('/^media_[a-z0-9_]+_link$/', $fk)) {
+            $u = webshop_footer_external_url($val);
+            return $u !== '' ? $u : '';
+        }
+        if (preg_match('#^https?://\S+$#i', $val)) {
+            return $val;
+        }
+        if (preg_match('/phone|tel|mobile|hotline|whatsapp|fax/i', $fk)) {
+            $tel = preg_replace('/[^0-9+]/', '', $val);
+            return $tel !== '' ? 'tel:' . $tel : '';
+        }
+        if (preg_match('/^[\+]?[0-9][0-9\s\-\(\)\.]{6,}$/', $val)) {
+            $tel = preg_replace('/[^0-9+]/', '', $val);
+            return $tel !== '' ? 'tel:' . $tel : '';
+        }
+        $ext = webshop_footer_external_url($val);
+        if ($ext !== '' && preg_match('#^https?://#i', $ext)) {
+            return $ext;
+        }
+        return '';
+    }
+}
+
+if (!function_exists('webshop_footer_value_is_link_only')) {
+    /**
+     * True when value is only a linkable string (no rich HTML) so body can be hidden when icon/label carry the link.
+     *
+     * @param string $field_key
+     * @param string $value
+     * @return bool
+     */
+    function webshop_footer_value_is_link_only($field_key, $value) {
+        $val = trim((string) $value);
+        if ($val === '') {
+            return false;
+        }
+        if (preg_match('/<[a-z][\s\S]/i', $val)) {
+            return false;
+        }
+        $fk = strtolower(trim((string) $field_key));
+        if (preg_match('/^media_[a-z0-9_]+_link$/', $fk)) {
+            return true;
+        }
+        if (preg_match('#^https?://\S+$#i', $val)) {
+            return true;
+        }
+        if (preg_match('/phone|tel|mobile|hotline|whatsapp|fax/i', $fk)) {
+            return (bool) preg_match('/^[\+]?[0-9][0-9\s\-\(\)\.]{6,}$/', $val);
+        }
+        if (preg_match('/^[\+]?[0-9][0-9\s\-\(\)\.]{6,}$/', $val)) {
+            return true;
+        }
+        return webshop_footer_external_url($val) !== '';
+    }
+}
+
+if (!function_exists('webshop_footer_row_body_html')) {
+    /**
+     * Safe HTML for one footer cell: URLs / media_*_link / tel heuristics; rich text uses CMS-style preparation (not escaped).
+     *
+     * @param string $field_key
+     * @param string $value
+     * @param string $uploads_base Trailing slash; used to resolve relative media in HTML (same as CMS body).
+     * @return string HTML fragment
+     */
+    function webshop_footer_row_body_html($field_key, $value, $uploads_base = '') {
+        $fk = strtolower(trim((string) $field_key));
+        $val = trim((string) $value);
+        if ($val === '') {
+            return '';
+        }
+        if (preg_match('/^media_[a-z0-9_]+_link$/', $fk)) {
+            $url = webshop_footer_external_url($val);
+            if ($url === '') {
+                return nl2br(htmlspecialchars($val, ENT_QUOTES, 'UTF-8'));
+            }
+            return '<a href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener noreferrer">'
+                . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '</a>';
+        }
+        $trim = trim($val);
+        if (preg_match('#^https?://\S+$#i', $trim)) {
+            return '<a href="' . htmlspecialchars($trim, ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener noreferrer">'
+                . htmlspecialchars($trim, ENT_QUOTES, 'UTF-8') . '</a>';
+        }
+        if (preg_match('/phone|tel|mobile|hotline|whatsapp|fax/i', $fk)) {
+            $tel = preg_replace('/[^0-9+]/', '', $val);
+            if ($tel !== '') {
+                return '<a class="gp-footer-phone" href="tel:' . htmlspecialchars($tel, ENT_QUOTES, 'UTF-8') . '">'
+                    . htmlspecialchars($val, ENT_QUOTES, 'UTF-8') . '</a>';
+            }
+        }
+        if (preg_match('/^[\+]?[0-9][0-9\s\-\(\)\.]{6,}$/', $val)) {
+            $tel = preg_replace('/[^0-9+]/', '', $val);
+            if ($tel !== '') {
+                return '<a class="gp-footer-phone" href="tel:' . htmlspecialchars($tel, ENT_QUOTES, 'UTF-8') . '">'
+                    . htmlspecialchars($val, ENT_QUOTES, 'UTF-8') . '</a>';
+            }
+        }
+        $looks_like_html = (bool) preg_match('/<[a-z][a-z0-9]{0,24}\b/i', $val)
+            || (bool) preg_match('/<\/[a-z][a-z0-9]{0,24}>/i', $val);
+        if (!$looks_like_html && strpos($val, '&lt;') !== false && strpos($val, '&gt;') !== false) {
+            $looks_like_html = (bool) preg_match('/&lt;[a-z][a-z0-9]{0,24}\b/i', $val);
+        }
+        if ($looks_like_html && function_exists('webshop_prepare_cms_html_for_output')) {
+            $prepared = webshop_prepare_cms_html_for_output($val, $uploads_base);
+            return trim($prepared);
+        }
+        return nl2br(htmlspecialchars($val, ENT_QUOTES, 'UTF-8'));
+    }
+}
+
+if (!function_exists('webshop_footer_media_link_rows')) {
+    /**
+     * Rows with fields like media_facebook_link, media_instagram_link from website_setting.
+     *
+     * @return array<int, array{label:string,url:string,field:string}>
+     */
+    function webshop_footer_media_link_rows() {
+        $out = array();
+        if (!function_exists('get_instance')) {
+            return $out;
+        }
+        $seen_fields = array();
+        $bundles = array();
+        if (function_exists('webshop_website_setting_section_rows')) {
+            $footer_only = webshop_website_setting_section_rows('footer');
+            if (!empty($footer_only)) {
+                $bundles[] = $footer_only;
+            }
+        }
+        if (empty($bundles)) {
+            $bundles = webshop_ws_website_setting_bundles();
+        }
+        foreach ($bundles as $items) {
+            foreach ($items as $item) {
+                $f = webshop_ws_row_field_key($item);
+                if ($f === '' || !preg_match('/^media_[a-z0-9_]+_link$/', $f)) {
+                    continue;
+                }
+                if (isset($seen_fields[$f])) {
+                    continue;
+                }
+                $rawVal = webshop_ws_row_value_string($item);
+                if ($rawVal === '') {
+                    continue;
+                }
+                $url = webshop_footer_external_url($rawVal);
+                if ($url === '') {
+                    continue;
+                }
+                $seen_fields[$f] = true;
+                $inner = preg_replace('/^media_/', '', $f);
+                $inner = preg_replace('/_link$/', '', $inner);
+                $label = ucwords(str_replace('_', ' ', $inner));
+                $out[] = array(
+                    'label' => $label,
+                    'url'   => $url,
+                    'field' => $f,
+                );
+            }
+        }
+        return $out;
+    }
+}
+
+if (!function_exists('webshop_resolve_header_logo_url')) {
+    /**
+     * Public webshop header logo: **only** ElintOm Storefront `logo_image` (getsettings `website_setting[]` / sma_website_setting).
+     * CMS page logos, POS Settings logos, and legacy webshop_settings keys are intentionally not used.
+     *
+     * @param string      $uploads_base       View $uploads / mdata uploads root
+     * @param object|null $Settings           Unused (signature retained for callers)
+     * @param object|null $webshop_settings   Unused
+     * @param string      $page_logo_cms      Unused (CMS logos not applied to header)
+     * @return string URL or empty (header shows text shop name)
+     */
+    function webshop_resolve_header_logo_url($uploads_base, $Settings, $webshop_settings, $page_logo_cms = '') {
+        return webshop_resolve_storefront_logo_image_url($uploads_base);
     }
 }

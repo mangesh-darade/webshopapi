@@ -124,6 +124,9 @@ class Elintom_api_client {
             $out->pos_settings     = $flat;
             $out->pos_config       = $flat;
             $out->website_setting  = isset($flat->website_setting) ? $flat->website_setting : array();
+            $out->website_setting_sections = isset($flat->website_setting_sections)
+                ? $flat->website_setting_sections
+                : (object) array('header' => array(), 'footer' => array());
             $this->last_error      = null;
             return $out;
         }
@@ -345,8 +348,44 @@ class Elintom_api_client {
         ));
     }
 
-    public function get_order($order_id) {
-        return $this->post('getorder', array('order_id' => (int) $order_id));
+    public function get_order($order_id, $reference_no = null) {
+        $extra = array('order_id' => (int) $order_id);
+        if ($reference_no !== null && (string) $reference_no !== '') {
+            $extra['reference_no'] = (string) $reference_no;
+        }
+        return $this->post('getorder', $extra);
+    }
+
+    /**
+     * Persist CCAvenue success on ElintOm (required when the storefront has no local orders DB).
+     */
+    public function record_ccavenue_payment(array $response_data) {
+        return $this->post('recordccavenuepayment', array(
+            'response_json' => json_encode($response_data),
+        ));
+    }
+
+    /**
+     * Cancel a webshop order on ElintOm.
+     *
+     * Used when the buyer aborts at the payment gateway or the gateway declines
+     * payment — keeps ElintOm's order list clean of "ghost" rows that the buyer
+     * never actually paid for. Only pre-payment orders (payment_status in
+     * due/pending/Failed) are eligible — ElintOm rejects calls against paid sales.
+     *
+     * @param int    $order_id      ElintOm sale id (>0). Pass 0 when only ref is known.
+     * @param string $reference_no  Optional reference (ES-YYYYMMDD-XXXXXX).
+     * @param string $reason        Optional reason for the audit trail.
+     */
+    public function cancel_order($order_id, $reference_no = '', $reason = '') {
+        $payload = array('order_id' => (int) $order_id);
+        if ($reference_no !== null && (string) $reference_no !== '') {
+            $payload['reference_no'] = (string) $reference_no;
+        }
+        if ($reason !== null && (string) $reason !== '') {
+            $payload['reason'] = (string) $reason;
+        }
+        return $this->post('cancelorder', $payload);
     }
 
     public function get_gateway_credentials() {

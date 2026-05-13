@@ -6,7 +6,15 @@ $theme = (isset($webshop_settings) && is_object($webshop_settings) && isset($web
 $shopName     = isset($Settings->site_name) ? $Settings->site_name : 'Shop';
 $errorMessage = isset($error_message) ? $error_message
     : (isset($status_message) ? $status_message : 'Your payment could not be processed. Please try again.');
-$orderId      = isset($order_id) ? $order_id : (isset($order['id']) ? $order['id'] : null);
+$orderId = isset($order_id) ? $order_id : (isset($order['id']) ? $order['id'] : null);
+if ($orderId === null && isset($payment_gateway_response) && is_array($payment_gateway_response) && isset($payment_gateway_response['order_id'])) {
+    $orderId = $payment_gateway_response['order_id'];
+}
+$retryCustomer = isset($customer_id) ? $customer_id : '';
+$retryQs = $orderId !== null && $orderId !== '' ? ('order=' . urlencode((string) $orderId)) : '';
+if ($retryQs !== '' && $retryCustomer !== '' && $retryCustomer !== null) {
+    $retryQs .= '&customer=' . urlencode((string) $retryCustomer);
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -31,8 +39,8 @@ $orderId      = isset($order_id) ? $order_id : (isset($order['id']) ? $order['id
             <p class="pd-msg"><?= htmlspecialchars($errorMessage, ENT_QUOTES, 'UTF-8') ?></p>
 
             <div class="pd-actions">
-                <?php if ($orderId): ?>
-                    <a href="<?= base_url('webshop/payments?order=' . urlencode($orderId)) ?>" class="pd-btn pd-btn-primary">Try Again</a>
+                <?php if ($orderId && $retryQs !== ''): ?>
+                    <a href="<?= base_url('webshop/payments?' . $retryQs) ?>" class="pd-btn pd-btn-primary">Try Again</a>
                 <?php endif; ?>
                 <a href="<?= base_url('webshop') ?>" class="pd-btn pd-btn-secondary">Continue Shopping</a>
             </div>
