@@ -53,6 +53,12 @@ if ($isDynamic) {
     $banner_image = $storeBanner;
 }
 
+$_gp_logo_url = '';
+if (function_exists('webshop_resolve_header_logo_url') && isset($uploads)) {
+    $_gp_logo_url = webshop_resolve_header_logo_url((string) $uploads, $_gpS, $_gpWs, '');
+}
+$hasHeroBanner = trim((string) $banner_image) !== '';
+
 $legacySections = isset($this->data['custom_pages']['header_strip']) && is_array($this->data['custom_pages']['header_strip'])
     ? $this->data['custom_pages']['header_strip'] : array();
 $legacyWelcome = $legacyCert = $legacyUpdates = null;
@@ -87,6 +93,9 @@ if ($bodyHtml !== '') {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8') ?></title>
     <?= $metaTagsHtml ?>
+    <?php if ($_gp_logo_url !== '' && !$hasHeroBanner): ?>
+    <link rel="preload" as="image" href="<?= htmlspecialchars($_gp_logo_url, ENT_QUOTES, 'UTF-8') ?>" fetchpriority="high">
+    <?php endif; ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -101,7 +110,11 @@ if ($bodyHtml !== '') {
 </head>
 <body>
 <div class="home-shell">
-    <?php require_once(VIEWPATH . 'plane_vanila_theme/gulfpharmacy_theme/header.php'); ?>
+    <?php
+    $gp_header_logo_fetchpriority = ($_gp_logo_url !== '' && !$hasHeroBanner);
+    require_once(VIEWPATH . 'plane_vanila_theme/gulfpharmacy_theme/header.php');
+    unset($gp_header_logo_fetchpriority);
+    ?>
 
     <?php if (trim((string) $banner_image) !== ''): ?>
     <section class="hero" aria-label="<?= htmlspecialchars('Promotional banner', ENT_QUOTES, 'UTF-8') ?>">

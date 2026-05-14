@@ -504,9 +504,134 @@ XSL;
         return array_merge($this->data, $extra);
     }
 
+    /**
+     * Storefront header logo URL for preload/LCP hints (uploads + API website_setting logo_image).
+     *
+     * @param array $data View data (may be partial; falls back to $this->data).
+     * @return string Absolute or root-relative URL, or empty.
+     */
+    private function resolve_storefront_header_logo_url_for_preload(array $data)
+    {
+        if (!function_exists('webshop_resolve_header_logo_url')) {
+            return '';
+        }
+        $uploads = '';
+        if (isset($data['uploads']) && (string) $data['uploads'] !== '') {
+            $uploads = (string) $data['uploads'];
+        } elseif (isset($this->data['uploads'])) {
+            $uploads = (string) $this->data['uploads'];
+        }
+        $ws = null;
+        if (isset($data['webshop_settings'])) {
+            $ws = $data['webshop_settings'];
+        } elseif (isset($this->data['webshop_settings'])) {
+            $ws = $this->data['webshop_settings'];
+        }
+
+        return webshop_resolve_header_logo_url(
+            $uploads,
+            isset($this->Settings) ? $this->Settings : null,
+            $ws,
+            ''
+        );
+    }
+
+    /**
+     * When views do not set gp_header_logo_fetchpriority, default it on so header logo paints sooner (LCP).
+     *
+     * @param array $data
+     * @return array
+     */
+    private function apply_storefront_logo_lcp_hints(array $data, $method = '')
+    {
+        if (!is_array($data)) {
+            return $data;
+        }
+        if (strtolower(trim((string) $method)) === 'index') {
+            return $data;
+        }
+        $logo = $this->resolve_storefront_header_logo_url_for_preload($data);
+        if ($logo !== '' && !array_key_exists('gp_header_logo_fetchpriority', $data)) {
+            $data['gp_header_logo_fetchpriority'] = true;
+        }
+
+        return $data;
+    }
+
+    /**
+     * Insert early logo preload in HTML head when missing (category/product shells, etc.).
+     * Skips index (hero vs logo handled in the template) and pages that already preload an image.
+     *
+     * @param string $html
+     * @param array  $data
+     * @param string $method View stem passed to load_view.
+     * @return string
+     */
+    private function inject_storefront_logo_preload_into_head($html, array $data, $method)
+    {
+        if (!is_string($html) || $html === '') {
+            return $html;
+        }
+        if (!preg_match('#<head\b#i', $html)) {
+            return $html;
+        }
+        $methodNorm = strtolower(trim((string) $method));
+        if ($methodNorm === 'index') {
+            return $html;
+        }
+        $headEnd = stripos($html, '</head>');
+        $head = $headEnd !== false ? substr($html, 0, $headEnd) : $html;
+        if ((stripos($head, 'rel="preload"') !== false || stripos($head, "rel='preload'") !== false)
+            && (stripos($head, 'as="image"') !== false || stripos($head, "as='image'") !== false)) {
+            return $html;
+        }
+        $logo = $this->resolve_storefront_header_logo_url_for_preload($data);
+        if ($logo === '') {
+            return $html;
+        }
+        $href = htmlspecialchars($logo, ENT_QUOTES, 'UTF-8');
+        $snippet = "\n<link rel=\"preload\" as=\"image\" href=\"" . $href . "\" fetchpriority=\"high\">\n";
+        if (preg_match('#<head\b[^>]*>#i', $html, $m, PREG_OFFSET_CAPTURE)) {
+            $tag = $m[0][0];
+            $pos = $m[0][1] + strlen($tag);
+
+            return substr($html, 0, $pos) . $snippet . substr($html, $pos);
+        }
+
+        return $html;
+    }
+
+    /**
+     * Hint the browser to open a connection to the logo host when it differs from the shop origin.
+     *
+     * @param string $logoUrl
+     */
+    private function emit_storefront_logo_origin_hint_headers($logoUrl)
+    {
+        if ($logoUrl === '' || !preg_match('#^https?://#i', $logoUrl)) {
+            return;
+        }
+        $host = (string) parse_url($logoUrl, PHP_URL_HOST);
+        if ($host === '') {
+            return;
+        }
+        $reqHost = (string) parse_url(base_url(), PHP_URL_HOST);
+        if ($reqHost !== '' && strcasecmp($host, $reqHost) === 0) {
+            return;
+        }
+        $scheme = strtolower((string) parse_url($logoUrl, PHP_URL_SCHEME));
+        if ($scheme !== 'http' && $scheme !== 'https') {
+            $scheme = 'https';
+        }
+        $port = parse_url($logoUrl, PHP_URL_PORT);
+        $origin = $scheme . '://' . $host . ($port ? ':' . (int) $port : '');
+        $this->output->set_header('Link: <' . $origin . '>; rel=preconnect', false);
+    }
+
     public function load_view($method = '', $data = array())
     {
         $data = $this->resolve_dynamic_runtime_data($method, $data);
+        $data = $this->apply_storefront_logo_lcp_hints(is_array($data) ? $data : array(), $method);
         $seoKey = $this->get_theme_page_seo_key($method);
         $data['page_seo'] = $this->get_theme_page_seo($seoKey);
         $this->log_dynamic_render_probe($method, $data);
@@ -514,7 +639,10 @@ XSL;
             show_404();
             return;
         }
+        $logoForHints = $this->resolve_storefront_header_logo_url_for_preload($data);
+        $this->emit_storefront_logo_origin_hint_headers($logoForHints);
         $html = $this->load->view($this->resolve_webshop_view_path($method), $data, true);
+        $html = $this->inject_storefront_logo_preload_into_head($html, $data, $method);
         $html = $this->inject_page_seo($html, $data['page_seo'], $data, $method);
         $this->output->set_output($html);
     }

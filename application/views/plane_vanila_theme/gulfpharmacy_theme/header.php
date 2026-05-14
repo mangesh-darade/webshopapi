@@ -31,6 +31,8 @@ if ($ws_sess) {
     }
 }
 $user_first_name = $user_name !== '' ? trim((string) strtok($user_name, ' ')) : '';
+
+$gp_logo_lcp_hint = !empty($gp_header_logo_fetchpriority) && $logo_url !== '';
 ?>
 <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css">
 <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header-drawers.css">
@@ -39,7 +41,7 @@ $user_first_name = $user_name !== '' ? trim((string) strtok($user_name, ' ')) : 
         <!-- Logo -->
         <a class="gp-logo" href="<?= $webshop_url ?>">
             <?php if ($logo_url !== ''): ?>
-                <img src="<?= htmlspecialchars($logo_url, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($shop_name, ENT_QUOTES, 'UTF-8') ?>" class="gp-logo-img" decoding="async" onerror="this.style.display='none';var fb=document.getElementById('gp-logo-text-fallback');if(fb){fb.style.display='inline';fb.removeAttribute('aria-hidden');}">
+                <img src="<?= htmlspecialchars($logo_url, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($shop_name, ENT_QUOTES, 'UTF-8') ?>" class="gp-logo-img" width="180" height="48"<?= $gp_logo_lcp_hint ? ' fetchpriority="high" decoding="sync"' : ' decoding="async"' ?> onerror="this.style.display='none';var fb=document.getElementById('gp-logo-text-fallback');if(fb){fb.style.display='inline';fb.removeAttribute('aria-hidden');}">
                 <span id="gp-logo-text-fallback" class="gp-logo-text" style="display:none" aria-hidden="true"><?= htmlspecialchars($shop_name, ENT_QUOTES, 'UTF-8') ?></span>
             <?php else: ?>
                 <span class="gp-logo-text"><?= htmlspecialchars($shop_name, ENT_QUOTES, 'UTF-8') ?></span>
