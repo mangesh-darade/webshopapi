@@ -7,6 +7,11 @@ $country     = isset($country)     && is_array($country)     ? $country     : ar
 $cart_items  = isset($_SESSION['cart']) && is_array($_SESSION['cart']) ? $_SESSION['cart'] : array();
 $symbol      = isset($Settings->symbol) ? $Settings->symbol : '';
 
+$__checkout_products = array();
+if (isset($cart_data) && is_array($cart_data) && isset($cart_data['products']) && is_array($cart_data['products'])) {
+    $__checkout_products = $cart_data['products'];
+}
+
 // Cart stores 'product_price' as the unit price; 'price' is the raw eshop_price.
 $subtotal = 0;
 foreach ($cart_items as $ci) {
@@ -163,9 +168,42 @@ foreach ($cart_items as $ci) {
 
                     <div class="cart-items-summary">
                         <?php foreach ($cart_items as $ci):
-                            $ci_name  = isset($ci['name'])         ? $ci['name']
-                                      : (isset($ci['product_name']) ? $ci['product_name']
-                                      : ('Product #' . (isset($ci['product_id']) ? $ci['product_id'] : '?')));
+                            $ci_pid = isset($ci['product_id']) ? (int) $ci['product_id'] : 0;
+                            $ci_name = '';
+                            if (!empty($ci['name'])) {
+                                $ci_name = trim((string) $ci['name']);
+                            }
+                            if ($ci_name === '' && !empty($ci['product_name'])) {
+                                $ci_name = trim((string) $ci['product_name']);
+                            }
+                            if ($ci_name === '' && $ci_pid > 0) {
+                                $prow = null;
+                                if (isset($__checkout_products[$ci_pid])) {
+                                    $prow = $__checkout_products[$ci_pid];
+                                } elseif (isset($__checkout_products[(string) $ci_pid])) {
+                                    $prow = $__checkout_products[(string) $ci_pid];
+                                }
+                                if (is_array($prow)) {
+                                    if (!empty($prow['name'])) {
+                                        $ci_name = trim((string) $prow['name']);
+                                    } elseif (!empty($prow['product_name'])) {
+                                        $ci_name = trim((string) $prow['product_name']);
+                                    } elseif (!empty($prow['code'])) {
+                                        $ci_name = trim((string) $prow['code']);
+                                    }
+                                } elseif (is_object($prow)) {
+                                    if (isset($prow->name) && (string) $prow->name !== '') {
+                                        $ci_name = trim((string) $prow->name);
+                                    } elseif (isset($prow->product_name) && (string) $prow->product_name !== '') {
+                                        $ci_name = trim((string) $prow->product_name);
+                                    } elseif (isset($prow->code) && (string) $prow->code !== '') {
+                                        $ci_name = trim((string) $prow->code);
+                                    }
+                                }
+                            }
+                            if ($ci_name === '') {
+                                $ci_name = $ci_pid > 0 ? ('Product #' . $ci_pid) : 'Product';
+                            }
                             $ci_qty   = isset($ci['quantity'])     ? (float) $ci['quantity']     : 1;
                             $ci_price = isset($ci['product_price']) ? (float) $ci['product_price']
                                       : (isset($ci['price'])        ? (float) $ci['price']       : 0.0);

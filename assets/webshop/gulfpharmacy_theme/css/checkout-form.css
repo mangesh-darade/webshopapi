@@ -97,3 +97,164 @@
 }
 .terms-group > label.checkbox-container .checkbox-text { flex: 1; min-width: 0; padding-top: 1px; }
 .terms-group > label.checkbox-container a { color: var(--gp-primary); text-decoration: underline; }
+
+/* ── Coupon (Have a coupon?) — same visual language as form fields + place order ── */
+.checkout-form-section .coupon-card {
+    margin-top: 22px;
+    margin-bottom: 6px;
+    padding: 18px 20px;
+    border: 1px solid var(--gp-border);
+    border-radius: 12px;
+    background: var(--gp-bg);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.checkout-form-section .coupon-card .section-head {
+    margin: 0 0 14px;
+}
+
+/* Title inside card: do not reuse full-width section underline */
+.checkout-form-section .coupon-card .section-title {
+    margin: 0;
+    padding: 0;
+    border-bottom: none;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--gp-primary);
+}
+
+.checkout-form-section .coupon-input-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 10px;
+}
+
+.checkout-container .coupon-input {
+    flex: 1 1 200px;
+    min-width: 0;
+    padding: 10px 14px;
+    border: 1.5px solid var(--gp-border);
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    color: var(--gp-text);
+    background: var(--gp-bg);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-sizing: border-box;
+}
+
+.checkout-container .coupon-input::placeholder {
+    color: var(--gp-muted);
+}
+
+.checkout-container .coupon-input:focus {
+    outline: none;
+    border-color: var(--gp-primary);
+    box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.08);
+}
+
+.checkout-container .coupon-btn {
+    flex: 0 0 auto;
+    min-width: 96px;
+    min-height: 44px;
+    padding: 10px 22px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    background: var(--gp-primary);
+    color: #fff;
+    transition: background 0.2s, transform 0.05s;
+}
+
+.checkout-container .coupon-btn:hover {
+    background: var(--gp-primary-light);
+}
+
+.checkout-container .coupon-btn:active {
+    transform: translateY(1px);
+}
+
+.checkout-container .coupon-btn:focus-visible {
+    outline: 2px solid var(--gp-primary);
+    outline-offset: 2px;
+}
+
+.checkout-form-section .coupon-msg {
+    margin: 10px 0 0;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    min-height: 1.2em;
+    color: var(--gp-muted);
+}
+
+.checkout-form-section .coupon-msg.error-coupon-msg {
+    color: #b91c1c;
+}
+
+.checkout-form-section .coupon-msg.success-coupon-msg {
+    color: #047857;
+}
+
+.checkout-form-section .coupon-applied {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(15, 118, 110, 0.28);
+    background: rgba(15, 118, 110, 0.07);
+}
+
+.checkout-form-section .coupon-applied[hidden] {
+    display: none !important;
+}
+
+.checkout-form-section .coupon-applied-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.checkout-form-section .coupon-tag {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: var(--gp-primary);
+    color: #fff;
+}
+
+.checkout-form-section .coupon-applied-text {
+    font-size: 0.875rem;
+    color: var(--gp-text);
+}
+
+.checkout-form-section .coupon-remove {
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--gp-border);
+    background: var(--gp-bg);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--gp-text);
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.checkout-form-section .coupon-remove:hover {
+    border-color: var(--gp-muted);
+    background: var(--gp-page-bg);
+}

@@ -96,6 +96,14 @@ class Webshop_checkout {
             $c->data['setting_map'] = $setting_map;
         }
 
+        // Re-fetch cart enrichment so Order summary sees product names (get_cart_data may
+        // have been empty earlier in the request lifecycle, or cart changed since construct).
+        if (!empty($_SESSION['cart']) && is_array($_SESSION['cart'])) {
+            $c->data['cart_items'] = $_SESSION['cart'];
+            $cdFresh = $c->webshop_model->get_cart_data();
+            $c->data['cart_data'] = is_array($cdFresh) ? $cdFresh : array();
+        }
+
         // Resolved via auto-component fallback in resolve_webshop_view_path → components/checkout.
         $c->load_view('checkout', $c->data);
     }

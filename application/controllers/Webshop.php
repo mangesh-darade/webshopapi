@@ -102,7 +102,8 @@ class Webshop extends MY_Controller
             $this->data['cart_data'] = [];
             if (isset($_SESSION['cart']) && !empty($_SESSION['cart'])) {
                 $this->data['cart_items'] = $_SESSION['cart'];
-                $this->data['cart_data'] = $this->webshop_model->get_cart_data();
+                $raw_cd = $this->webshop_model->get_cart_data();
+                $this->data['cart_data'] = is_array($raw_cd) ? $raw_cd : array();
             }
 
             $ws_sess = $this->session->userdata('webshop');
@@ -4616,6 +4617,53 @@ XSL;
         $this->json_response($this->_build_mini_cart_payload($cart_items));
     }
 
+    /**
+     * GET JSON for Gulf Pharmacy header mini-cart drawer (header-drawers.js).
+     * Aliases fields expected by the drawer (url, qty, price_formatted, subtotal_formatted).
+     */
+    public function get_cart_json()
+    {
+        $cart_items = isset($_SESSION['cart']) && is_array($_SESSION['cart']) ? $_SESSION['cart'] : array();
+        $base = $this->_build_mini_cart_payload($cart_items);
+        if (!is_array($base)) {
+            $base = array(
+                'status'   => 'success',
+                'count'    => 0,
+                'subtotal' => 0,
+                'items'    => array(),
+            );
+        }
+        $out = array(
+            'status'               => isset($base['status']) ? $base['status'] : 'success',
+            'count'                => isset($base['count']) ? (int) $base['count'] : 0,
+            'subtotal'             => isset($base['subtotal']) ? (float) $base['subtotal'] : 0.0,
+            'subtotal_fmt'         => isset($base['subtotal_fmt']) ? $base['subtotal_fmt'] : '',
+            'subtotal_formatted'   => isset($base['subtotal_fmt']) ? $base['subtotal_fmt'] : '',
+            'currency'             => isset($base['currency']) ? $base['currency'] : '$',
+            'items'                => array(),
+            'view_cart_url'        => isset($base['view_cart_url']) ? $base['view_cart_url'] : base_url('webshop/cart'),
+            'checkout_url'         => isset($base['checkout_url']) ? $base['checkout_url'] : base_url('webshop/checkout'),
+        );
+        if (!empty($base['items']) && is_array($base['items'])) {
+            foreach ($base['items'] as $row) {
+                if (!is_array($row)) {
+                    continue;
+                }
+                $pid = isset($row['product_id']) ? (int) $row['product_id'] : 0;
+                $hash = $pid > 0 ? md5((string) $pid) : '';
+                $url = $hash !== '' ? base_url('webshop/product_details/' . rawurlencode($hash)) : $out['view_cart_url'];
+                $qty = isset($row['quantity']) ? (int) $row['quantity'] : 0;
+                $priceFmt = isset($row['line_total_fmt']) ? $row['line_total_fmt'] : (isset($row['unit_price_fmt']) ? $row['unit_price_fmt'] : '');
+                $out['items'][] = array_merge($row, array(
+                    'url'               => $url,
+                    'qty'               => $qty,
+                    'price_formatted'   => $priceFmt,
+                ));
+            }
+        }
+        $this->json_response($out);
+    }
+
     private function _build_mini_cart_payload(array $cart_items)
     {
         $checkout_url  = base_url('webshop/checkout');
@@ -5166,10 +5214,32 @@ XSL;
 
         $apiResult = $this->webshop_model->apply_coupon($coupon_code, $cart_amount);
         if (!empty($apiResult) && is_array($apiResult)) {
+            $c = $apiResult;
+            $discountAmt = 0.0;
+            if (isset($c['calculated_discount'])) {
+                $discountAmt = (float) $c['calculated_discount'];
+            } elseif (isset($c['aplied_discount_amount'])) {
+                $discountAmt = (float) $c['aplied_discount_amount'];
+            } elseif (isset($c['applied_discount_amount'])) {
+                $discountAmt = (float) $c['applied_discount_amount'];
+            }
+            $cid = isset($c['id']) ? $c['id'] : (isset($c['coupon_id']) ? $c['coupon_id'] : 0);
+            $rate = 0.0;
+            if (isset($c['discount_rate'])) {
+                $rate = (float) $c['discount_rate'];
+            } elseif (!empty($c['discount_type']) && (string) $c['discount_type'] === 'percentage' && isset($c['discount'])) {
+                $rate = (float) $c['discount'];
+            }
+            $coupon_data = array_merge($c, array(
+                'id'                       => $cid,
+                'discount_rate'            => $rate,
+                'aplied_discount_amount'   => $discountAmt,
+                'applied_discount_amount'  => $discountAmt,
+            ));
             $this->json_response(array(
-                'status' => 'success',
-                'msg' => 'Coupon applied successfully.',
-                'coupon_data' => (object) $apiResult,
+                'status'      => 'success',
+                'msg'         => 'Coupon applied successfully.',
+                'coupon_data' => (object) $coupon_data,
             ));
             return;
         }

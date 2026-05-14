@@ -2517,8 +2517,15 @@ class Webshop_api_model extends CI_Model {
 
     public function apply_coupon($code, $cart_total = 0) {
         $res = $this->api->apply_coupon($code, $cart_total);
-        if ($res && isset($res->status) && $res->status === 'SUCCESS') {
-            return (array) $res->coupon;
+        if ($res && isset($res->status) && strtoupper((string) $res->status) === 'SUCCESS') {
+            if (!isset($res->coupon)) {
+                return [];
+            }
+            $c = $res->coupon;
+            if (is_array($c)) {
+                return $c;
+            }
+            return json_decode(json_encode($c), true);
         }
         $this->_log_error('apply_coupon');
         return false;
