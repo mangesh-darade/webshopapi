@@ -17,6 +17,14 @@ class Webshop extends MY_Controller
     private $themePageSeoStore = APPPATH . 'cache/theme_page_seo.json';
     private $seoExtendedStore = APPPATH . 'cache/seo_extended_settings.json';
 
+    /**
+     * Minimal storefront bootstrap: skip heavy catalog/CMS/cart API prep for standalone pages.
+     * Improves TTFB/LCP on order success, payment declined/cancel, and service_off.
+     *
+     * @var bool
+     */
+    private $webshop_lightweight_bootstrap = false;
+
     public function __construct()
     {
         parent::__construct();
@@ -34,6 +42,13 @@ class Webshop extends MY_Controller
 
         $this->load->helper('webshop_helper');
 
+        $this->webshop_lightweight_bootstrap = in_array((string) $this->uri->segment(2), array(
+            'order_success',
+            'payment_declined',
+            'payment_cancel',
+            'service_off',
+        ), true);
+
         $mediaBase = $this->webshop_api_model->get_media_uploads_base();
         $this->data['uploads'] = $mediaBase;
         $this->data['thumbs'] = $mediaBase . 'thumbs/';
@@ -49,7 +64,11 @@ class Webshop extends MY_Controller
             redirect('webshop/service_off');
         }
        
-        $this->data['webshop_settings'] = $this->webshop_settings = $this->webshop_model->get_webshop_settings();
+        if ($this->webshop_lightweight_bootstrap && isset($this->webshop_settings) && is_object($this->webshop_settings)) {
+            $this->data['webshop_settings'] = $this->webshop_settings;
+        } else {
+            $this->data['webshop_settings'] = $this->webshop_settings = $this->webshop_model->get_webshop_settings();
+        }
 
         $this->data['home_page'] = $this->webshop_settings->home_page;
 
@@ -57,63 +76,86 @@ class Webshop extends MY_Controller
 
         $this->data['strip_color'] = !empty($this->webshop_settings->header_strip_style) ? $this->webshop_settings->header_strip_style : 1;
 
-        $this->data['categories'] = $this->webshop_model->get_categories();
-        if (!is_array($this->data['categories'])) {
-            $this->data['categories'] = ['main' => []];
-        }
-        $this->data['main_categories'] = isset($this->data['categories']['main']) && is_array($this->data['categories']['main']) ? $this->data['categories']['main'] : [];
-
-        $this->data['webshop_pos_settings'] = $this->webshop_model->get_webshop_pos_settings();
-
-        $catidParam = $this->input->get('catid');
-        $category_id = ($catidParam !== null && $catidParam !== '')
-            ? $catidParam
-            : (($this->uri->segment(2) == 'category_products' && !empty($this->uri->segment(3))) ? $this->uri->segment(3) : null);
-
-        $this->data['category_brands'] = $this->webshop_model->get_category_brands($category_id);
-
-        if (!empty($this->data['category_brands'])) {
-            $this->data['brands_list'] = $this->get_brand_list($this->data['category_brands']);
-        }
-
-        $this->data['all_brands'] = $this->webshop_model->get_all_brands();
-
-        $this->data['cart_items'] = [];
-        $this->data['cart_data'] = [];
-        if (isset($_SESSION['cart']) && !empty($_SESSION['cart'])) {
-            $this->data['cart_items'] = $_SESSION['cart'];
-            $this->data['cart_data'] = $this->webshop_model->get_cart_data();
-        }
-
-        $ws_sess = $this->session->userdata('webshop');
-        $webshopUserId = null;
-        if ($ws_sess) {
-            $webshopUserId = is_object($ws_sess) ? (isset($ws_sess->user_id) ? $ws_sess->user_id : null) : (isset($ws_sess['user_id']) ? $ws_sess['user_id'] : null);
-        }
-        $this->data['wishlist_count'] = $this->webshop_model->get_wishlist_count($webshopUserId);
-
-        $this->data['custom_pages'] = $this->webshop_model->getCustomPages();
-        $this->data['cms_nav_pages'] = $this->webshop_model->get_cms_nav_pages();
-        $this->data['header_theme_pages'] = $this->get_theme_navigation_pages('header');
-        $this->data['footer_theme_pages'] = $this->get_theme_navigation_pages('footer');
-        $this->data['has_active_blogs'] = $this->has_active_blogs();
-
-        $this->data['restaurant_is_active'] = $this->webshop_model->restaurantWorking();
-        $this->dynamicRenderProbe = (bool) $this->config->item('webshop_dynamic_render_probe', 'elintom_api');
-
-        $this->data['website_setting'] = $this->webshop_model->get_website_setting();
-        $setting_map = [];
-        if (is_array($this->data['website_setting']) || is_object($this->data['website_setting'])) {
-            foreach ($this->data['website_setting'] as $row) {
-                $setting_map[$row->fields] = $row->value;
+        if (!$this->webshop_lightweight_bootstrap) {
+            $this->data['categories'] = $this->webshop_model->get_categories();
+            if (!is_array($this->data['categories'])) {
+                $this->data['categories'] = ['main' => []];
             }
-        }
-        $this->data['setting_map'] = $setting_map;
-        $this->data['api_website_setting_sections'] = $this->api_website_setting_sections;
+            $this->data['main_categories'] = isset($this->data['categories']['main']) && is_array($this->data['categories']['main']) ? $this->data['categories']['main'] : [];
 
-        if ($this->webshop_settings->webshop_theme == 'nw' || $this->webshop_settings->webshop_theme == 'gulfpharmacy') {
-            $this->data['about_us'] = $this->webshop_model->about_usdata($page_key = 'aboutus');
+            $this->data['webshop_pos_settings'] = $this->webshop_model->get_webshop_pos_settings();
+
+            $catidParam = $this->input->get('catid');
+            $category_id = ($catidParam !== null && $catidParam !== '')
+                ? $catidParam
+                : (($this->uri->segment(2) == 'category_products' && !empty($this->uri->segment(3))) ? $this->uri->segment(3) : null);
+
+            $this->data['category_brands'] = $this->webshop_model->get_category_brands($category_id);
+
+            if (!empty($this->data['category_brands'])) {
+                $this->data['brands_list'] = $this->get_brand_list($this->data['category_brands']);
+            }
+
+            $this->data['all_brands'] = $this->webshop_model->get_all_brands();
+
+            $this->data['cart_items'] = [];
+            $this->data['cart_data'] = [];
+            if (isset($_SESSION['cart']) && !empty($_SESSION['cart'])) {
+                $this->data['cart_items'] = $_SESSION['cart'];
+                $this->data['cart_data'] = $this->webshop_model->get_cart_data();
+            }
+
+            $ws_sess = $this->session->userdata('webshop');
+            $webshopUserId = null;
+            if ($ws_sess) {
+                $webshopUserId = is_object($ws_sess) ? (isset($ws_sess->user_id) ? $ws_sess->user_id : null) : (isset($ws_sess['user_id']) ? $ws_sess['user_id'] : null);
+            }
+            $this->data['wishlist_count'] = $this->webshop_model->get_wishlist_count($webshopUserId);
+
+            $this->data['custom_pages'] = $this->webshop_model->getCustomPages();
+            $this->data['cms_nav_pages'] = $this->webshop_model->get_cms_nav_pages();
+            $this->data['header_theme_pages'] = $this->get_theme_navigation_pages('header');
+            $this->data['footer_theme_pages'] = $this->get_theme_navigation_pages('footer');
+            $this->data['has_active_blogs'] = $this->has_active_blogs();
+
+            $this->data['restaurant_is_active'] = $this->webshop_model->restaurantWorking();
+
+            $this->data['website_setting'] = $this->webshop_model->get_website_setting();
+            $setting_map = [];
+            if (is_array($this->data['website_setting']) || is_object($this->data['website_setting'])) {
+                foreach ($this->data['website_setting'] as $row) {
+                    $setting_map[$row->fields] = $row->value;
+                }
+            }
+            $this->data['setting_map'] = $setting_map;
+
+            if ($this->webshop_settings->webshop_theme == 'nw' || $this->webshop_settings->webshop_theme == 'gulfpharmacy') {
+                $this->data['about_us'] = $this->webshop_model->about_usdata($page_key = 'aboutus');
+            }
+        } else {
+            $this->data['categories'] = ['main' => []];
+            $this->data['main_categories'] = [];
+            $this->data['webshop_pos_settings'] = new stdClass();
+            $this->data['category_brands'] = [];
+            $this->data['all_brands'] = [];
+            $this->data['cart_items'] = [];
+            $this->data['cart_data'] = [];
+            if (isset($_SESSION['cart']) && !empty($_SESSION['cart'])) {
+                $this->data['cart_items'] = $_SESSION['cart'];
+            }
+            $this->data['wishlist_count'] = 0;
+            $this->data['custom_pages'] = [];
+            $this->data['cms_nav_pages'] = [];
+            $this->data['header_theme_pages'] = [];
+            $this->data['footer_theme_pages'] = [];
+            $this->data['has_active_blogs'] = false;
+            $this->data['restaurant_is_active'] = false;
+            $this->data['website_setting'] = [];
+            $this->data['setting_map'] = [];
         }
+
+        $this->dynamicRenderProbe = (bool) $this->config->item('webshop_dynamic_render_probe', 'elintom_api');
+        $this->data['api_website_setting_sections'] = $this->api_website_setting_sections;
         // $this->data['custom_pages'] = $this->webshop_model->get_custom_pages();
     }
 
@@ -3080,6 +3122,15 @@ XSL;
                             'currency_iso' => $this->resolve_currency_iso_at_checkout_submit(),
                             'method'       => $payment_method,
                         ));
+                        $this->_pending_order_payload_cache_put(
+                            array(
+                                'order'    => $order,
+                                'products' => $products,
+                                'customer' => $customer,
+                            ),
+                            $temp_id,
+                            isset($order['reference_no']) ? (string) $order['reference_no'] : ''
+                        );
                         redirect("webshop/payments?order=$temp_id&customer=$customer_id");
                         return;
                     }
@@ -3598,14 +3649,31 @@ XSL;
             $oid_map = isset($responseMap['order_id']) ? trim((string) $responseMap['order_id']) : '';
             // If this was a deferred order (TMP_ prefix), create it in ElintOm now.
             if (strpos($oid_map, 'TMP_') === 0) {
-                $payload = $this->session->userdata('pending_order_payload');
+                $tmp_placeholder = $oid_map;
+                $payload = $this->_resolve_pending_order_payload_for_tmp($tmp_placeholder, $responseMap);
                 if ($payload && is_array($payload)) {
                     $real_oid = $this->webshop_api_model->add_order($payload['order'], $payload['products']);
                     if ($real_oid) {
                         $responseMap['order_id'] = $real_oid;
                         $oid_map = (string) $real_oid;
+                        $this->_pending_order_payload_cache_delete($payload, $tmp_placeholder);
                     }
                 }
+            }
+            if (strpos($oid_map, 'TMP_') === 0) {
+                log_message(
+                    'error',
+                    'CCAvenue Success but deferred checkout snapshot missing for tmp order_id=' . $oid_map
+                );
+                $this->session->set_flashdata(
+                    'error_message',
+                    'Payment was received, but your order could not be created automatically. Please contact support with your transaction reference from the payment page.'
+                );
+                $this->load_view('payment_declined', $this->theme_view_data(array(
+                    'error_message' => 'Payment succeeded, but the order session was lost before completion. Support can reconcile using your gateway receipt.',
+                    'payment_gateway_response' => $responseMap,
+                )));
+                return;
             }
 
             if ($this->webshop_api_model->uses_elintom_api_for_orders()) {
@@ -3619,6 +3687,11 @@ XSL;
                     $this->webshop_api_model->notify_order_placed_whatsapp_remote((int) $oid_for_wa, 'true');
                 } catch (\Throwable $e) {
                     log_message('error', 'WhatsApp notify after CCAvenue failed for order ' . $oid_for_wa . ': ' . $e->getMessage());
+                }
+                try {
+                    $this->webshop_api_model->notify_order_placed_email_remote((int) $oid_for_wa);
+                } catch (\Throwable $e) {
+                    log_message('error', 'Order confirmation email after CCAvenue failed for order ' . $oid_for_wa . ': ' . $e->getMessage());
                 }
             }
             $success_payload = array('payment_gateway_response' => $responseMap);
@@ -3636,6 +3709,7 @@ XSL;
             }
             $this->session->unset_userdata('order_id');
             $this->session->unset_userdata('pending_payment_order');
+            $this->session->unset_userdata('pending_order_payload');
             $this->session->unset_userdata('checkout_currency_iso');
             $this->load_view('payment_success', $this->theme_view_data($success_payload));
         } else {
@@ -3755,6 +3829,9 @@ XSL;
             'cancel_url'       => trim((string) $getField('cancel_url')),
             'merchant_id'      => $merchant_id,
             'order_id'         => $clean($getField('order_id'), 64),
+            'merchant_param1'  => $clean($getField('merchant_param1'), 100) !== ''
+                ? $clean($getField('merchant_param1'), 100)
+                : $clean($getField('reference_no'), 100),
         );
 
         $bill_fb = array(
@@ -3982,20 +4059,22 @@ XSL;
                         $order_row = $this->webshop_model->get_order_by_id($posted_oid);
                         $billing_cc = $this->_resolve_ccavenue_billing($posted_cust, $order_row);
                         $currency_cc = $this->_resolve_ccavenue_currency($this->input->post('currency'));
+                        $posted_ref = trim((string) $this->input->post('reference_no'));
                         $ccHandlerData = array_merge($billing_cc, array(
-                            'reference_no' => $this->input->post('reference_no'),
-                            'customer_id'  => $this->input->post('customer_id'),
-                            'amount'       => number_format($posted_amt, 2, '.', ''),
-                            'order_id'     => $this->input->post('order_id'),
-                            'redirect_url' => base_url('webshop/payment_ccavResponseHandler'),
-                            'cancel_url'   => base_url('webshop/payment_cancel'),
-                            'language'     => 'EN',
-                            'currency'     => $currency_cc,
-                            'date'         => date('d/m/Y H:i:s'),
-                            'API_KEY'      => isset($ccCreds['API_KEY'])     ? $ccCreds['API_KEY']     : '',
-                            'ACCESS_CODE'  => isset($ccCreds['ACCESS_CODE']) ? $ccCreds['ACCESS_CODE'] : '',
-                            'MERCHANT_ID'  => isset($ccCreds['MERCHANT_ID']) ? $ccCreds['MERCHANT_ID'] : '',
-                            'API_URL'      => isset($ccCreds['API_URL'])     ? $ccCreds['API_URL']     : '',
+                            'reference_no'     => $this->input->post('reference_no'),
+                            'merchant_param1'  => $posted_ref,
+                            'customer_id'      => $this->input->post('customer_id'),
+                            'amount'           => number_format($posted_amt, 2, '.', ''),
+                            'order_id'         => $this->input->post('order_id'),
+                            'redirect_url'     => base_url('webshop/payment_ccavResponseHandler'),
+                            'cancel_url'       => base_url('webshop/payment_cancel'),
+                            'language'         => 'EN',
+                            'currency'         => $currency_cc,
+                            'date'             => date('d/m/Y H:i:s'),
+                            'API_KEY'          => isset($ccCreds['API_KEY'])     ? $ccCreds['API_KEY']     : '',
+                            'ACCESS_CODE'      => isset($ccCreds['ACCESS_CODE']) ? $ccCreds['ACCESS_CODE'] : '',
+                            'MERCHANT_ID'      => isset($ccCreds['MERCHANT_ID']) ? $ccCreds['MERCHANT_ID'] : '',
+                            'API_URL'          => isset($ccCreds['API_URL'])     ? $ccCreds['API_URL']     : '',
                         ));
                         $this->payment_ccavRequestHandler($ccHandlerData);
                         break;
@@ -6214,6 +6293,130 @@ XSL;
     }
 
     /**
+     * Deferred online orders use TMP_* placeholders until the gateway confirms payment.
+     * The real cart payload lives in session — but many gateways return via cross-site POST,
+     * so the session cookie is often empty. Mirror the payload on disk keyed by reference_no
+     * and TMP id so callbacks can still create the sale.
+     */
+    private function _pending_order_payload_cache_dir()
+    {
+        $dir = APPPATH . 'cache' . DIRECTORY_SEPARATOR . 'pending_orders';
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0755, true);
+        }
+        return $dir;
+    }
+
+    private function _pending_order_payload_cache_ttl()
+    {
+        $t = (int) $this->config->item('sess_expiration');
+        return $t > 0 ? $t : 7200;
+    }
+
+    private function _pending_order_payload_cache_put(array $payload, $tmp_order_id, $reference_no)
+    {
+        if (empty($payload['order']) || empty($payload['products']) || !is_array($payload['order'])) {
+            return;
+        }
+        $saved = array('saved_at' => time(), 'payload' => $payload);
+        $json = json_encode($saved);
+        if ($json === false) {
+            return;
+        }
+        $dir = $this->_pending_order_payload_cache_dir();
+        $ref = trim((string) $reference_no);
+        if ($ref !== '') {
+            @file_put_contents($dir . DIRECTORY_SEPARATOR . 'po_ref_' . sha1($ref) . '.json', $json, LOCK_EX);
+        }
+        $tmp = trim((string) $tmp_order_id);
+        if (strpos($tmp, 'TMP_') === 0) {
+            @file_put_contents($dir . DIRECTORY_SEPARATOR . 'po_tmp_' . sha1($tmp) . '.json', $json, LOCK_EX);
+        }
+    }
+
+    private function _pending_order_payload_cache_read_path($path)
+    {
+        if (!is_file($path)) {
+            return null;
+        }
+        $raw = @file_get_contents($path);
+        if ($raw === false || $raw === '') {
+            return null;
+        }
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded) || !isset($decoded['payload'], $decoded['saved_at'])) {
+            return null;
+        }
+        if ((time() - (int) $decoded['saved_at']) > $this->_pending_order_payload_cache_ttl()) {
+            @unlink($path);
+            return null;
+        }
+        $pl = $decoded['payload'];
+        return is_array($pl) ? $pl : null;
+    }
+
+    private function _pending_order_payload_cache_get($reference_no = '', $tmp_order_id = '')
+    {
+        $dir = $this->_pending_order_payload_cache_dir();
+        $ref = trim((string) $reference_no);
+        if ($ref !== '') {
+            $got = $this->_pending_order_payload_cache_read_path($dir . DIRECTORY_SEPARATOR . 'po_ref_' . sha1($ref) . '.json');
+            if (is_array($got)) {
+                return $got;
+            }
+        }
+        $tmp = trim((string) $tmp_order_id);
+        if (strpos($tmp, 'TMP_') === 0) {
+            $got2 = $this->_pending_order_payload_cache_read_path($dir . DIRECTORY_SEPARATOR . 'po_tmp_' . sha1($tmp) . '.json');
+            if (is_array($got2)) {
+                return $got2;
+            }
+        }
+        return null;
+    }
+
+    private function _pending_order_payload_cache_delete(array $payload, $tmp_order_id)
+    {
+        $dir = $this->_pending_order_payload_cache_dir();
+        $ref = '';
+        if (isset($payload['order']) && is_array($payload['order'])) {
+            $ref = trim((string) (isset($payload['order']['reference_no']) ? $payload['order']['reference_no'] : ''));
+        }
+        if ($ref !== '') {
+            @unlink($dir . DIRECTORY_SEPARATOR . 'po_ref_' . sha1($ref) . '.json');
+        }
+        $tmp = trim((string) $tmp_order_id);
+        if (strpos($tmp, 'TMP_') === 0) {
+            @unlink($dir . DIRECTORY_SEPARATOR . 'po_tmp_' . sha1($tmp) . '.json');
+        }
+    }
+
+    /**
+     * @param string $tmp_id
+     * @param array  $responseHints  Optional map (e.g. CCAvenue) with reference_no / merchant_param1.
+     * @return array|null
+     */
+    private function _resolve_pending_order_payload_for_tmp($tmp_id, array $responseHints = array())
+    {
+        $payload = $this->session->userdata('pending_order_payload');
+        if (is_array($payload) && !empty($payload['order'])) {
+            return $payload;
+        }
+        $refHint = '';
+        foreach (array('merchant_param1', 'reference_no', 'merchant_param2') as $k) {
+            if (isset($responseHints[$k]) && trim((string) $responseHints[$k]) !== '') {
+                $refHint = trim((string) $responseHints[$k]);
+                break;
+            }
+        }
+        $fromdisk = $this->_pending_order_payload_cache_get($refHint, $tmp_id);
+        if (is_array($fromdisk) && !empty($fromdisk['order'])) {
+            return $fromdisk;
+        }
+        return null;
+    }
+
+    /**
      * Instamojo Payment Gateway
      */
     public function payment_instamojoResponseHandler()
@@ -6255,14 +6458,23 @@ XSL;
                 if (isset($paymentDetail["status"]) && in_array($paymentDetail["status"], array('Credit', 'credit', 'Completed'))):
                     
                     // If this was a deferred order (TMP_ prefix), create it in ElintOm now.
-                    if (strpos((string)$order_id, 'TMP_') === 0) {
-                        $payload = $this->session->userdata('pending_order_payload');
+                    if (strpos((string) $order_id, 'TMP_') === 0) {
+                        $tmp_was = (string) $order_id;
+                        $payload = $this->_resolve_pending_order_payload_for_tmp($tmp_was, array());
                         if ($payload && is_array($payload)) {
                             $real_oid = $this->webshop_api_model->add_order($payload['order'], $payload['products']);
                             if ($real_oid) {
                                 $order_id = $real_oid;
+                                $this->_pending_order_payload_cache_delete($payload, $tmp_was);
                             }
                         }
+                    }
+
+                    if (strpos((string) $order_id, 'TMP_') === 0) {
+                        log_message('error', 'Instamojo: payment credited but deferred order snapshot missing for ' . $order_id);
+                        $this->data['error'] = 'Payment received but your order could not be created. Please contact support with your Instamojo payment id.';
+                        $this->load_view('decline_order', $this->data);
+                        return;
                     }
 
                     $res = $this->webshop_model->instomojoEshopAfterSale($paymentDetail, $order_id);
@@ -6272,6 +6484,11 @@ XSL;
                                 $this->webshop_api_model->notify_order_placed_whatsapp_remote((int) $order_id, 'true');
                             } catch (\Throwable $e) {
                                 log_message('error', 'WhatsApp notify after Instamojo failed: ' . $e->getMessage());
+                            }
+                            try {
+                                $this->webshop_api_model->notify_order_placed_email_remote((int) $order_id);
+                            } catch (\Throwable $e) {
+                                log_message('error', 'Order confirmation email after Instamojo failed: ' . $e->getMessage());
                             }
                         }
                         $this->data['sale'] = $this->webshop_model->get_order_by_id($order_id);
@@ -6313,14 +6530,14 @@ XSL;
         $order = null;
         $customer = null;
 
-        if (strpos((string)$order_id, 'TMP_') === 0) {
-            $payload = $this->session->userdata('pending_order_payload');
+        if (strpos((string) $order_id, 'TMP_') === 0) {
+            $payload = $this->_resolve_pending_order_payload_for_tmp((string) $order_id, array());
             if ($payload && is_array($payload)) {
                 $order = (object) $payload['order'];
                 $customer_data = $payload['customer'];
                 $customer = is_array($customer_data) ? (object) $customer_data : $customer_data;
             }
-        } elseif ((int)$order_id > 0) {
+        } elseif ((int) $order_id > 0) {
             $order = $this->site->getSaleByIDEshop($order_id);
             if ($order && isset($order->customer_id)) {
                 $customer = $this->site->getCompanyByID($order->customer_id);
@@ -6352,7 +6569,9 @@ XSL;
 
 
                 $paramList["MID"] = $PAYTM_MERCHANT_MID;
-                $paramList["ORDER_ID"] = $order->id;
+                $paramList["ORDER_ID"] = (strpos((string) $order_id, 'TMP_') === 0)
+                    ? (string) $order_id
+                    : (string) (isset($order->id) ? $order->id : $order_id);
                 $paramList["CUST_ID"] = $customer->id;
                 $paramList["INDUSTRY_TYPE_ID"] = 'Retail';
                 $paramList["CHANNEL_ID"] = 'WEB';
@@ -6446,18 +6665,31 @@ XSL;
                 $tracking_id = $_TXNID;
 
                 // If this was a deferred order (TMP_ prefix), create it in ElintOm now.
-                if (strpos((string)$sid, 'TMP_') === 0) {
-                    $payload = $this->session->userdata('pending_order_payload');
+                if (strpos((string) $sid, 'TMP_') === 0) {
+                    $tmp_was = (string) $sid;
+                    $payload = $this->_resolve_pending_order_payload_for_tmp($tmp_was, array());
                     if ($payload && is_array($payload)) {
                         $real_oid = $this->webshop_api_model->add_order($payload['order'], $payload['products']);
                         if ($real_oid) {
                             $sid = (string) $real_oid;
+                            $this->_pending_order_payload_cache_delete($payload, $tmp_was);
                         }
                     }
                 }
 
-                $getorderdetails = $this->site->getSaleByIDEshop($sid);
-                $ref_No = $getorderdetails->reference_no;
+                if (strpos((string) $sid, 'TMP_') === 0) {
+                    log_message('error', 'Paytm: TXN_SUCCESS but deferred checkout snapshot missing for ' . $sid);
+                    $this->session->set_flashdata(
+                        'error_message',
+                        'Payment was received but your order could not be created. Please contact support with your Paytm transaction id.'
+                    );
+                    redirect(base_url('webshop/checkout'));
+                    return;
+                }
+
+                if (!$this->webshop_api_model->uses_elintom_api_for_orders() && ctype_digit((string) $sid) && isset($this->site)) {
+                    $getorderdetails = $this->site->getSaleByIDEshop($sid);
+                }
 
                 $res = $this->webshop_model->PaytmAfterSale($responseParamList, $sid);
                 if ($res):
@@ -6466,6 +6698,11 @@ XSL;
                             $this->webshop_api_model->notify_order_placed_whatsapp_remote((int) $sid, 'true');
                         } catch (\Throwable $e) {
                             log_message('error', 'WhatsApp notify after Paytm failed: ' . $e->getMessage());
+                        }
+                        try {
+                            $this->webshop_api_model->notify_order_placed_email_remote((int) $sid);
+                        } catch (\Throwable $e) {
+                            log_message('error', 'Order confirmation email after Paytm failed: ' . $e->getMessage());
                         }
                     }
                     $this->session->set_flashdata('message', lang('payment_done'));
@@ -6508,14 +6745,14 @@ XSL;
         $sale = null;
         $customer = null;
 
-        if (strpos((string)$sale_id, 'TMP_') === 0) {
-            $payload = $this->session->userdata('pending_order_payload');
+        if (strpos((string) $sale_id, 'TMP_') === 0) {
+            $payload = $this->_resolve_pending_order_payload_for_tmp((string) $sale_id, array());
             if ($payload && is_array($payload)) {
                 $sale = (object) $payload['order'];
                 $customer_data = $payload['customer'];
                 $customer = is_array($customer_data) ? (object) $customer_data : $customer_data;
             }
-        } elseif ((int)$sale_id > 0) {
+        } elseif ((int) $sale_id > 0) {
             $sale = $this->site->getSaleByIDEshop($sale_id);
             if ($sale) {
                 $customer = $this->site->getCompanyByID($sale->customer_id);
@@ -6537,13 +6774,23 @@ XSL;
                  * Always set the amount from backend for security reasons
                  */
                 $_SESSION['payable_amount'] = $sale->grand_total;
-                $_SESSION['currency'] = $this->Settings->default_currency;
+                $rzCur = $this->resolve_payment_currency_iso();
+                if ($rzCur === '') {
+                    $rzCur = isset($this->Settings->default_currency) ? (string) $this->Settings->default_currency : 'INR';
+                }
+                $_SESSION['currency'] = $rzCur;
 
+                $receipt = isset($sale->reference_no) ? (string) $sale->reference_no : (string) $sale_id;
+                if (function_exists('mb_strlen') && mb_strlen($receipt) > 40) {
+                    $receipt = mb_substr($receipt, 0, 40);
+                } elseif (strlen($receipt) > 40) {
+                    $receipt = substr($receipt, 0, 40);
+                }
 
                 $razorpayOrder = $api->order->create(array(
-                    'receipt' => $sale->invoice_no,
+                    'receipt' => $receipt,
                     'amount' => $sale->grand_total * 100,
-                    'currency' => $this->Settings->default_currency,
+                    'currency' => $rzCur,
                     'payment_capture' => 1, // auto capture
                 ));
 
@@ -6563,12 +6810,13 @@ XSL;
                     'name' => $customer->name,
                     'description' => 'sales'
                 );
+                $custAddr = isset($customer->address) ? (string) $customer->address : '';
                 $datapass['notes'] = array(
-                    'address' => $customer->address,
-                    'merchant_order_id' => $sale->id
+                    'address' => $custAddr,
+                    'merchant_order_id' => (string) $sale_id,
                 );
                 $datapass['name'] = $this->Settings->site_name;
-                $datapass['description'] = '#Order No: ' . $sale->id;
+                $datapass['description'] = '#Order: ' . (isset($sale->reference_no) ? (string) $sale->reference_no : (string) $sale_id);
 
 
                 $this->data['data'] = $datapass;
@@ -6639,14 +6887,25 @@ XSL;
 
 
         if ($success === true) {
-            if (strpos((string)$sid, 'TMP_') === 0) {
-                $payload = $this->session->userdata('pending_order_payload');
+            if (strpos((string) $sid, 'TMP_') === 0) {
+                $tmp_was = (string) $sid;
+                $payload = $this->_resolve_pending_order_payload_for_tmp($tmp_was, array());
                 if ($payload && is_array($payload)) {
                     $real_oid = $this->webshop_api_model->add_order($payload['order'], $payload['products']);
                     if ($real_oid) {
                         $sid = (string) $real_oid;
+                        $this->_pending_order_payload_cache_delete($payload, $tmp_was);
                     }
                 }
+            }
+            if (strpos((string) $sid, 'TMP_') === 0) {
+                log_message('error', 'Razorpay: signature OK but deferred checkout snapshot missing for ' . $sid);
+                $this->session->set_flashdata(
+                    'error_message',
+                    'Payment was verified but your order could not be created. Please contact support with your Razorpay payment id.'
+                );
+                redirect(base_url('webshop/checkout'));
+                return;
             }
             $res = $this->webshop_model->RazorPayAfterSale($attributes, $sid);
 
@@ -6656,6 +6915,11 @@ XSL;
                         $this->webshop_api_model->notify_order_placed_whatsapp_remote((int) $sid, 'true');
                     } catch (\Throwable $e) {
                         log_message('error', 'WhatsApp notify after Razorpay failed: ' . $e->getMessage());
+                    }
+                    try {
+                        $this->webshop_api_model->notify_order_placed_email_remote((int) $sid);
+                    } catch (\Throwable $e) {
+                        log_message('error', 'Order confirmation email after Razorpay failed: ' . $e->getMessage());
                     }
                 }
                 $this->session->set_flashdata('message', lang('payment_done'));

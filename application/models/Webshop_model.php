@@ -1399,7 +1399,9 @@ class Webshop_model extends CI_Model {
         $payment['reference_no'] = 'PAY/' . $order_id . '/' . $this->site->getReference('pay');
         $payment['type'] = 'received';
         if (!empty($payment['transaction_id']) && !empty($payment['amount']) && !empty($payment['order_id'])):
-            $this->updateOrder($order_id, array('sale_status' => 'completed'));
+            // Match CCAvenue / COD: stay "Received" until staff fulfills; do not mark completed
+            // here or inventory / order queues treat the sale as fully closed too early.
+            $this->updateOrder($order_id, array('sale_status' => 'Received'));
             $this->db->insert('payments', $payment);
             $pay_id = $this->db->insert_id();
             $this->site->updateReference('pay');
@@ -1631,7 +1633,8 @@ class Webshop_model extends CI_Model {
         endif;
 
         if (!empty($payment['transaction_id']) && !empty($payment['amount']) && !empty($payment['order_id'])):
-            $this->updateOrder($payment['order_id'], array('sale_status' => 'completed'));
+            // Same as CCAvenue: paid but not fulfilled — staff sets completed when dispatching.
+            $this->updateOrder($payment['order_id'], array('sale_status' => 'Received'));
             $this->db->insert('payments', $payment);
             $pay_id = $this->db->insert_id();
             $this->site->syncOrderPayments($payment['order_id']);
@@ -1697,7 +1700,7 @@ class Webshop_model extends CI_Model {
         endif;
 
         if (!empty($payment['transaction_id']) && !empty($payment['amount']) && !empty($payment['order_id'])):
-            $this->updateOrder($payment['order_id'], array('sale_status' => 'completed'));
+            $this->updateOrder($payment['order_id'], array('sale_status' => 'Received'));
 
             $this->db->insert('payments', $payment);
             $pay_id = $this->db->insert_id();
