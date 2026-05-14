@@ -227,17 +227,24 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  // Function to clear coupon data when order is submitted
   function clearCouponOnOrderSubmit() {
-    // Listen for form submission
     const checkoutForm = document.getElementById("custinfoform");
-    if (checkoutForm) {
-      checkoutForm.addEventListener("submit", function () {
-        // Clear coupon data from sessionStorage when order is submitted
-        sessionStorage.removeItem("applied_coupon");
-        console.log("Coupon data cleared on order submission");
-      });
+    if (!checkoutForm) {
+      return;
     }
+    checkoutForm.addEventListener("submit", function (e) {
+      const terms = document.getElementById("checkoutTerms");
+      if (terms && !terms.checked) {
+        e.preventDefault();
+        alert(
+          "Please agree to the terms and conditions before placing your order."
+        );
+        terms.focus();
+        return false;
+      }
+      sessionStorage.removeItem("applied_coupon");
+      console.log("Coupon data cleared on order submission");
+    });
   }
 
   // Load applied coupon when page loads

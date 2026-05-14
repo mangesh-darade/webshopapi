@@ -2786,6 +2786,16 @@ XSL;
 
             if (md5(date('Y-m-d H')) == $this->input->post('submit_order')) {
 
+                $terms_post = $this->input->post('terms');
+                if ($terms_post === false || $terms_post === null || $terms_post === '') {
+                    $this->session->set_flashdata(
+                        'error_message',
+                        'You must agree to the terms and conditions before placing your order.'
+                    );
+                    redirect('webshop/checkout');
+                    return;
+                }
+
                 // Authoritative customer: when a webshop user is logged in, the order MUST be
                 // attributed to that session user_id. Looking the customer up by typed billing
                 // phone/email would otherwise attach the new order to a stranger whose existing
@@ -3067,11 +3077,10 @@ XSL;
                         $sale_unit_id = $product['sale_unit_id'];
                         $unit_code = ($sale_unit_id && isset($units[$sale_unit_id]['code'])) ? $units[$sale_unit_id]['code'] : '';
                         $variant_price = array('1' => $option_price); //Send para value in array
-                        //Helper Function
-                        $item_count = count($cart_item_unit_quantity);
-                        $discount_value = is_numeric($discount) ? (float) $discount : 0.0;
-                        $perproductdiscount = ($item_count > 0) ? ($discount_value / $item_count) : 0.0;
-                        $productPrice = product_sale_price_webshop($product, $variant_price, $perproductdiscount, $unit_quantity);
+                        // Cart coupon is order-level only: apply it once on grand_total as order_discount.
+                        // Do not pass a per-line share into product_sale_price_webshop — that already reduces
+                        // line net_unit_price and item_discount, and grand_total subtracts the full coupon again.
+                        $productPrice = product_sale_price_webshop($product, $variant_price, null, $unit_quantity);
                         $invoice_unit_price = $productPrice['net_unit_price'];
                         // $invoice_net_unit_price = $productPrice['net_unit_price'] + $productPrice['unit_discount'] + $productPrice['unit_tax'];
                         $invoice_net_unit_price = $productPrice['net_unit_price'] + $productPrice['unit_discount'];

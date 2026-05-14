@@ -33,6 +33,47 @@
             return;
         }
 
+        var checkoutTerms = document.getElementById('checkoutTerms');
+        var termsError = document.getElementById('termsError');
+        var termsGroup = document.getElementById('termsGroup');
+
+        form.addEventListener('submit', function (e) {
+            if (checkoutTerms && !checkoutTerms.checked) {
+                e.preventDefault();
+                if (termsError) {
+                    termsError.removeAttribute('hidden');
+                    termsError.textContent = 'Please agree to the terms and conditions to place your order.';
+                }
+                if (termsGroup) {
+                    termsGroup.classList.add('terms-group--error');
+                }
+                checkoutTerms.focus();
+                return false;
+            }
+            if (termsError) {
+                termsError.setAttribute('hidden', 'hidden');
+                termsError.textContent = '';
+            }
+            if (termsGroup) {
+                termsGroup.classList.remove('terms-group--error');
+            }
+        });
+
+        if (checkoutTerms) {
+            checkoutTerms.addEventListener('change', function () {
+                if (!checkoutTerms.checked) {
+                    return;
+                }
+                if (termsError) {
+                    termsError.setAttribute('hidden', 'hidden');
+                    termsError.textContent = '';
+                }
+                if (termsGroup) {
+                    termsGroup.classList.remove('terms-group--error');
+                }
+            });
+        }
+
         var actionUrl = form.getAttribute('data-action-url');
         if (!actionUrl) {
             actionUrl = '';

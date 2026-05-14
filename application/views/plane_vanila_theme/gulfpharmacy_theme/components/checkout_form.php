@@ -120,8 +120,16 @@ if ($free_shipping_above > 0 && $subtotal >= $free_shipping_above) {
 }
 
 $co_assets = isset($assets) ? $assets : base_url('assets/webshop/');
+$checkout_flash_err = '';
+if (isset($this->session) && is_object($this->session)) {
+    $fe = $this->session->flashdata('error_message');
+    $checkout_flash_err = is_string($fe) ? trim($fe) : '';
+}
 ?>
 <link rel="stylesheet" href="<?= $co_assets ?>gulfpharmacy_theme/css/checkout-form.css">
+<?php if ($checkout_flash_err !== ''): ?>
+<div class="checkout-flash-error" role="alert"><?= html_escape($checkout_flash_err, ENT_QUOTES, 'UTF-8') ?></div>
+<?php endif; ?>
 <div class="checkout-container">
     <form id="checkoutForm"
           action="<?= base_url('webshop/submit_order') ?>"
@@ -446,11 +454,12 @@ $co_assets = isset($assets) ? $assets : base_url('assets/webshop/');
                     </div>
                 </div>
 
-                <div class="form-group terms-group">
+                <div class="form-group terms-group" id="termsGroup">
                     <label class="checkbox-container" for="checkoutTerms">
-                        <input type="checkbox" name="terms" id="checkoutTerms" required>
-                        <span class="checkbox-text">I agree to the <a href="#">terms and conditions</a> *</span>
+                        <input type="checkbox" name="terms" id="checkoutTerms" value="1" required>
+                        <span class="checkbox-text">I agree to the <a href="<?= base_url('webshop/terms_and_conditions') ?>" target="_blank" rel="noopener noreferrer">terms and conditions</a> *</span>
                     </label>
+                    <p class="terms-error" id="termsError" role="alert" hidden></p>
                 </div>
 
             </div><!-- /.checkout-form-section -->

@@ -469,6 +469,13 @@ if (count($tax_rates_used) === 1) {
                     </div>
                     <?php endif; ?>
 
+                    <div class="pv-card">
+                        <label class="pv-payment-option" style="align-items:flex-start;">
+                            <input type="checkbox" name="terms" id="checkoutTerms" value="1" required style="margin-top:4px;">
+                            <span class="pv-payment-label" style="font-weight:500;line-height:1.5;">I agree to the <a href="<?= base_url('webshop/terms_and_conditions') ?>" target="_blank" rel="noopener noreferrer">terms and conditions</a> *</span>
+                        </label>
+                    </div>
+
                     <!-- Payment Method -->
                     <div class="pv-card">
                         <div class="pv-section-head">
