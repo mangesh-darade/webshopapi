@@ -14,7 +14,9 @@ $productDescp = isset($product['product_details']) ? (string) $product['product_
 $brandName = isset($product['brand_name']) ? (string) $product['brand_name'] : '';
 $rating = isset($product['ratings_avarage']) ? (float) $product['ratings_avarage'] : 0;
 $reviews = isset($product['ratings_count']) ? (int) $product['ratings_count'] : 0;
-$stockQty = isset($product['quantity']) ? (float) $product['quantity'] : 0;
+$productVariants = isset($product_variants) && is_array($product_variants) ? $product_variants : array();
+$stockQty = webshop_product_display_sellable_qty($product, $productVariants);
+$pdInStock = $stockQty > 0;
 $price = isset($product['price']) ? (float) $product['price'] : 0;
 $mrp = isset($product['mrp']) ? (float) $product['mrp'] : 0;
 $promo = isset($product['promo_price']) ? (float) $product['promo_price'] : 0;
@@ -46,7 +48,7 @@ $pd_assets = isset($assets) ? $assets : base_url('assets/webshop/');
 ?>
 <link rel="stylesheet" href="<?= $pd_assets ?>gulfpharmacy_theme/css/theme-product-details.css">
 
-<div class="pd-wrap">
+<div class="pd-wrap<?= $pdInStock ? '' : ' pd-wrap--oos'; ?>">
   <div class="pd-main">
     <div class="pd-card pd-gallery">
       <div class="pd-thumbs" id="pdThumbs">
@@ -84,11 +86,12 @@ $pd_assets = isset($assets) ? $assets : base_url('assets/webshop/');
       </div>
       <div class="pd-price"><span class="pd-price-now" id="price-current"><?= htmlspecialchars((string) $formattedPrice, ENT_QUOTES, 'UTF-8'); ?></span><?php if ($formattedMrp !== '') { ?><span class="pd-mrp"><?= htmlspecialchars((string) $formattedMrp, ENT_QUOTES, 'UTF-8'); ?></span><?php } ?><?php if ($discountPercent > 0) { ?><span class="pd-off"><?= (int) $discountPercent; ?>% OFF</span><?php } ?></div>
       <div class="pd-stock <?= $stockQty > 0 ? 'ok' : 'no'; ?>"><?= $stockQty > 0 ? 'In Stock' : 'Out of Stock'; ?></div>
+      <?php if (!$pdInStock) { ?><p class="pd-unavailable-note">This product cannot be added to the cart or purchased while it is out of stock.</p><?php } ?>
       <div class="pd-short"><?= $productDescp !== '' ? $productDescp : '<span class="pd-short-empty">No short description available.</span>'; ?></div>
       <div class="pd-actions">
-        <div class="pd-qty"><button type="button" id="qDec">-</button><input id="qVal" class="itemQty" type="number" min="1" value="1"><button type="button" id="qInc">+</button></div>
-        <button class="pd-btn pd-cart add-to-cart" product_id="<?= (int) $productId; ?>" quantity="1" tax_rate="<?= htmlspecialchars((string) $productTaxRate, ENT_QUOTES, 'UTF-8'); ?>" tax_method="<?= htmlspecialchars((string) $productTaxMethod, ENT_QUOTES, 'UTF-8'); ?>" price="<?= htmlspecialchars((string) $price, ENT_QUOTES, 'UTF-8'); ?>" promotion_price="<?= htmlspecialchars((string) $promo, ENT_QUOTES, 'UTF-8'); ?>" product_price="<?= htmlspecialchars((string) $price, ENT_QUOTES, 'UTF-8'); ?>" product_desc="<?= htmlspecialchars((string) strip_tags($productDescp), ENT_QUOTES, 'UTF-8'); ?>" imageurl="<?= htmlspecialchars((string) $gallery[0]['full'], ENT_QUOTES, 'UTF-8'); ?>" productname="<?= htmlspecialchars((string) $productName, ENT_QUOTES, 'UTF-8'); ?>">Add To Cart</button>
-        <button class="pd-btn pd-buy buy-now" type="button">Buy Now</button>
+        <div class="pd-qty"><button type="button" id="qDec" <?= $pdInStock ? '' : 'disabled '; ?>>-</button><input id="qVal" class="itemQty" type="number" min="1" <?= $pdInStock ? 'max="' . (int) max(1, floor($stockQty)) . '"' : 'max="1"'; ?> value="1" <?= $pdInStock ? '' : 'disabled '; ?>><button type="button" id="qInc" <?= $pdInStock ? '' : 'disabled '; ?>>+</button></div>
+        <button class="pd-btn pd-cart add-to-cart" <?= $pdInStock ? '' : 'disabled '; ?>product_id="<?= (int) $productId; ?>" quantity="1" tax_rate="<?= htmlspecialchars((string) $productTaxRate, ENT_QUOTES, 'UTF-8'); ?>" tax_method="<?= htmlspecialchars((string) $productTaxMethod, ENT_QUOTES, 'UTF-8'); ?>" price="<?= htmlspecialchars((string) $price, ENT_QUOTES, 'UTF-8'); ?>" promotion_price="<?= htmlspecialchars((string) $promo, ENT_QUOTES, 'UTF-8'); ?>" product_price="<?= htmlspecialchars((string) $price, ENT_QUOTES, 'UTF-8'); ?>" product_desc="<?= htmlspecialchars((string) strip_tags($productDescp), ENT_QUOTES, 'UTF-8'); ?>" imageurl="<?= htmlspecialchars((string) $gallery[0]['full'], ENT_QUOTES, 'UTF-8'); ?>" productname="<?= htmlspecialchars((string) $productName, ENT_QUOTES, 'UTF-8'); ?>">Add To Cart</button>
+        <button class="pd-btn pd-buy buy-now" type="button" <?= $pdInStock ? '' : 'disabled '; ?>>Buy Now</button>
         <button type="button" class="pd-wish" id="pdWishlistBtn" data-in-wishlist="0" aria-label="Add to favourites">♡</button>
       </div>
     </div>
@@ -150,5 +153,6 @@ $pd_assets = isset($assets) ? $assets : base_url('assets/webshop/');
     'login_url'     => base_url('webshop/login'),
     'is_logged_in'  => (bool) $isLoggedIn,
     'product_id'    => (int) $productId,
+    'in_stock'      => (bool) $pdInStock,
 ), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
 <script defer src="<?= $pd_assets ?>gulfpharmacy_theme/js/theme-product-details.js"></script>

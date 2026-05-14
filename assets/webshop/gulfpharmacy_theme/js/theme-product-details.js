@@ -7,6 +7,17 @@
     var loginUrl = typeof ctx.login_url === 'string' ? ctx.login_url : '';
     var checkoutUrl = typeof ctx.checkout_url === 'string' ? ctx.checkout_url : '';
     var productId = parseInt(ctx.product_id, 10) || 0;
+    var cartBlocked = (ctx.in_stock === false);
+
+    function failMessage(data, fallback) {
+        if (data && typeof data.message === 'string' && data.message !== '') {
+            return data.message;
+        }
+        if (data && typeof data.error === 'string' && data.error !== '') {
+            return data.error;
+        }
+        return fallback;
+    }
 
     var t = document.querySelectorAll('#pdThumbs .pd-thumb');
     var m = document.getElementById('pdMainImg');
@@ -28,8 +39,21 @@
     var q = document.getElementById('qVal');
     var qInc = document.getElementById('qInc');
     var qDec = document.getElementById('qDec');
-    if (q && qInc) qInc.onclick = function () { q.value = parseInt(q.value || '1', 10) + 1; };
-    if (q && qDec) qDec.onclick = function () { var v = parseInt(q.value || '1', 10); q.value = v > 1 ? v - 1 : 1; };
+    if (q && qInc) {
+        qInc.onclick = function () {
+            if (cartBlocked) { return; }
+            q.value = parseInt(q.value || '1', 10) + 1;
+            var mx = parseInt(q.getAttribute('max'), 10);
+            if (mx > 0 && parseInt(q.value, 10) > mx) { q.value = mx; }
+        };
+    }
+    if (q && qDec) {
+        qDec.onclick = function () {
+            if (cartBlocked) { return; }
+            var v = parseInt(q.value || '1', 10);
+            q.value = v > 1 ? v - 1 : 1;
+        };
+    }
 
     function tabs(id) {
         var n = document.getElementById(id); if (!n) return;
@@ -90,6 +114,9 @@
     if (addBtn) {
         addBtn.addEventListener('click', function (e) {
             e.preventDefault();
+            if (cartBlocked) {
+                return;
+            }
             var btn = this;
             var payload = buildCartPayload(btn);
             if (!payload.product_id) {
@@ -115,7 +142,7 @@
                     }
                     btn.disabled = false;
                     btn.textContent = original;
-                    alert('Unable to add item to cart. Please try again.');
+                    alert(failMessage(data, 'Unable to add item to cart. Please try again.'));
                 })
                 .catch(function () {
                     btn.disabled = false;
@@ -128,6 +155,9 @@
     if (buyBtn) {
         buyBtn.addEventListener('click', function (e) {
             e.preventDefault();
+            if (cartBlocked) {
+                return;
+            }
             if (!addBtn) {
                 alert('Product action unavailable.');
                 return;
@@ -145,7 +175,7 @@
                         window.location.href = (data.checkout_url ? data.checkout_url : checkoutUrl);
                         return;
                     }
-                    alert('Unable to proceed to checkout. Please try again.');
+                    alert(failMessage(data, 'Unable to proceed to checkout. Please try again.'));
                 })
                 .catch(function () {
                     alert('Unable to proceed to checkout. Please try again.');

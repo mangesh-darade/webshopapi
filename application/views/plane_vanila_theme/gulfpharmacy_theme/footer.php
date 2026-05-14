@@ -26,73 +26,117 @@ if (isset($uploads) && (string) $uploads !== '') {
             <?php if ($has_main) : ?>
             <div class="gp-footer-main">
                 <div class="gp-footer-grid">
-                    <?php foreach ($footer_rows as $fr) :
-                        $fk = isset($fr['field_key']) ? (string) $fr['field_key'] : '';
-                        if ($fk === '') {
-                            continue;
+                    <?php
+                    $sections = array();
+                    foreach ($footer_rows as $fr) {
+                        $sk = isset($fr['section']) ? (string) $fr['section'] : 'footer';
+                        if (!isset($sections[$sk])) {
+                            $sections[$sk] = array('rows' => array(), 'label' => '');
                         }
-                        $lab = isset($fr['label']) ? trim((string) $fr['label']) : '';
-                        $icon_cls = isset($fr['icons']) ? trim((string) $fr['icons']) : '';
-                        $raw_val = isset($fr['value']) ? (string) $fr['value'] : '';
+                        $sections[$sk]['rows'][] = $fr;
+                    }
 
-                        $href = function_exists('webshop_footer_row_link_href')
-                            ? webshop_footer_row_link_href($fk, $raw_val)
-                            : '';
-                        $link_extra = ($href !== '' && strpos($href, 'tel:') !== 0)
-                            ? ' target="_blank" rel="noopener noreferrer"'
-                            : '';
+                    foreach ($sections as $sk => $sec) :
+                        $rows = $sec['rows'];
+                        $is_social_sec = false;
+                        $social_items = array();
+                        $other_items = array();
 
-                        /* Heading: optional when icon is set; otherwise humanize field_key if no admin label. */
-                        $show_heading = false;
-                        $heading_text = '';
-                        if ($lab !== '') {
-                            $show_heading = true;
-                            $heading_text = $lab;
-                        } elseif ($icon_cls === '') {
-                            $show_heading = true;
-                            $heading_text = ucwords(str_replace('_', ' ', $fk));
-                        }
-
-                        $suppress_body = ($href !== '' && ($icon_cls !== '' || $lab !== '')
-                            && function_exists('webshop_footer_value_is_link_only')
-                            && webshop_footer_value_is_link_only($fk, $raw_val));
-
-                        $body_html = '';
-                        if (!$suppress_body && function_exists('webshop_footer_row_body_html')) {
-                            $body_html = webshop_footer_row_body_html($fk, $raw_val, $_gp_uploads_base);
-                        }
-                        if ($body_html === '' && !$suppress_body && trim($raw_val) === '') {
-                            $body_html = '<span class="gp-footer-empty text-muted">&mdash;</span>';
+                        foreach ($rows as $r) {
+                            $fk = isset($r['field_key']) ? (string) $r['field_key'] : '';
+                            $is_social = (bool) preg_match('/^media_[a-z0-9_]+_link$/i', $fk)
+                                || (bool) preg_match('/^(facebook|fb|instagram|ig|twitter|x_twitter|linkedin|youtube|tiktok)[a-z0-9_]*$/i', $fk);
+                            
+                            if ($is_social) {
+                                $social_items[] = $r;
+                            } else {
+                                $other_items[] = $r;
+                            }
                         }
 
-                        $aria_slot = $lab !== '' ? $lab : ($heading_text !== '' ? $heading_text : ucwords(str_replace('_', ' ', $fk)));
-                        ?>
-                    <div class="gp-footer-col gp-footer-col--slot" data-field-key="<?= htmlspecialchars($fk, ENT_QUOTES, 'UTF-8'); ?>">
-                        <?php if ($show_heading && $heading_text !== '') : ?>
-                        <h3 class="gp-footer-heading">
-                            <?php if ($href !== '' && $lab !== '') : ?>
-                            <a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8'); ?>" class="gp-footer-heading-link"<?= $link_extra ?>><?= htmlspecialchars($heading_text, ENT_QUOTES, 'UTF-8'); ?></a>
-                            <?php else : ?>
-                            <?= htmlspecialchars($heading_text, ENT_QUOTES, 'UTF-8'); ?>
-                            <?php endif; ?>
-                        </h3>
+                        if (!empty($social_items) && empty($other_items)) {
+                            $is_social_sec = true;
+                        }
+
+                        if ($is_social_sec) : ?>
+                            <div class="gp-footer-col">
+                                <h3 class="gp-footer-heading">Follow Us</h3>
+                                <div class="gp-footer-social">
+                                    <?php foreach ($social_items as $si) : 
+                                        $fk = (string) $si['field_key'];
+                                        $val = (string) $si['value'];
+                                        $href = function_exists('webshop_footer_row_link_href') ? webshop_footer_row_link_href($fk, $val) : $val;
+                                        if ($href === '') continue;
+                                        
+                                        $icon = 'fa fa-link';
+                                        if (strpos($fk, 'facebook') !== false) $icon = 'fa fa-facebook-f';
+                                        elseif (strpos($fk, 'instagram') !== false) $icon = 'fa fa-instagram';
+                                        elseif (strpos($fk, 'twitter') !== false || strpos($fk, '_x_') !== false) $icon = 'fa fa-twitter';
+                                        elseif (strpos($fk, 'youtube') !== false) $icon = 'fa fa-youtube-play';
+                                        elseif (strpos($fk, 'linkedin') !== false) $icon = 'fa fa-linkedin';
+                                        ?>
+                                        <a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer" class="gp-social-btn" title="<?= htmlspecialchars($si['label'], ENT_QUOTES, 'UTF-8') ?>">
+                                            <i class="<?= $icon ?>"></i>
+                                        </a>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        <?php else : 
+                            // Render as content column(s)
+                            // If the section has multiple rows, we group them in one column
+                            // If it has only one row, we use its label as heading
+                            $heading = ucwords(str_replace('_', ' ', $sk));
+                            if (count($other_items) === 1) {
+                                $item = $other_items[0];
+                                $heading = !empty($item['label']) ? $item['label'] : $heading;
+                            }
+                            ?>
+                            <div class="gp-footer-col">
+                                <h3 class="gp-footer-heading"><?= htmlspecialchars($heading, ENT_QUOTES, 'UTF-8'); ?></h3>
+                                <div class="gp-footer-content-list">
+                                    <?php foreach ($other_items as $item) : 
+                                        $fk = (string) $item['field_key'];
+                                        $raw_val = (string) $item['value'];
+                                        $icon_cls = isset($item['icons']) ? trim((string) $item['icons']) : '';
+                                        $lab = (string) $item['label'];
+                                        $body_html = function_exists('webshop_footer_row_body_html')
+                                            ? webshop_footer_row_body_html($fk, $raw_val, $_gp_uploads_base, $lab)
+                                            : nl2br(htmlspecialchars($raw_val, ENT_QUOTES, 'UTF-8'));
+                                        
+                                        if (trim($body_html) === '' && trim($raw_val) === '') continue;
+                                        ?>
+                                        <div class="gp-footer-text">
+                                            <?php if ($icon_cls !== '') : ?>
+                                                <span class="gp-footer-slot-icon"><i class="<?= htmlspecialchars($icon_cls, ENT_QUOTES, 'UTF-8'); ?>"></i></span>
+                                            <?php endif; ?>
+                                            <span class="gp-footer-slot-body"><?= $body_html ?></span>
+                                        </div>
+                                    <?php endforeach; ?>
+                                    
+                                    <?php if (!empty($social_items)) : ?>
+                                        <div class="gp-footer-social gp-footer-social--inline">
+                                            <?php foreach ($social_items as $si) : 
+                                                $fk = (string) $si['field_key'];
+                                                $val = (string) $si['value'];
+                                                $href = function_exists('webshop_footer_row_link_href') ? webshop_footer_row_link_href($fk, $val) : $val;
+                                                if ($href === '') continue;
+                                                
+                                                $icon = 'fa fa-link';
+                                                if (strpos($fk, 'facebook') !== false) $icon = 'fa fa-facebook-f';
+                                                elseif (strpos($fk, 'instagram') !== false) $icon = 'fa fa-instagram';
+                                                elseif (strpos($fk, 'twitter') !== false || strpos($fk, '_x_') !== false) $icon = 'fa fa-twitter';
+                                                elseif (strpos($fk, 'youtube') !== false) $icon = 'fa fa-youtube-play';
+                                                elseif (strpos($fk, 'linkedin') !== false) $icon = 'fa fa-linkedin';
+                                                ?>
+                                                <a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer" class="gp-social-btn" title="<?= htmlspecialchars($si['label'], ENT_QUOTES, 'UTF-8') ?>">
+                                                    <i class="<?= $icon ?>"></i>
+                                                </a>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
                         <?php endif; ?>
-
-                        <div class="gp-footer-text<?= ($icon_cls !== '' && $href !== '') ? ' gp-footer-text--with-link' : ''; ?>">
-                            <?php if ($icon_cls !== '') : ?>
-                                <?php if ($href !== '') : ?>
-                            <a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8'); ?>" class="gp-footer-slot-icon-link" aria-label="<?= htmlspecialchars($aria_slot, ENT_QUOTES, 'UTF-8'); ?>"<?= $link_extra ?>>
-                                <span class="gp-footer-slot-icon" aria-hidden="true"><i class="<?= htmlspecialchars($icon_cls, ENT_QUOTES, 'UTF-8'); ?>"></i></span>
-                            </a>
-                                <?php else : ?>
-                            <span class="gp-footer-slot-icon" aria-hidden="true"><i class="<?= htmlspecialchars($icon_cls, ENT_QUOTES, 'UTF-8'); ?>"></i></span>
-                                <?php endif; ?>
-                            <?php endif; ?>
-                            <?php if ($body_html !== '') : ?>
-                            <span class="gp-footer-slot-body"><?= $body_html ?></span>
-                            <?php endif; ?>
-                        </div>
-                    </div>
                     <?php endforeach; ?>
                 </div>
             </div>

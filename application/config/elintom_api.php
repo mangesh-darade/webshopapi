@@ -184,7 +184,9 @@ if (!isset($config['elintom_http_cache_settings_seconds'])) {
     $config['elintom_http_cache_settings_seconds'] = 45;
 }
 if (!isset($config['elintom_http_cache_categories_seconds'])) {
-    $config['elintom_http_cache_categories_seconds'] = 120;
+    // 0 = always fetch fresh categories from ElintOm (Manage products / in_eshop changes show immediately).
+    // For high traffic, set 30–120 in application/config/elintom_api.local.php instead.
+    $config['elintom_http_cache_categories_seconds'] = 0;
 }
 if (!isset($config['elintom_http_cache_cart_products_seconds'])) {
     $config['elintom_http_cache_cart_products_seconds'] = 60;

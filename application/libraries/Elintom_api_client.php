@@ -310,6 +310,26 @@ class Elintom_api_client {
         ));
     }
 
+    /**
+     * Ask ElintOm to send the post-checkout WhatsApp template for a sale (uses POS DB + whatsapp_api_key).
+     */
+    public function notify_webshop_order_whatsapp($order_id, $flag = 'true') {
+        return $this->post('notifywebshoporderwhatsapp', array(
+            'order_id' => (int) $order_id,
+            'flag'     => (string) $flag,
+        ));
+    }
+
+    /**
+     * Ask ElintOm to send a post-checkout order confirmation email for a sale.
+     */
+    public function notify_webshop_order_email($order_id) {
+        return $this->post('notifywebshoporderemail', array(
+            'order_id' => (int) $order_id,
+        ));
+    }
+
+
     /* ================================================================
      * ADDRESSES
      * ================================================================ */

@@ -17,6 +17,19 @@ class Webshop_checkout {
             return;
         }
 
+        if (!isset($c->webshop_action_engine) || !is_object($c->webshop_action_engine)) {
+            $c->load->library('webshop_action_engine');
+        }
+        $stockCheck = $c->webshop_action_engine->validate_session_cart_stock();
+        if (empty($stockCheck['ok'])) {
+            $msg = (isset($stockCheck['message']) && is_string($stockCheck['message']) && $stockCheck['message'] !== '')
+                ? $stockCheck['message']
+                : 'Some items in your cart are no longer available.';
+            $c->session->set_flashdata('error', $msg);
+            redirect('webshop/cart');
+            return;
+        }
+
         $c->data['postdata'] = (!empty($_SESSION['postdata'])) ? $_SESSION['postdata'] : null;
         $c->data['state_list'] = $c->webshop_model->get_state();
         $c->data['country'] = $c->webshop_model->getCountry();

@@ -107,25 +107,53 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-lg-3 col-xl-3>
-                            <div class=" widget widget_nav_menu ">
-                                <h3 class=" widget_title text-20" style="margin-left: 8px;">Quick Links</h3>
-                        <div class="menu-all-pages-container">
-                            <div class="row">
-                                <ul class="menu white-links">
-                                    <li><a href="<?= base_url('webshop/terms_and_conditions') ?>">Terms And
-                                            Conditions</a></li>
-                                    <li><a href="<?= base_url('webshop/privacy_policy') ?>">Privacy Policy</a></li>
-                                    <?php if (!empty($footer_theme_pages) && is_array($footer_theme_pages)): ?>
-                                        <?php foreach ($footer_theme_pages as $themePage): ?>
-                                            <li><a href="<?= base_url('webshop/' . $themePage['slug']) ?>"><?= htmlspecialchars($themePage['title']) ?></a></li>
-                                        <?php endforeach; ?>
-                                    <?php endif; ?>
-                                </ul>
-                            </div>
+                        <div class="col-md-6 col-lg-3 col-xl-auto">
+                            <?php 
+                            $footer_rows = isset($api_website_setting_sections->footer) ? $api_website_setting_sections->footer : [];
+                            $footer_groups = [];
+                            foreach ($footer_rows as $frow) {
+                                $fobj = is_object($frow) ? $frow : (object) $frow;
+                                $gsn = !empty($fobj->section) ? $fobj->section : 'Quick Links';
+                                $footer_groups[$gsn][] = $fobj;
+                            }
+                            
+                            // If no dynamic groups, show default
+                            if (empty($footer_groups)): ?>
+                                <div class="widget footer-widget">
+                                    <h3 class="widget_title text-20">Quick Links</h3>
+                                    <div class="menu-all-pages-container">
+                                        <ul class="menu white-links">
+                                            <li><a href="<?= base_url('webshop/terms_and_conditions') ?>">Terms And Conditions</a></li>
+                                            <li><a href="<?= base_url('webshop/privacy_policy') ?>">Privacy Policy</a></li>
+                                            <?php if (!empty($footer_theme_pages) && is_array($footer_theme_pages)): ?>
+                                                <?php foreach ($footer_theme_pages as $themePage): ?>
+                                                    <li><a href="<?= base_url('webshop/' . $themePage['slug']) ?>"><?= htmlspecialchars($themePage['title']) ?></a></li>
+                                                <?php endforeach; ?>
+                                            <?php endif; ?>
+                                        </ul>
+                                    </div>
+                                </div>
+                            <?php else: ?>
+                                <?php foreach ($footer_groups as $section_name => $rows): ?>
+                                    <div class="widget footer-widget mb-4">
+                                        <h3 class="widget_title text-20"><?= htmlspecialchars($section_name) ?></h3>
+                                        <div class="menu-all-pages-container">
+                                            <ul class="menu white-links">
+                                                <?php foreach ($rows as $r): 
+                                                    $url = !empty($r->value) ? $r->value : '#';
+                                                    if (strpos($url, 'http') !== 0 && $url !== '#') {
+                                                        $url = base_url($url);
+                                                    }
+                                                    $label = !empty($r->label) ? $r->label : (!empty($r->fields) ? ucwords(str_replace('_', ' ', $r->fields)) : 'Link');
+                                                ?>
+                                                    <li><a href="<?= $url ?>"><?= htmlspecialchars($label) ?></a></li>
+                                                <?php endforeach; ?>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                         </div>
-                    </div>
-                </div>
                 <div class="col-lg-3 col-xl-4" style=" display :none;">
 
                     <div class="widget  ">

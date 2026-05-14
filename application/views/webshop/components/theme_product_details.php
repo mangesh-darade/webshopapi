@@ -13,7 +13,9 @@ $productDescp = isset($product['product_details']) ? (string) $product['product_
 $brandName = isset($product['brand_name']) ? (string) $product['brand_name'] : '';
 $rating = isset($product['ratings_avarage']) ? (float) $product['ratings_avarage'] : 0;
 $reviews = isset($product['ratings_count']) ? (int) $product['ratings_count'] : 0;
-$stockQty = isset($product['quantity']) ? (float) $product['quantity'] : 0;
+$productVariants = isset($product_variants) && is_array($product_variants) ? $product_variants : array();
+$stockQty = webshop_product_display_sellable_qty($product, $productVariants);
+$pdInStock = $stockQty > 0;
 $price = isset($product['price']) ? (float) $product['price'] : 0;
 $mrp = isset($product['mrp']) ? (float) $product['mrp'] : 0;
 $promo = isset($product['promo_price']) ? (float) $product['promo_price'] : 0;
@@ -85,10 +87,12 @@ if (empty($gallery)) {
 .pd-item img{width:100%;height:140px;object-fit:contain;background:#f8fafc;border-radius:8px}
 .pd-item h4{font-size:14px;height:38px;overflow:hidden}
 .pd-item .p{font-weight:700;color:#0F4C81}
-@media(max-width:992px){.pd-main{grid-template-columns:1fr}.pd-summary{position:static}.pd-gallery{grid-template-columns:1fr}.pd-thumbs{flex-direction:row;max-height:none}.pd-thumb img{width:70px;height:70px}}
+.pd-wrap--oos .pd-main .pd-card{filter:grayscale(1);opacity:.72}
+.pd-wrap--oos .pd-actions .pd-btn,.pd-wrap--oos .pd-actions .pd-qty button,.pd-wrap--oos .pd-actions .pd-qty input{cursor:not-allowed;opacity:.55}
+.pd-wrap--oos .pd-unavailable-note{margin:10px 0 0;font-size:14px;font-weight:600;color:#6b7280}
 </style>
 
-<div class="pd-wrap">
+<div class="pd-wrap<?= $pdInStock ? '' : ' pd-wrap--oos'; ?>">
   <div class="pd-main">
     <div class="pd-card pd-gallery">
       <div class="pd-thumbs" id="pdThumbs">
@@ -123,11 +127,12 @@ if (empty($gallery)) {
       </div>
       <div class="pd-price"><span class="pd-price-now" id="price-current"><?= htmlspecialchars((string) $formattedPrice, ENT_QUOTES, 'UTF-8'); ?></span><?php if ($formattedMrp !== '') { ?><span class="pd-mrp"><?= htmlspecialchars((string) $formattedMrp, ENT_QUOTES, 'UTF-8'); ?></span><?php } ?><?php if ($discountPercent > 0) { ?><span class="pd-off"><?= (int) $discountPercent; ?>% OFF</span><?php } ?></div>
       <div class="pd-stock <?= $stockQty > 0 ? 'ok' : 'no'; ?>"><?= $stockQty > 0 ? 'In Stock' : 'Out of Stock'; ?></div>
+      <?php if (!$pdInStock) { ?><p class="pd-unavailable-note">This product cannot be added to the cart or purchased while it is out of stock.</p><?php } ?>
       <div class="pd-short"><?= $productDescp !== '' ? $productDescp : '#N/A'; ?></div>
       <div class="pd-actions">
-        <div class="pd-qty"><button type="button" id="qDec">-</button><input id="qVal" class="itemQty" type="number" min="1" value="1"><button type="button" id="qInc">+</button></div>
-        <button class="pd-btn pd-cart add-to-cart" product_id="<?= (int) $productId; ?>" quantity="1" tax_rate="<?= htmlspecialchars((string) $productTaxRate, ENT_QUOTES, 'UTF-8'); ?>" tax_method="<?= htmlspecialchars((string) $productTaxMethod, ENT_QUOTES, 'UTF-8'); ?>" price="<?= htmlspecialchars((string) $price, ENT_QUOTES, 'UTF-8'); ?>" promotion_price="<?= htmlspecialchars((string) $promo, ENT_QUOTES, 'UTF-8'); ?>" product_price="<?= htmlspecialchars((string) $price, ENT_QUOTES, 'UTF-8'); ?>" product_desc="<?= htmlspecialchars((string) strip_tags($productDescp), ENT_QUOTES, 'UTF-8'); ?>" imageurl="<?= htmlspecialchars((string) $gallery[0]['full'], ENT_QUOTES, 'UTF-8'); ?>" productname="<?= htmlspecialchars((string) $productName, ENT_QUOTES, 'UTF-8'); ?>">Add To Cart</button>
-        <button class="pd-btn pd-buy buy-now" type="button">Buy Now</button>
+        <div class="pd-qty"><button type="button" id="qDec" <?= $pdInStock ? '' : 'disabled '; ?>>-</button><input id="qVal" class="itemQty" type="number" min="1" <?= $pdInStock ? 'max="' . (int) max(1, floor($stockQty)) . '"' : 'max="1"'; ?> value="1" <?= $pdInStock ? '' : 'disabled '; ?>><button type="button" id="qInc" <?= $pdInStock ? '' : 'disabled '; ?>>+</button></div>
+        <button class="pd-btn pd-cart add-to-cart" <?= $pdInStock ? '' : 'disabled '; ?>product_id="<?= (int) $productId; ?>" quantity="1" tax_rate="<?= htmlspecialchars((string) $productTaxRate, ENT_QUOTES, 'UTF-8'); ?>" tax_method="<?= htmlspecialchars((string) $productTaxMethod, ENT_QUOTES, 'UTF-8'); ?>" price="<?= htmlspecialchars((string) $price, ENT_QUOTES, 'UTF-8'); ?>" promotion_price="<?= htmlspecialchars((string) $promo, ENT_QUOTES, 'UTF-8'); ?>" product_price="<?= htmlspecialchars((string) $price, ENT_QUOTES, 'UTF-8'); ?>" product_desc="<?= htmlspecialchars((string) strip_tags($productDescp), ENT_QUOTES, 'UTF-8'); ?>" imageurl="<?= htmlspecialchars((string) $gallery[0]['full'], ENT_QUOTES, 'UTF-8'); ?>" productname="<?= htmlspecialchars((string) $productName, ENT_QUOTES, 'UTF-8'); ?>">Add To Cart</button>
+        <button class="pd-btn pd-buy buy-now" type="button" <?= $pdInStock ? '' : 'disabled '; ?>>Buy Now</button>
         <button type="button" class="pd-wish" id="pdWishlistBtn" data-in-wishlist="0" aria-label="Add to favourites">♡</button>
       </div>
     </div>
@@ -208,8 +213,9 @@ if (empty($gallery)) {
     }
 
     var q=document.getElementById('qVal');
-    document.getElementById('qInc').onclick=function(){q.value=parseInt(q.value||'1',10)+1;};
-    document.getElementById('qDec').onclick=function(){var v=parseInt(q.value||'1',10);q.value=v>1?v-1:1;};
+    var pdInStock = <?= $pdInStock ? 'true' : 'false' ?>;
+    document.getElementById('qInc').onclick=function(){if(!pdInStock)return;q.value=parseInt(q.value||'1',10)+1;var mx=parseInt(q.getAttribute('max'),10);if(mx>0&&parseInt(q.value,10)>mx)q.value=mx;};
+    document.getElementById('qDec').onclick=function(){if(!pdInStock)return;var v=parseInt(q.value||'1',10);q.value=v>1?v-1:1;};
 
     function tabs(id){
         var n=document.getElementById(id); if(!n) return;
@@ -271,9 +277,22 @@ if (empty($gallery)) {
     var buyBtn = document.querySelector('.buy-now');
     var wishBtn = document.getElementById('pdWishlistBtn');
 
+    function failMessage(data, fallback) {
+        if (data && typeof data.message === 'string' && data.message !== '') {
+            return data.message;
+        }
+        if (data && typeof data.error === 'string' && data.error !== '') {
+            return data.error;
+        }
+        return fallback;
+    }
+
     if (addBtn) {
         addBtn.addEventListener('click', function(e){
             e.preventDefault();
+            if (!pdInStock) {
+                return;
+            }
             var btn = this;
             var payload = buildCartPayload(btn);
             if (!payload.product_id) {
@@ -294,7 +313,7 @@ if (empty($gallery)) {
                     }
                     btn.disabled = false;
                     btn.textContent = original;
-                    alert('Unable to add item to cart. Please try again.');
+                    alert(failMessage(data, 'Unable to add item to cart. Please try again.'));
                 })
                 .catch(function(){
                     btn.disabled = false;
@@ -307,6 +326,9 @@ if (empty($gallery)) {
     if (buyBtn) {
         buyBtn.addEventListener('click', function(e){
             e.preventDefault();
+            if (!pdInStock) {
+                return;
+            }
             if (!addBtn) {
                 alert('Product action unavailable.');
                 return;
@@ -324,15 +346,7 @@ if (empty($gallery)) {
                         window.location.href = (data.checkout_url ? data.checkout_url : '<?= base_url('webshop/checkout') ?>');
                         return;
                     }
-                    alert('Unable to proceed to checkout. Please try again.');
-                })
-                .catch(function(){
-                    alert('Unable to proceed to checkout. Please try again.');
-                });
-        });
-    }
-
-    if (wishBtn) {
+                    alert(failMessage(data, 'Unable to proceed to checkout. Please try again.'));
         wishBtn.addEventListener('click', function(e){
             e.preventDefault();
             if (!isLoggedIn) {

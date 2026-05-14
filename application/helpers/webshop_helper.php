@@ -298,6 +298,55 @@ function webshop_product_image_src($uploads_base, $thumbs_base, $row) {
 }
 
 /**
+ * Read numeric stock from a product or variant row (API payloads use quantity, qty, stock, etc.).
+ *
+ * @param array|object $row
+ * @return float|null Null when no stock-like field is present.
+ */
+function webshop_row_numeric_stock($row) {
+    $row = is_array($row) ? $row : (array) $row;
+    foreach (array('quantity', 'qty', 'stock', 'available_qty') as $k) {
+        if (isset($row[$k]) && $row[$k] !== '' && is_numeric($row[$k])) {
+            return (float) $row[$k];
+        }
+    }
+    return null;
+}
+
+/**
+ * Sellable quantity for product-detail display: sum variant stock when variants expose quantities;
+ * otherwise parent product row only (missing stock fields → 0, same as legacy views).
+ *
+ * @param array      $product
+ * @param array|null $variants Product variants/options list from detail API (may be empty).
+ * @return float
+ */
+function webshop_product_display_sellable_qty($product, $variants = null) {
+    $product = is_array($product) ? $product : (array) $product;
+    $variants = ($variants !== null && is_array($variants)) ? $variants : array();
+
+    if (!empty($variants)) {
+        $sum = 0.0;
+        $anyVariantStock = false;
+        foreach ($variants as $v) {
+            $q = webshop_row_numeric_stock($v);
+            if ($q !== null) {
+                $anyVariantStock = true;
+                if ($q > 0) {
+                    $sum += $q;
+                }
+            }
+        }
+        if ($anyVariantStock) {
+            return max(0.0, $sum);
+        }
+    }
+
+    $pq = webshop_row_numeric_stock($product);
+    return $pq !== null ? max(0.0, $pq) : 0.0;
+}
+
+/**
  * First non-empty category image path from API/DB row (same field order as product: image, photo, then common aliases).
  *
  * @param array|object $row
@@ -947,7 +996,7 @@ if (!function_exists('webshop_ws_row_field_key')) {
      */
     function webshop_ws_row_field_key($item) {
         $row = is_object($item) ? $item : (object) (array) $item;
-        foreach (array('fields', 'Fields', 'FIELDS') as $k) {
+        foreach (array('field_key', 'fields', 'Fields', 'FIELDS') as $k) {
             if (isset($row->$k) && trim((string) $row->$k) !== '') {
                 return strtolower(trim((string) $row->$k));
             }
@@ -958,7 +1007,7 @@ if (!function_exists('webshop_ws_row_field_key')) {
 
 if (!function_exists('webshop_ws_row_value_string')) {
     /**
-     * Value column from a website_setting row (handles Value/value).
+     * Value column from a website_setting row (handles Value/value; SQL NULL / JSON null).
      *
      * @param mixed $item
      * @return string
@@ -966,11 +1015,39 @@ if (!function_exists('webshop_ws_row_value_string')) {
     function webshop_ws_row_value_string($item) {
         $row = is_object($item) ? $item : (object) (array) $item;
         foreach (array('value', 'Value', 'VALUE') as $k) {
-            if (isset($row->$k)) {
-                return trim((string) $row->$k);
+            if (!property_exists($row, $k)) {
+                continue;
             }
+            $v = $row->$k;
+            if ($v === null) {
+                continue;
+            }
+            return trim((string) $v);
         }
         return '';
+    }
+}
+
+if (!function_exists('webshop_ws_row_sort_order')) {
+    /**
+     * Sort order from storefront / website_setting row (header/footer table or API object).
+     *
+     * @param mixed $item
+     * @return int
+     */
+    function webshop_ws_row_sort_order($item) {
+        $row = is_object($item) ? $item : (object) (array) $item;
+        foreach (array('sort_order', 'Sort_order', 'SORT_ORDER') as $k) {
+            if (!property_exists($row, $k)) {
+                continue;
+            }
+            $v = $row->$k;
+            if ($v === null || $v === '') {
+                continue;
+            }
+            return (int) $v;
+        }
+        return 0;
     }
 }
 
@@ -1048,13 +1125,48 @@ if (!function_exists('webshop_api_website_setting_sections')) {
             return (object) array('header' => array(), 'footer' => array());
         }
         $CI = get_instance();
+        
+        $api_sections = (object) array();
         if (isset($CI->api_website_setting_sections)) {
-            $w = $CI->api_website_setting_sections;
-            if (is_object($w) || is_array($w)) {
-                return $w;
+            $api_sections = (object) $CI->api_website_setting_sections;
+        }
+
+        // Merge local DB table if it exists
+        if (isset($CI->db)) {
+            $table = 'sma_webshop_header_footer';
+            if ($CI->db->table_exists($table)) {
+                $q = $CI->db->where('is_active', 1)->order_by('sort_order', 'ASC')->get($table);
+                if ($q && $q->num_rows() > 0) {
+                    $rows = $q->result_array();
+                    foreach ($rows as $row) {
+                        $st = isset($row['section_type']) ? strtolower(trim($row['section_type'])) : '';
+                        if ($st === '') continue;
+                        
+                        $row_key = function_exists('webshop_ws_row_field_key') ? webshop_ws_row_field_key($row) : (isset($row['field_key']) ? (string)$row['field_key'] : '');
+                        
+                        // Check if already present in API data to avoid duplicates
+                        $exists = false;
+                        if ($row_key !== '') {
+                            $current_list = isset($api_sections->$st) ? $api_sections->$st : array();
+                            foreach ($current_list as $existing) {
+                                $ek = function_exists('webshop_ws_row_field_key') ? webshop_ws_row_field_key($existing) : '';
+                                if ($ek !== '' && $ek === $row_key) {
+                                    $exists = true;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        if (!$exists) {
+                            if (!isset($api_sections->$st)) $api_sections->$st = array();
+                            $api_sections->{$st}[] = $row;
+                        }
+                    }
+                }
             }
         }
-        return (object) array('header' => array(), 'footer' => array());
+
+        return $api_sections;
     }
 }
 
@@ -1108,7 +1220,7 @@ if (!function_exists('webshop_website_setting_section_rows')) {
      */
     function webshop_website_setting_section_rows($section) {
         $section = strtolower(trim((string) $section));
-        if ($section !== 'header' && $section !== 'footer') {
+        if ($section === '') {
             return array();
         }
         $wrap = webshop_api_website_setting_sections();
@@ -1176,34 +1288,168 @@ if (!function_exists('webshop_website_setting_lookup_row')) {
     }
 }
 
+if (!function_exists('webshop_footer_sort_identity_rows')) {
+    /**
+     * Stable sort for footer columns: DB sort_order then field_key (supports dynamic footer rows).
+     *
+     * @param array<int, array<string, mixed>> $rows
+     * @return array<int, array<string, mixed>>
+     */
+    function webshop_footer_sort_identity_rows(array $rows) {
+        usort($rows, function ($a, $b) {
+            $sa = isset($a['sort_order']) ? (int) $a['sort_order'] : 0;
+            $sb = isset($b['sort_order']) ? (int) $b['sort_order'] : 0;
+            if ($sa !== $sb) {
+                return $sa - $sb;
+            }
+            $fa = isset($a['field_key']) ? (string) $a['field_key'] : '';
+            $fb = isset($b['field_key']) ? (string) $b['field_key'] : '';
+            return strcmp($fa, $fb);
+        });
+        return $rows;
+    }
+}
+
+if (!function_exists('webshop_footer_fill_row_fallbacks')) {
+    /**
+     * When storefront footer rows exist in ElintOm `webshop_header_footer` but Value is empty,
+     * fill from getsettings merged biller/POS fields on MY_Controller::$Settings (Eshop_model::getPosSettings join).
+     *
+     * @param array<int, array{field_key:string,label:string,value:string,icons:string}> $rows
+     * @return array<int, array{field_key:string,label:string,value:string,icons:string}>
+     */
+    function webshop_footer_fill_row_fallbacks(array $rows) {
+        if ($rows === array() || !function_exists('get_instance')) {
+            return $rows;
+        }
+        $CI = get_instance();
+        $S = (isset($CI->Settings) && is_object($CI->Settings)) ? $CI->Settings : new stdClass();
+
+        foreach ($rows as $i => $row) {
+            if (!is_array($row) || !isset($row['field_key'])) {
+                continue;
+            }
+            $cur = isset($row['value']) ? trim((string) $row['value']) : '';
+            if ($cur !== '') {
+                continue;
+            }
+            $fk = strtolower(trim((string) $row['field_key']));
+            $lab = isset($row['label']) ? strtolower(trim((string) $row['label'])) : '';
+            $hint = $fk . ' ' . $lab;
+
+            $fill = '';
+            if (preg_match('/phone|tel|mobile|hotline|whatsapp|fax|call us|contact number/i', $hint)) {
+                foreach (array('phone', 'tel', 'mobile', 'merchant_phone') as $k) {
+                    if (isset($S->$k) && trim((string) $S->$k) !== '') {
+                        $fill = trim((string) $S->$k);
+                        break;
+                    }
+                }
+            } elseif (preg_match('/address|location|visit|showroom|branch|office|find us/i', $hint)) {
+                $parts = array();
+                foreach (array('address', 'city', 'state', 'postal_code', 'country') as $k) {
+                    if (isset($S->$k) && trim((string) $S->$k) !== '') {
+                        $parts[] = trim((string) $S->$k);
+                    }
+                }
+                $fill = implode(', ', $parts);
+            } elseif (preg_match('/about|intro|who we|company|story|description|overview|mission|why/i', $hint)) {
+                $name = isset($S->site_name) ? trim((string) $S->site_name) : '';
+                $tag = '';
+                foreach (array('biller_name', 'company') as $k) {
+                    if (isset($S->$k) && trim((string) $S->$k) !== '') {
+                        $bn = trim((string) $S->$k);
+                        if ($bn !== '' && $bn !== $name) {
+                            $tag = $bn;
+                            break;
+                        }
+                    }
+                }
+                $chunks = array();
+                if ($name !== '') {
+                    $chunks[] = $name;
+                }
+                if ($tag !== '') {
+                    $chunks[] = $tag;
+                }
+                foreach (array('cf_title1', 'cf_title2') as $k) {
+                    if (isset($S->$k) && trim((string) $S->$k) !== '') {
+                        $chunks[] = trim((string) $S->$k);
+                        break;
+                    }
+                }
+                $uniq = array();
+                foreach ($chunks as $c) {
+                    if ($c !== '' && !in_array($c, $uniq, true)) {
+                        $uniq[] = $c;
+                    }
+                }
+                $fill = implode(' — ', $uniq);
+            } elseif (preg_match('/email|e-mail|mail\W|support/i', $hint)) {
+                foreach (array('default_email', 'email', 'account_email') as $k) {
+                    if (isset($S->$k) && trim((string) $S->$k) !== '') {
+                        $fill = trim((string) $S->$k);
+                        break;
+                    }
+                }
+            }
+
+            if ($fill !== '') {
+                $rows[$i]['value'] = $fill;
+            }
+        }
+
+        return $rows;
+    }
+}
+
 if (!function_exists('webshop_footer_identity_rows')) {
     /**
      * All footer storefront slots from API: field_key, admin label, value, icons — no hardcoded field names.
      * Uses website_setting_sections.footer when present; otherwise flat website_setting minus keys that appear in header section.
+     * Empty slot values are backfilled from getsettings biller/POS fields when possible (see webshop_footer_fill_row_fallbacks).
      *
      * @return array<int, array{field_key:string,label:string,value:string,icons:string}>
      */
     function webshop_footer_identity_rows() {
         $out = array();
-        $footer_section = function_exists('webshop_website_setting_section_rows')
-            ? webshop_website_setting_section_rows('footer')
-            : array();
-        if (!empty($footer_section)) {
-            foreach ($footer_section as $item) {
-                $fk = webshop_ws_row_field_key($item);
-                if ($fk === '') {
-                    continue;
+        $sections_obj = webshop_api_website_setting_sections();
+        $has_sections = false;
+        $seen_keys = array();
+
+        foreach ($sections_obj as $section_name => $section_rows) {
+            $sn = strtolower(trim((string) $section_name));
+            // Include both header and footer sections in the identity rows for full dynamic coverage
+
+            $normalized = webshop_normalize_setting_section_row_list($section_rows);
+            if (!empty($normalized)) {
+                $has_sections = true;
+                foreach ($normalized as $item) {
+                    $fk  = webshop_ws_row_field_key($item);
+                    $val = webshop_ws_row_value_string($item);
+                    $lab = webshop_ws_row_label_string($item, $fk);
+
+                    if ($fk === '' && $val === '' && $lab === '') {
+                        continue;
+                    }
+                    
+                    if ($fk !== '') {
+                        $seen_keys[$fk] = true;
+                    }
+
+                    $out[] = array(
+                        'field_key'   => ($fk !== '' ? $fk : 'db_row_' . count($out)),
+                        'label'       => $lab,
+                        'value'       => $val,
+                        'icons'       => webshop_ws_row_icons_string($item),
+                        'sort_order'  => function_exists('webshop_ws_row_sort_order') ? webshop_ws_row_sort_order($item) : 0,
+                        'section'     => $sn,
+                    );
                 }
-                $val = webshop_ws_row_value_string($item);
-                $out[] = array(
-                    'field_key' => $fk,
-                    'label'     => webshop_ws_row_label_string($item, $fk),
-                    'value'     => $val,
-                    'icons'     => webshop_ws_row_icons_string($item),
-                );
             }
-            return $out;
         }
+
+        // Always merge POS fallbacks if not already seen in sections
         $header_keys = array();
         if (function_exists('webshop_website_setting_section_rows')) {
             foreach (webshop_website_setting_section_rows('header') as $hitem) {
@@ -1213,27 +1459,32 @@ if (!function_exists('webshop_footer_identity_rows')) {
                 }
             }
         }
-        $seen = array();
+
         foreach (webshop_ws_website_setting_bundles() as $items) {
             foreach ($items as $item) {
                 $fk = webshop_ws_row_field_key($item);
-                if ($fk === '' || isset($seen[$fk])) {
+                if ($fk === '' || isset($seen_keys[$fk])) {
                     continue;
                 }
                 if (isset($header_keys[$fk])) {
                     continue;
                 }
                 $val = webshop_ws_row_value_string($item);
-                $seen[$fk] = true;
+                // Allow empty values here so webshop_footer_fill_row_fallbacks can backfill them from Settings
+
+                $seen_keys[$fk] = true;
                 $out[] = array(
-                    'field_key' => $fk,
-                    'label'     => webshop_ws_row_label_string($item, $fk),
-                    'value'     => $val,
-                    'icons'     => webshop_ws_row_icons_string($item),
+                    'field_key'   => $fk,
+                    'label'       => webshop_ws_row_label_string($item, $fk),
+                    'value'       => $val,
+                    'icons'       => webshop_ws_row_icons_string($item),
+                    'sort_order'  => function_exists('webshop_ws_row_sort_order') ? webshop_ws_row_sort_order($item) : 0,
+                    'section'     => 'footer', // Default section for fallbacks
                 );
             }
         }
-        return $out;
+
+        return webshop_footer_fill_row_fallbacks(webshop_footer_sort_identity_rows($out));
     }
 }
 
@@ -1368,11 +1619,18 @@ if (!function_exists('webshop_footer_row_body_html')) {
      * @param string $uploads_base Trailing slash; used to resolve relative media in HTML (same as CMS body).
      * @return string HTML fragment
      */
-    function webshop_footer_row_body_html($field_key, $value, $uploads_base = '') {
+    function webshop_footer_row_body_html($field_key, $value, $uploads_base = '', $label = '') {
         $fk = strtolower(trim((string) $field_key));
         $val = trim((string) $value);
+        $lab = trim((string) $label);
+        
+        $prefix = '';
+        if ($lab !== '') {
+            $prefix = '<span class="gp-footer-label" style="font-weight: 600;">' . htmlspecialchars($lab, ENT_QUOTES, 'UTF-8') . ':</span> ';
+        }
+        
         if ($val === '') {
-            return '';
+            return $prefix; // Show label even if value is empty if requested
         }
         if (preg_match('/^media_[a-z0-9_]+_link$/', $fk)) {
             $url = webshop_footer_external_url($val);
@@ -1401,6 +1659,10 @@ if (!function_exists('webshop_footer_row_body_html')) {
                     . htmlspecialchars($val, ENT_QUOTES, 'UTF-8') . '</a>';
             }
         }
+        if (preg_match('/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i', $val)) {
+            $src = (strpos($val, 'http') === 0) ? $val : webshop_media_src($uploads_base, $val);
+            return '<img src="' . htmlspecialchars($src, ENT_QUOTES, 'UTF-8') . '" class="gp-footer-img" style="max-height: 40px; width: auto; display: block; margin-bottom: 5px;" alt="' . htmlspecialchars($fk, ENT_QUOTES, 'UTF-8') . '">';
+        }
         $looks_like_html = (bool) preg_match('/<[a-z][a-z0-9]{0,24}\b/i', $val)
             || (bool) preg_match('/<\/[a-z][a-z0-9]{0,24}>/i', $val);
         if (!$looks_like_html && strpos($val, '&lt;') !== false && strpos($val, '&gt;') !== false) {
@@ -1410,7 +1672,7 @@ if (!function_exists('webshop_footer_row_body_html')) {
             $prepared = webshop_prepare_cms_html_for_output($val, $uploads_base);
             return trim($prepared);
         }
-        return nl2br(htmlspecialchars($val, ENT_QUOTES, 'UTF-8'));
+        return $prefix . nl2br(htmlspecialchars($val, ENT_QUOTES, 'UTF-8'));
     }
 }
 

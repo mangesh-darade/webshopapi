@@ -51,7 +51,7 @@ class Webshop_action_engine
         // which would otherwise store product_price=0 and break the cart total.
         // Always resolve the current price from the API so the cart, checkout
         // and payment screens stay consistent.
-        $api_product = $this->resolve_product_pricing($product_id);
+        $api_product = $this->resolve_product_pricing($product_id, $variant_id);
         if (is_array($api_product) && !empty($api_product)) {
             $api_price = isset($api_product['price']) ? (float) $api_product['price'] : 0.0;
             $api_tax_rate = isset($api_product['tax_rate']) ? (float) $api_product['tax_rate'] : 0.0;
@@ -73,8 +73,31 @@ class Webshop_action_engine
             }
         }
 
+        $catalog_max_qty = null;
+        if (is_array($api_product) && array_key_exists('quantity', $api_product)) {
+            $catalog_max_qty = max(0.0, (float) $api_product['quantity']);
+        }
+
         $item_key = ((int) $variant_id > 0) ? ($product_id . '_' . $variant_id) : (string) $product_id;
         $this->ensure_cart_session();
+
+        if ($catalog_max_qty !== null) {
+            if ($catalog_max_qty <= 0) {
+                return array(
+                    'status'  => 'FAIL',
+                    'error'   => 'out_of_stock',
+                    'message' => 'This product is out of stock.',
+                );
+            }
+            $already = isset($_SESSION['cart'][$item_key]) ? (float) $_SESSION['cart'][$item_key]['quantity'] : 0.0;
+            if ($already + (float) $quantity > $catalog_max_qty) {
+                return array(
+                    'status'  => 'FAIL',
+                    'error'   => 'insufficient_stock',
+                    'message' => 'The requested quantity is not available.',
+                );
+            }
+        }
 
         if (isset($_SESSION['cart'][$item_key])) {
             $_SESSION['cart'][$item_key]['quantity'] += $quantity;
@@ -117,13 +140,13 @@ class Webshop_action_engine
     }
 
     /**
-     * Resolve authoritative product pricing from the API (or local DB fallback).
-     * Returned shape mirrors {@see Webshop_api_model::_flatten_product_for_order()}.
+     * Resolve authoritative product pricing (and sellable quantity) from the API.
      *
      * @param  int $product_id
+     * @param  int $variant_id   product option id when line is a variant SKU
      * @return array Empty array on failure.
      */
-    protected function resolve_product_pricing($product_id)
+    protected function resolve_product_pricing($product_id, $variant_id = 0)
     {
         $pid = (int) $product_id;
         if ($pid < 1) {
@@ -135,7 +158,7 @@ class Webshop_action_engine
         try {
             $row = $this->CI->webshop_model->get_product_by_id(
                 $pid,
-                'id,price,eshop_price,tax_rate,tax_method,promo_price,promotion,start_date,end_date'
+                'id,price,eshop_price,tax_rate,tax_method,promo_price,promotion,start_date,end_date,quantity'
             );
         } catch (\Exception $e) {
             log_message('error', 'Webshop_action_engine::resolve_product_pricing — ' . $e->getMessage());
@@ -147,7 +170,19 @@ class Webshop_action_engine
         if (!is_array($row) || !isset($row[$pid]) || !is_array($row[$pid]) || empty($row[$pid])) {
             return array();
         }
-        return $row[$pid];
+        $out = $row[$pid];
+        $vid = (int) $variant_id;
+        if ($vid > 0 && isset($out['variant_stock']) && is_array($out['variant_stock']) && !empty($out['variant_stock'])) {
+            if (array_key_exists($vid, $out['variant_stock'])) {
+                $out['quantity'] = (float) $out['variant_stock'][$vid];
+            } else {
+                $out['quantity'] = 0.0;
+            }
+        }
+        if (isset($out['variant_stock'])) {
+            unset($out['variant_stock']);
+        }
+        return $out;
     }
 
     public function update_cart($postData)
@@ -161,6 +196,19 @@ class Webshop_action_engine
         }
 
         $_SESSION['cart'][$item_key]['quantity'] = $itemQty;
+
+        $pid = (int) (isset($_SESSION['cart'][$item_key]['product_id']) ? $_SESSION['cart'][$item_key]['product_id'] : 0);
+        $vid = (int) (isset($_SESSION['cart'][$item_key]['variant_id']) ? $_SESSION['cart'][$item_key]['variant_id'] : 0);
+        if ($pid > 0) {
+            $resolved = $this->resolve_product_pricing($pid, $vid);
+            if (is_array($resolved) && array_key_exists('quantity', $resolved)) {
+                $max = max(0.0, (float) $resolved['quantity']);
+                if ($max <= 0 || (float) $itemQty > $max) {
+                    return array('status' => 'FAIL');
+                }
+            }
+        }
+
         return array('status' => 'SUCCESS');
     }
 
@@ -242,6 +290,39 @@ class Webshop_action_engine
             'status' => 'SUCCESS',
             'count'  => $count,
         );
+    }
+
+    /**
+     * Re-check session cart lines against live catalogue quantities before checkout.
+     *
+     * @return array{ok:bool,message:string}
+     */
+    public function validate_session_cart_stock()
+    {
+        $this->ensure_cart_session();
+        foreach ($_SESSION['cart'] as $item_key => $line) {
+            if (!is_array($line)) {
+                continue;
+            }
+            $pid = (int) (isset($line['product_id']) ? $line['product_id'] : 0);
+            if ($pid < 1) {
+                continue;
+            }
+            $vid = (int) (isset($line['variant_id']) ? $line['variant_id'] : 0);
+            $want = isset($line['quantity']) ? (float) $line['quantity'] : 1.0;
+            $resolved = $this->resolve_product_pricing($pid, $vid);
+            if (!is_array($resolved) || !array_key_exists('quantity', $resolved)) {
+                continue;
+            }
+            $max = max(0.0, (float) $resolved['quantity']);
+            if ($max <= 0 || $want > $max) {
+                return array(
+                    'ok'      => false,
+                    'message' => 'Your cart contains an item that is out of stock or no longer available in the requested quantity. Please return to the cart and update it before checkout.',
+                );
+            }
+        }
+        return array('ok' => true, 'message' => '');
     }
 
     protected function post_int($data, $key, $default = 0)

@@ -16,6 +16,12 @@ foreach ($cart_items as $item) {
 
 <div class="cart-container">
     <h2 class="cart-title">Your Shopping Cart</h2>
+    <?php
+    $cart_page_error = $this->session->flashdata('error');
+    if (!empty($cart_page_error)) {
+        echo '<div class="alert alert-danger" role="alert" style="margin-bottom:16px">' . htmlspecialchars((string) $cart_page_error, ENT_QUOTES, 'UTF-8') . '</div>';
+    }
+    ?>
     
     <?php if (empty($cart_items)): ?>
         <div class="empty-cart-message">

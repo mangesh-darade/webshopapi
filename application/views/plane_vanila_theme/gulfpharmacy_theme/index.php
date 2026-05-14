@@ -103,15 +103,17 @@ if ($bodyHtml !== '') {
 <div class="home-shell">
     <?php require_once(VIEWPATH . 'plane_vanila_theme/gulfpharmacy_theme/header.php'); ?>
 
+    <?php if (trim((string) $banner_image) !== ''): ?>
+    <section class="hero" aria-label="<?= htmlspecialchars('Promotional banner', ENT_QUOTES, 'UTF-8') ?>">
+        <div class="hero-inner">
+            <?php $bSrc = (strpos($banner_image, 'http') === 0) ? $banner_image : webshop_media_src($uploads, $banner_image); ?>
+            <img src="<?= htmlspecialchars($bSrc, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8') ?>" decoding="async" fetchpriority="high">
+        </div>
+    </section>
+    <?php endif; ?>
+
     <main class="home-container">
         <?php if ($flashMsg): ?><div class="home-flash"><?= htmlspecialchars($flashMsg, ENT_QUOTES, 'UTF-8') ?></div><?php endif; ?>
-
-        <?php if (trim((string) $banner_image) !== ''): ?>
-        <section class="hero" aria-label="<?= htmlspecialchars('Promotional banner', ENT_QUOTES, 'UTF-8') ?>">
-            <?php $bSrc = (strpos($banner_image, 'http') === 0) ? $banner_image : webshop_media_src($uploads, $banner_image); ?>
-            <img src="<?= htmlspecialchars($bSrc, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8') ?>">
-        </section>
-        <?php endif; ?>
 
         <?php
         $cmsSlug = isset($dynamic_cms_slug) ? trim((string) $dynamic_cms_slug) : '';

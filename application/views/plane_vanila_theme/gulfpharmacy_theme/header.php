@@ -32,6 +32,8 @@ if ($ws_sess) {
 }
 $user_first_name = $user_name !== '' ? trim((string) strtok($user_name, ' ')) : '';
 ?>
+<link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css">
+<link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header-drawers.css">
 <header class="gp-header" id="gp-header">
     <div class="gp-header-inner container">
         <!-- Logo -->
@@ -248,8 +250,7 @@ $user_first_name = $user_name !== '' ? trim((string) strtok($user_name, ' ')) : 
     </div>
 </aside>
 
-<link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css">
-<link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header-drawers.css">
+
 <script>window.GP_HEADER_CTX=<?= json_encode(array(
     'webshop_url'     => $webshop_url,
     'is_login'        => (bool) $is_login,

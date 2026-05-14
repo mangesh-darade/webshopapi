@@ -91,6 +91,15 @@ class Webshop_api_model extends CI_Model {
         ));
     }
 
+    /**
+     * Bump when category session cache payload shape or merge rules change so old session blobs are ignored.
+     *
+     * @return int
+     */
+    protected function _categories_session_cache_version() {
+        return 2;
+    }
+
     protected function _store_categories_session_cache(array $tree, $ttl_seconds) {
         if ($ttl_seconds <= 0) {
             return;
@@ -106,6 +115,7 @@ class Webshop_api_model extends CI_Model {
         $CI->session->set_userdata('elintom_cache_categories', array(
             'exp' => time() + $ttl_seconds,
             'ser' => $ser,
+            'ver' => $this->_categories_session_cache_version(),
         ));
     }
 
@@ -964,12 +974,13 @@ class Webshop_api_model extends CI_Model {
         if ($this->_categories_cache !== null) {
             return $this->_categories_cache;
         }
-        $cat_ttl = $this->_elintom_http_cache_ttl('elintom_http_cache_categories_seconds', 120);
+        $cat_ttl = $this->_elintom_http_cache_ttl('elintom_http_cache_categories_seconds', 0);
         if ($cat_ttl > 0 && $this->use_elintom_api_catalogue()) {
             $CI = get_instance();
             if (isset($CI->session)) {
                 $row = $CI->session->userdata('elintom_cache_categories');
-                if (is_array($row) && isset($row['exp'], $row['ser']) && (int) $row['exp'] > time()) {
+                $verOk = is_array($row) && isset($row['ver']) && (int) $row['ver'] === $this->_categories_session_cache_version();
+                if ($verOk && isset($row['exp'], $row['ser']) && (int) $row['exp'] > time()) {
                     $tree = @unserialize($row['ser']);
                     if (is_array($tree)) {
                         $this->_categories_cache = $tree;
@@ -2032,8 +2043,50 @@ class Webshop_api_model extends CI_Model {
     }
 
     /**
+     * Build option_id => sellable qty from common API variant shapes (used for cart/checkout stock checks).
+     *
+     * @param array $raw merged product row
+     * @return array<int,float>
+     */
+    protected function _extract_variant_stock_map(array $raw) {
+        $map = array();
+        foreach (array('variants', 'product_variants', 'options', 'product_options') as $vk) {
+            if (empty($raw[$vk]) || !is_array($raw[$vk])) {
+                continue;
+            }
+            foreach ($raw[$vk] as $idx => $vkrow) {
+                $r = is_array($vkrow) ? $vkrow : (is_object($vkrow) ? (array) $vkrow : array());
+                $oid = 0;
+                foreach (array('id', 'variant_id', 'option_id', 'product_option_id') as $ok) {
+                    if (!empty($r[$ok]) && is_numeric($r[$ok])) {
+                        $oid = (int) $r[$ok];
+                        break;
+                    }
+                }
+                if ($oid < 1 && is_numeric($idx)) {
+                    $oid = (int) $idx;
+                }
+                if ($oid < 1) {
+                    continue;
+                }
+                $q = null;
+                foreach (array('quantity', 'qty', 'stock', 'available_qty') as $qk) {
+                    if (array_key_exists($qk, $r) && $r[$qk] !== '' && $r[$qk] !== null && is_numeric($r[$qk])) {
+                        $q = max(0.0, (float) $r[$qk]);
+                        break;
+                    }
+                }
+                if ($q !== null) {
+                    $map[$oid] = $q;
+                }
+            }
+        }
+        return $map;
+    }
+
+    /**
      * Flatten a normalised product array into the flat key names submit_order expects
-     * (code, name, sale_unit_id, mrp, tax_id, tax_method, product_type, price, …).
+     * (code, name, sale_unit_id, mrp, tax_id, tax_method, product_type, price, quantity, …).
      *
      * @param  array $a  Normalised product row from the API
      * @return array     Flat product row
@@ -2041,7 +2094,21 @@ class Webshop_api_model extends CI_Model {
     protected function _flatten_product_for_order(array $a) {
         // API normalizer may nest the original data under 'raw' or return it flat.
         $raw = (isset($a['raw']) && is_array($a['raw'])) ? array_merge($a, $a['raw']) : $a;
-        return array(
+        $this->load->helper('webshop');
+        $parentQty = function_exists('webshop_row_numeric_stock')
+            ? webshop_row_numeric_stock($raw)
+            : null;
+        $variantStock = $this->_extract_variant_stock_map($raw);
+        if ($parentQty === null && !empty($variantStock)) {
+            $parentQty = (float) array_sum($variantStock);
+        }
+        $taxRateFlat = null;
+        if (isset($raw['tax_rate']) && $raw['tax_rate'] !== '' && is_numeric($raw['tax_rate'])) {
+            $taxRateFlat = (float) $raw['tax_rate'];
+        } elseif (isset($a['tax_rate']) && $a['tax_rate'] !== '' && is_numeric($a['tax_rate'])) {
+            $taxRateFlat = (float) $a['tax_rate'];
+        }
+        $out = array(
             'id'           => isset($raw['id'])           ? $raw['id']          : (isset($a['id'])           ? $a['id']          : 0),
             'code'         => isset($raw['code'])         ? $raw['code']        : (isset($a['code'])         ? $a['code']        : ''),
             'article_code' => isset($raw['article_code']) ? $raw['article_code'] : '',
@@ -2058,6 +2125,16 @@ class Webshop_api_model extends CI_Model {
             'weight'       => isset($raw['weight'])       ? $raw['weight']      : 0,
             'storage_type' => isset($raw['storage_type']) ? $raw['storage_type'] : '',
         );
+        if ($taxRateFlat !== null) {
+            $out['tax_rate'] = $taxRateFlat;
+        }
+        if ($parentQty !== null) {
+            $out['quantity'] = max(0.0, (float) $parentQty);
+        }
+        if (!empty($variantStock)) {
+            $out['variant_stock'] = $variantStock;
+        }
+        return $out;
     }
 
     /**
@@ -2111,10 +2188,55 @@ class Webshop_api_model extends CI_Model {
         return $this->_fallback_webshop_model()->add_order($order, $items);
     }
 
+    /**
+     * Best-effort WhatsApp order confirmation via ElintOm (DB-less / API order mode).
+     *
+     * @param int    $order_id
+     * @param string $flag     Template flag for Whatsapp_model (default 'true')
+     */
+    public function notify_order_placed_whatsapp_remote($order_id, $flag = 'true') {
+        if (!$this->uses_elintom_api_for_orders()) {
+            return null;
+        }
+        $order_id = (int) $order_id;
+        if ($order_id < 1) {
+            return null;
+        }
+        try {
+            return $this->api->notify_webshop_order_whatsapp($order_id, $flag);
+        } catch (Exception $e) {
+            log_message('error', 'Webshop_api_model::notify_order_placed_whatsapp_remote: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Best-effort order confirmation email via ElintOm (DB-less / API order mode).
+     *
+     * @param int $order_id
+     * @return mixed null on skip, array on response
+     */
+    public function notify_order_placed_email_remote($order_id) {
+        if (!$this->uses_elintom_api_for_orders()) {
+            return null;
+        }
+        $order_id = (int) $order_id;
+        if ($order_id < 1) {
+            return null;
+        }
+        try {
+            return $this->api->notify_webshop_order_email($order_id);
+        } catch (Exception $e) {
+            log_message('error', 'Webshop_api_model::notify_order_placed_email_remote: ' . $e->getMessage());
+            return null;
+        }
+    }
+
     /** True when orders/payments must go through ElintOm HTTP API (no local POS DB). */
     public function uses_elintom_api_for_orders() {
         return $this->api_mode || !$this->has_local_db();
     }
+
 
     /**
      * Tell ElintOm to record a successful CCAvenue payment (mirrors Webshop_model::CcavenuePayAfterSale there).

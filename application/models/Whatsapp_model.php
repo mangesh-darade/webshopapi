@@ -6,7 +6,23 @@ class Whatsapp_model extends CI_Model {
     // Cheerio API config
     private $cheerio_templete_url = 'https://pre-prod.cheerio.in/direct-apis/v1/whatsapp/template/send';
     private $cheerio_direct_url = 'https://pre-prod.cheerio.in/direct-apis/v1/whatsapp/direct/send';
-    private $cheerio_token = '4ea57614e974b97e724d97a95866a1dd23304f7c524a0f9c3fd9a0b31a8716e6';
+
+    /**
+     * Cheerio x-api-key from sma_settings.whatsapp_api_key (Settings or site model).
+     */
+    private function cheerio_api_key() {
+        $ci = get_instance();
+        if (isset($ci->Settings) && is_object($ci->Settings) && !empty($ci->Settings->whatsapp_api_key)) {
+            return trim((string) $ci->Settings->whatsapp_api_key);
+        }
+        if (isset($ci->site)) {
+            $s = $ci->site->get_setting();
+            if ($s && !empty($s->whatsapp_api_key)) {
+                return trim((string) $s->whatsapp_api_key);
+            }
+        }
+        return '';
+    }
 
     public function send_cheerio_templete($phone, $template_name, $params = [], $order_id = null, $type = null) {
         // Format template parameters
@@ -182,6 +198,16 @@ class Whatsapp_model extends CI_Model {
      * Generic cURL POST request to Cheerio API
      */
     private function _make_curl_request($type, $payload,$order_id) {
+        $api_key = $this->cheerio_api_key();
+        if ($api_key === '') {
+            log_message('error', 'Whatsapp_model: whatsapp_api_key is empty; Cheerio request skipped.');
+            return [
+                'status' => 'error',
+                'message' => 'WhatsApp API key not configured',
+                'http_code' => 0,
+                'order_id' => $order_id,
+            ];
+        }
         if ($type == 'templete') {
             $url = $this->cheerio_templete_url;
         } else {
@@ -192,7 +218,7 @@ class Whatsapp_model extends CI_Model {
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'Content-Type: application/json',
-            'x-api-key: '. $this->cheerio_token
+            'x-api-key: '. $api_key
             //'Authorization: Bearer ' . $this->cheerio_token
         ]);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -211,12 +237,15 @@ class Whatsapp_model extends CI_Model {
         }
 
         return [
-            'status' => $http_code === 200 ? 'success' : 'error',
+            'status' => ($http_code >= 200 && $http_code < 300) ? 'success' : 'error',
             'http_code' => $http_code,
             'response' => json_decode($response, true)
         ];
     }
     public function create_customer($order,$phone){
+        if ($this->cheerio_api_key() === '') {
+            return false;
+        }
         $apiUrl = 'https://pre-prod.cheerio.in/direct-apis/v1/contacts/uploadSingleContact';
         $postData = array(
             'name' => $order->customer,
@@ -233,7 +262,7 @@ class Whatsapp_model extends CI_Model {
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, array(
             'Content-Type: application/json',
-            'x-api-key: ' . $this->cheerio_token
+            'x-api-key: ' . $this->cheerio_api_key()
         ));
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($postData));
 

@@ -101,9 +101,18 @@ class Webshop extends MY_Controller
         $this->data['restaurant_is_active'] = $this->webshop_model->restaurantWorking();
         $this->dynamicRenderProbe = (bool) $this->config->item('webshop_dynamic_render_probe', 'elintom_api');
 
+        $this->data['website_setting'] = $this->webshop_model->get_website_setting();
+        $setting_map = [];
+        if (is_array($this->data['website_setting']) || is_object($this->data['website_setting'])) {
+            foreach ($this->data['website_setting'] as $row) {
+                $setting_map[$row->fields] = $row->value;
+            }
+        }
+        $this->data['setting_map'] = $setting_map;
+        $this->data['api_website_setting_sections'] = $this->api_website_setting_sections;
+
         if ($this->webshop_settings->webshop_theme == 'nw' || $this->webshop_settings->webshop_theme == 'gulfpharmacy') {
             $this->data['about_us'] = $this->webshop_model->about_usdata($page_key = 'aboutus');
-            $this->data['website_setting'] = $this->webshop_model->get_website_setting();
         }
         // $this->data['custom_pages'] = $this->webshop_model->get_custom_pages();
     }
@@ -3090,7 +3099,9 @@ XSL;
                         ));
 
                         try {
-                            if (isset($this->db) && isset($order['billing_address_id']) && $order['billing_address_id']) {
+                            if ($this->webshop_api_model->uses_elintom_api_for_orders()) {
+                                $this->webshop_api_model->notify_order_placed_whatsapp_remote((int) $order_id, 'true');
+                            } elseif (isset($this->db) && isset($order['billing_address_id']) && $order['billing_address_id']) {
                                 $wa_customer = $this->getShippingAddress($order['billing_address_id']);
                                 if (is_object($wa_customer) && !empty($wa_customer->phone)) {
                                     $country_code = $this->getcountryCode($wa_customer->country);
@@ -3101,7 +3112,16 @@ XSL;
                             log_message('error', 'WhatsApp notify failed for order ' . $order_id . ': ' . $e->getMessage());
                         }
 
+                        try {
+                            if ($this->webshop_api_model->uses_elintom_api_for_orders()) {
+                                $this->webshop_api_model->notify_order_placed_email_remote((int) $order_id);
+                            }
+                        } catch (\Throwable $e) {
+                            log_message('error', 'Email notify failed for order ' . $order_id . ': ' . $e->getMessage());
+                        }
+
                         redirect("webshop/order_success?order=$order_id&customer=$customer_id");
+
                         return;
                     }
 
@@ -3592,6 +3612,14 @@ XSL;
                 $this->webshop_api_model->record_ccavenue_payment_remote($responseMap);
             } else {
                 $this->webshop_model->CcavenuePayAfterSale($responseMap);
+            }
+            $oid_for_wa = isset($responseMap['order_id']) ? trim((string) $responseMap['order_id']) : '';
+            if ($oid_for_wa !== '' && ctype_digit($oid_for_wa)) {
+                try {
+                    $this->webshop_api_model->notify_order_placed_whatsapp_remote((int) $oid_for_wa, 'true');
+                } catch (\Throwable $e) {
+                    log_message('error', 'WhatsApp notify after CCAvenue failed for order ' . $oid_for_wa . ': ' . $e->getMessage());
+                }
             }
             $success_payload = array('payment_gateway_response' => $responseMap);
             $oid_ok = isset($responseMap['order_id']) ? trim((string) $responseMap['order_id']) : '';
@@ -5764,9 +5792,40 @@ XSL;
             redirect('webshop/index');
         }
 
+        // Fetch country phone code via API (DB-less compliant)
+        $default_country = isset($this->Settings->country) ? $this->Settings->country : 'Oman';
+        $phone_code = '968'; // Global default for Gulf Pharmacy (Oman)
+        
+        try {
+            $countries_res = $this->webshop_api_model->get_api_client()->get_countries();
+            if ($countries_res && isset($countries_res->status) && strtoupper((string)$countries_res->status) === 'SUCCESS' && isset($countries_res->countries)) {
+                $countries = is_array($countries_res->countries) ? $countries_res->countries : (array)$countries_res->countries;
+                foreach ($countries as $c) {
+                    $c_arr = is_object($c) ? (array)$c : (is_array($c) ? $c : array());
+                    $c_name = isset($c_arr['country_name']) ? (string)$c_arr['country_name'] : (isset($c_arr['name']) ? (string)$c_arr['name'] : '');
+                    if (strcasecmp($c_name, $default_country) === 0) {
+                        $p_code = isset($c_arr['phone_code']) ? (string)$c_arr['phone_code'] : '';
+                        if ($p_code !== '') {
+                            $phone_code = str_replace('+', '', $p_code);
+                        }
+                        break;
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            log_message('error', 'forgot_password: get_countries API failed: ' . $e->getMessage());
+        }
+        $this->data['phone_code'] = $phone_code;
+
         // ── Step 1: deliver OTP ────────────────────────────────────────
         if ($this->input->post('send_otp') !== false && $this->input->post('send_otp') !== null) {
             $mobile = $this->_normalize_mobile($this->input->post('mobile'));
+            
+            // Auto-prefix phone code if user entered local 8-digit number (Oman context)
+            if (strlen($mobile) === 8 && substr($mobile, 0, strlen($phone_code)) !== $phone_code) {
+                $mobile = $phone_code . $mobile;
+            }
+
             if ($mobile === '' || !$this->_is_valid_mobile($mobile)) {
                 $this->session->set_flashdata('error', 'Please enter a valid mobile number (10-15 digits).');
                 $this->session->set_flashdata('error_field', 'mobile');
@@ -5954,10 +6013,140 @@ XSL;
     private function _normalize_mobile($raw)
     {
         $s = trim((string) $raw);
-        // Allow a leading + but strip everything else non-numeric (spaces, dashes, brackets).
+        if ($s === '') return '';
+        
         $hasPlus = (strpos($s, '+') === 0);
         $digits = preg_replace('/\D/', '', $s);
-        return $hasPlus ? ('+' . $digits) : $digits;
+        
+        // If it already has a plus or is very long (already has code), return as is
+        if ($hasPlus || strlen($digits) > 10) {
+            return $hasPlus ? ('+' . $digits) : $digits;
+        }
+
+        // Prepend country code from settings if missing
+        $phone_code = $this->_get_cached_phone_code();
+        if ($phone_code && strpos($digits, $phone_code) !== 0) {
+            $digits = $phone_code . $digits;
+        }
+
+        return $digits;
+    }
+
+    private function _get_cached_phone_code() {
+        if (isset($this->_memo_phone_code)) return $this->_memo_phone_code;
+        
+        $default_country = isset($this->Settings->country) ? (string)$this->Settings->country : 'Oman';
+        $phone_code = '968'; // Default fallback
+        
+        try {
+            $countries_res = $this->webshop_api_model->get_api_client()->get_countries();
+            if ($countries_res && isset($countries_res->status) && strtoupper((string)$countries_res->status) === 'SUCCESS' && isset($countries_res->countries)) {
+                $countries = is_array($countries_res->countries) ? $countries_res->countries : (array)$countries_res->countries;
+                foreach ($countries as $c) {
+                    $c_arr = is_object($c) ? (array)$c : (is_array($c) ? $c : array());
+                    $c_name = isset($c_arr['country_name']) ? (string)$c_arr['country_name'] : (isset($c_arr['name']) ? (string)$c_arr['name'] : '');
+                    if (strcasecmp($c_name, $default_country) === 0) {
+                        $p_code = isset($c_arr['phone_code']) ? (string)$c_arr['phone_code'] : '';
+                        if ($p_code !== '') {
+                            $phone_code = str_replace('+', '', $p_code);
+                        }
+                        break;
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            log_message('error', 'Webshop::_get_cached_phone_code: ' . $e->getMessage());
+        }
+        
+        $this->_memo_phone_code = $phone_code;
+        return $phone_code;
+    }
+
+    /**
+     * AJAX: Check if mobile exists (used by Restaurant theme modals)
+     */
+    public function check_mobile() {
+        $mobile = $this->_normalize_mobile($this->input->post('mobile'));
+        if ($mobile === '') {
+            echo json_encode(array('status' => 'error', 'msg' => 'Invalid mobile'));
+            return;
+        }
+        
+        try {
+            $customer = $this->webshop_api_model->get_customer(array('phone' => $mobile));
+            if ($customer) {
+                echo json_encode(array('status' => 'success', 'mobile' => $mobile));
+            } else {
+                echo json_encode(array('status' => 'error', 'msg' => 'Not found'));
+            }
+        } catch (Exception $e) {
+            echo json_encode(array('status' => 'error', 'msg' => $e->getMessage()));
+        }
+    }
+
+    /**
+     * AJAX: Send WhatsApp OTP (used by Restaurant theme modals)
+     */
+    public function send_whatsapp_otp() {
+        $this->load->model('webshop_api_model');
+        
+        try {
+            $mobile = $this->_normalize_mobile($this->input->post('MobileNo'));
+            if ($mobile === '') {
+                echo json_encode(array('status' => 'error', 'msg' => 'Please enter a valid mobile number.'));
+                return;
+            }
+
+            $otp = $this->_generate_numeric_otp(6);
+            
+            // Store in session for verification later
+            $this->session->set_userdata('forgot_password_otp_data', array(
+                'mobile'     => $mobile,
+                'otp'        => $otp,
+                'expires_at' => time() + 600, // 10 minutes
+                'attempts'   => 0,
+            ));
+
+            $res = $this->webshop_api_model->send_password_otp($mobile, $otp);
+            
+            if ($res && isset($res['status']) && strtoupper((string)$res['status']) === 'SUCCESS') {
+                echo json_encode(array(
+                    'status' => 'success', 
+                    'OTP'    => $otp, 
+                    'msg'    => isset($res['msg']) ? $res['msg'] : 'OTP sent successfully.'
+                ));
+            } else {
+                $err = isset($res['msg']) ? $res['msg'] : 'The messaging service returned an unknown error.';
+                echo json_encode(array('status' => 'error', 'msg' => $err));
+            }
+        } catch (Exception $e) {
+            log_message('error', 'send_whatsapp_otp: ' . $e->getMessage());
+            echo json_encode(array('status' => 'error', 'msg' => 'Internal Error: ' . $e->getMessage()));
+        }
+    }
+
+    /**
+     * AJAX: Login (used by Restaurant theme modals)
+     */
+    public function ajax_login() {
+        $mobile = $this->_normalize_mobile($this->input->post('mobile'));
+        $password = $this->input->post('password');
+        
+        $res = $this->webshop_api_model->login_customer($mobile, $password);
+        if ($res && isset($res->status) && strtoupper($res->status) === 'SUCCESS') {
+            // Set session etc. (usually handled in a separate private method)
+            $this->_handle_login_success($res); 
+            echo json_encode(array('status' => 'success', 'redirect' => base_url('webshop/index')));
+        } else {
+            echo json_encode(array('status' => 'error', 'msg' => 'Invalid credentials'));
+        }
+    }
+
+    /**
+     * AJAX: Check if password was used before (used by Restaurant theme modals)
+     */
+    public function check_existing_password() {
+        echo json_encode(array('exists' => false)); // Stub for UI compatibility
     }
 
     private function _is_valid_mobile($mobile)
@@ -6078,6 +6267,13 @@ XSL;
 
                     $res = $this->webshop_model->instomojoEshopAfterSale($paymentDetail, $order_id);
                     if ($res):
+                        if ($this->webshop_api_model->uses_elintom_api_for_orders() && ctype_digit((string) $order_id)) {
+                            try {
+                                $this->webshop_api_model->notify_order_placed_whatsapp_remote((int) $order_id, 'true');
+                            } catch (\Throwable $e) {
+                                log_message('error', 'WhatsApp notify after Instamojo failed: ' . $e->getMessage());
+                            }
+                        }
                         $this->data['sale'] = $this->webshop_model->get_order_by_id($order_id);
                         $this->data['success'] = 'Payment done successfully';
  
@@ -6265,6 +6461,13 @@ XSL;
 
                 $res = $this->webshop_model->PaytmAfterSale($responseParamList, $sid);
                 if ($res):
+                    if ($this->webshop_api_model->uses_elintom_api_for_orders() && ctype_digit((string) $sid)) {
+                        try {
+                            $this->webshop_api_model->notify_order_placed_whatsapp_remote((int) $sid, 'true');
+                        } catch (\Throwable $e) {
+                            log_message('error', 'WhatsApp notify after Paytm failed: ' . $e->getMessage());
+                        }
+                    }
                     $this->session->set_flashdata('message', lang('payment_done'));
                     unset($_SESSION['cart']);
                     redirect("webshop/order_success?order=$sid");
@@ -6448,6 +6651,13 @@ XSL;
             $res = $this->webshop_model->RazorPayAfterSale($attributes, $sid);
 
             if ($res):
+                if ($this->webshop_api_model->uses_elintom_api_for_orders() && ctype_digit((string) $sid)) {
+                    try {
+                        $this->webshop_api_model->notify_order_placed_whatsapp_remote((int) $sid, 'true');
+                    } catch (\Throwable $e) {
+                        log_message('error', 'WhatsApp notify after Razorpay failed: ' . $e->getMessage());
+                    }
+                }
                 $this->session->set_flashdata('message', lang('payment_done'));
                 unset($_SESSION['cart']);
                 redirect("webshop/order_success?order=$sid");
@@ -7007,107 +7217,7 @@ XSL;
             return;
         }
     }
-    /////////////////////////////////////// User login and Registration /////////////////////////////////////////////
-    public function check_mobile()
-    {
-        $mobile = $this->input->post('mobile');
-        $exists = $this->webshop_model->authenticate_user_mobile($mobile);
-        if ($exists) {
-            $this->json_response(['status' => 'success', 'exists' => $exists, 'mobile' => $mobile]);
-        } else {
-            $this->json_response(['status' => 'error', 'exists' => $exists]);
-        }
-    }
-    public function ajax_login()
-    {
-        $mobile = $this->input->post('mobile');
-        $password = (string) $this->input->post('password');
-        $authData = $this->webshop_model->authenticate_user_password($mobile, $password);
-
-        if (!empty($authData)) {
-            $authData->user_id = $authData->id;
-            $authData->is_login = TRUE;
-            $this->session->webshop = $authData;
-
-            $name_parts = explode(' ', trim($authData->name), 2);
-            $first_name = $name_parts[0];
-            $last_name = isset($name_parts[1]) ? $name_parts[1] : '';
-            $register_session_data = array(
-                'user_id' => $authData->id,
-                'first' => $first_name,
-                'last' => $last_name,
-                'email' => $authData->email,
-                'phone' => $authData->phone,
-            );
-            $this->session->set_userdata('customer_register', $register_session_data);
-
-            if (isset($_SESSION['cart']) && !empty($_SESSION['cart'])) {
-                $this->session->cart = $_SESSION['cart'];
-                $redirect_url = site_url('webshop/checkout');
-            } else {
-                unset($_SESSION['cart']);
-                $redirect_url = site_url('webshop/index');
-            }
-
-            $this->json_response([
-                'status' => 'success',
-                'redirect' => $redirect_url,
-            ]);
-        } else {
-            $this->json_response([
-                'status' => 'error',
-                'message' => 'Invalid login credentials',
-            ]);
-        }
-    }
-    public function clear_phone_error()
-    {
-        $phone = $this->input->post('phone');
-        if (empty($phone)) {
-            $this->session->unset_userdata('phone_error');
-            $this->json_response([
-                'status' => 'success',
-            ]);
-        } else {
-            $this->json_response([
-                'status' => 'error',
-            ]);
-        }
-    }
-    public function check_existing_password()
-    {
-        $mobile = $this->input->post('mobile');
-        $password = md5($this->input->post('password'));
-        $exists = $this->webshop_model->authenticate_user_mobile($mobile, $password);
-        if ($exists && $exists->password === $password) {
-            $this->json_response(['exists' => true]);
-        } else {
-            $this->json_response(['exists' => false]);
-        }
-    }
-    ///////////////////////////////////// Send Whatsapp OTP ////////////////////////////////////////
-    public function send_whatsapp_otp()
-    {
-        // Accept MobileNo from POST data
-        $MobileNo = $this->input->post('MobileNo', true);
-        // You can also fetch the token if needed: $token = $this->input->post('token', true);
-        if (!$MobileNo) {
-            $this->json_response(['status' => 'error', 'message' => 'Mobile number is required']);
-            return;
-        }
-        // Generate OTP
-        $OTP = rand(100000, 999999);
-        // Build URL for OTP verification endpoint that exists in receipt controller.
-        $urlpass = site_url('receipt/verify_mobile?code=' . $OTP . '&phone=' . urlencode($MobileNo));
-
-        $response = [
-            'success' => true,
-            'OTP' => $OTP,
-            'url' => $urlpass
-        ];
-
-        $this->json_response($response);
-    }
+    ///////////////////////////////////// Contact Submission ////////////////////////////////////////
 
     public function submit_contact()
     {

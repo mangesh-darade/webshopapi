@@ -82,7 +82,7 @@ class Elintom_api_response {
                     return $r->categories;
                 }
                 if (isset($r->main) && is_array($r->main)) {
-                    return $r->main;
+                    return $r;
                 }
                 if (isset($r->items)) {
                     return $r->items;
@@ -94,7 +94,7 @@ class Elintom_api_response {
                     return $r['categories'];
                 }
                 if (isset($r['main']) && is_array($r['main'])) {
-                    return $r['main'];
+                    return $r;
                 }
                 if ($this->is_list_array($r)) {
                     return $r;
@@ -154,6 +154,83 @@ class Elintom_api_response {
     }
 
     /**
+     * True when category row should appear on the storefront (matches Webshop_model::get_categories() filters).
+     * If in_eshop / is_active are absent, the row is kept for backward compatibility with older payloads.
+     *
+     * @param object $obj
+     * @return bool
+     */
+    private function category_row_visible_for_webshop($obj) {
+        if (isset($obj->in_eshop) && (int) $obj->in_eshop !== 1) {
+            return false;
+        }
+        if (isset($obj->is_active) && (int) $obj->is_active !== 1) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Flatten category rows from main, parent-id buckets, or a legacy list.
+     *
+     * @param array $categoriesRaw
+     * @return array
+     */
+    private function collect_category_rows_for_normalization(array $categoriesRaw) {
+        $rows = array();
+        $seen = array();
+
+        $push = function ($row) use (&$rows, &$seen) {
+            if (!is_array($row) && !is_object($row)) {
+                return;
+            }
+            $probe = is_object($row) ? $row : (object) $row;
+            $this->coerce_category_id_on_object($probe);
+            if (!isset($probe->id) || $probe->id === '' || $probe->id === null) {
+                return;
+            }
+            $k = is_numeric($probe->id) ? (string) (int) $probe->id : (string) $probe->id;
+            if (isset($seen[$k])) {
+                return;
+            }
+            $seen[$k] = true;
+            $rows[] = $row;
+        };
+
+        if ($this->is_list_array($categoriesRaw)) {
+            foreach ($categoriesRaw as $row) {
+                $push($row);
+            }
+            return $rows;
+        }
+
+        if (isset($categoriesRaw['main']) && is_array($categoriesRaw['main'])) {
+            foreach ($categoriesRaw['main'] as $row) {
+                $push($row);
+            }
+        }
+
+        foreach ($categoriesRaw as $k => $v) {
+            if ($k === 'main' || $k === 'status' || $k === 'message') {
+                continue;
+            }
+            if (!is_array($v) && !is_object($v)) {
+                continue;
+            }
+            $isParentBucket = is_int($k) || (is_string($k) && ctype_digit($k));
+            if (!$isParentBucket) {
+                continue;
+            }
+            $inner = is_object($v) ? (array) $v : $v;
+            foreach ($inner as $row) {
+                $push($row);
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
      * Build the same tree shape as Webshop_model::get_categories(): main + parent_id buckets.
      *
      * @param mixed $categoriesRaw API categories payload (object/array/list)
@@ -171,27 +248,16 @@ class Elintom_api_response {
             return $data;
         }
 
-        $rows = array();
-        if (isset($categoriesRaw['main']) && is_array($categoriesRaw['main'])) {
-            $rows = $categoriesRaw['main'];
-        } elseif ($this->is_list_array($categoriesRaw)) {
-            $rows = $categoriesRaw;
-        } else {
-            foreach ($categoriesRaw as $k => $v) {
-                if ($k === 'main' || $k === 'status' || $k === 'message') {
-                    continue;
-                }
-                if (is_array($v) || is_object($v)) {
-                    $rows[] = $v;
-                }
-            }
-        }
+        $rows = $this->collect_category_rows_for_normalization($categoriesRaw);
 
         foreach ($rows as $row) {
             $obj = is_object($row) ? $row : (object) $row;
             $this->coerce_category_id_on_object($obj);
             $this->coerce_category_image_on_object($obj);
             if (!isset($obj->id) || $obj->id === '' || $obj->id === null) {
+                continue;
+            }
+            if (!$this->category_row_visible_for_webshop($obj)) {
                 continue;
             }
             $parent_id = isset($obj->parent_id) ? (int) $obj->parent_id : 0;
@@ -212,14 +278,34 @@ class Elintom_api_response {
             }
         }
 
-        // If every row was bucketed under parent ids, `main` stays empty and the home "Shop by Category"
-        // grid has nothing to loop. Re-list all valid rows in `main` as a flat storefront list.
+        foreach (array_keys($data) as $pk) {
+            if ($pk === 'main') {
+                continue;
+            }
+            if (!is_int($pk) && !(is_string($pk) && ctype_digit((string) $pk))) {
+                unset($data[$pk]);
+                continue;
+            }
+            $pid = (int) $pk;
+            if (!isset($data['main'][$pid])) {
+                unset($data[$pk]);
+            }
+        }
+
+        // Only true parent rows (parent_id === 0) belong in `main`; never promote subcategories.
         if (empty($data['main']) && !empty($rows)) {
             foreach ($rows as $row) {
                 $obj = is_object($row) ? $row : (object) $row;
                 $this->coerce_category_id_on_object($obj);
                 $this->coerce_category_image_on_object($obj);
                 if (!isset($obj->id) || $obj->id === '' || $obj->id === null) {
+                    continue;
+                }
+                if (!$this->category_row_visible_for_webshop($obj)) {
+                    continue;
+                }
+                $parent_id = isset($obj->parent_id) ? (int) $obj->parent_id : 0;
+                if ($parent_id !== 0) {
                     continue;
                 }
                 if (!isset($obj->categoryActive)) {

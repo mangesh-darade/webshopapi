@@ -72,17 +72,52 @@
                                                         <li><span class="text-primary text-medium">3. </span>Use the code to reset your password</li>
                                                     </ol>
                                                 </div>
-                                                <form class="card mt-4">
-                                                    <div class="card-body mb-2">
-                                                        <div class="form-group "> <label class="mb-2" for="email-for-pass">Enter your email or mobile</label> 
-                                                        <input class="form-control mb-2" type="text" id="email-for-pass" required="">
-                                                        <small class="form-text text-muted">Enter the email address or mobile number you used during the registration.</small> </div>
-                                                    </div>
-                                                    <div class="card-footer d-flex justify-content-between align-items-center p-3"> 
-                                                        <button name="reset_paword" class="woocommerce-Button button" type="submit">Reset Password</button> 
-                                                        <span class="float-right"><a href="<?=base_url("webshop/login")?>" class="" >Back to Login</a></span> 
-                                                    </div>
-                                                </form>
+                                                <?php if(!$this->session->flashdata('otp_sent')): ?>
+                                                    <!-- Step 1: Request OTP -->
+                                                    <form class="card mt-4" method="post" action="<?= base_url('webshop/forgot_password') ?>">
+                                                        <div class="card-body mb-2">
+                                                            <div class="form-group"> 
+                                                                <label class="mb-2" for="mobile-step1">Enter your mobile number</label> 
+                                                                <div class="input-group">
+                                                                    <span class="input-group-text" id="basic-addon1">+<?= $phone_code ?></span>
+                                                                    <input class="form-control <?= ($this->session->flashdata('error_field') === 'mobile') ? 'is-invalid' : '' ?>" type="text" name="mobile" id="mobile-step1" required="" placeholder="Enter mobile number" value="<?= $this->session->flashdata('forgot_mobile') ?>">
+                                                                </div>
+                                                                <small class="form-text text-muted">A 6-digit OTP will be sent to this number.</small> 
+                                                            </div>
+                                                        </div>
+                                                        <div class="card-footer d-flex justify-content-between align-items-center p-3"> 
+                                                            <button name="send_otp" value="1" class="woocommerce-Button button" type="submit">Send OTP</button> 
+                                                            <span class="float-right"><a href="<?=base_url("webshop/login")?>" class="" >Back to Login</a></span> 
+                                                        </div>
+                                                    </form>
+                                                <?php else: ?>
+                                                    <!-- Step 2: Verify OTP & Reset Password -->
+                                                    <form class="card mt-4" method="post" action="<?= base_url('webshop/forgot_password') ?>">
+                                                        <div class="card-body mb-2">
+                                                            <input type="hidden" name="mobile" value="<?= $this->session->flashdata('forgot_mobile') ?>">
+                                                            
+                                                            <div class="form-group mb-3"> 
+                                                                <label class="mb-1" for="otp">Enter 6-Digit OTP</label> 
+                                                                <input class="form-control <?= ($this->session->flashdata('error_field') === 'otp') ? 'is-invalid' : '' ?>" type="text" name="otp" id="otp" required="" placeholder="Enter OTP" maxlength="6">
+                                                                <small class="text-muted">Sent to +<?= $phone_code ?> <?= $this->session->flashdata('forgot_mobile') ?></small>
+                                                            </div>
+
+                                                            <div class="form-group mb-3"> 
+                                                                <label class="mb-1" for="new_password">New Password</label> 
+                                                                <input class="form-control <?= ($this->session->flashdata('error_field') === 'new_password') ? 'is-invalid' : '' ?>" type="password" name="new_password" id="new_password" required="" placeholder="Minimum 6 characters">
+                                                            </div>
+
+                                                            <div class="form-group mb-3"> 
+                                                                <label class="mb-1" for="confirm_password">Confirm New Password</label> 
+                                                                <input class="form-control <?= ($this->session->flashdata('error_field') === 'confirm_password') ? 'is-invalid' : '' ?>" type="password" name="confirm_password" id="confirm_password" required="" placeholder="Repeat your new password">
+                                                            </div>
+                                                        </div>
+                                                        <div class="card-footer d-flex justify-content-between align-items-center p-3"> 
+                                                            <button name="reset_password" value="1" class="woocommerce-Button button" type="submit">Update Password</button> 
+                                                            <span class="float-right"><a href="<?= base_url("webshop/forgot_password") ?>" class="text-secondary" >Change Mobile</a></span> 
+                                                        </div>
+                                                    </form>
+                                                <?php endif; ?>
                                             </div>
                                         </div>
                                     </div>
