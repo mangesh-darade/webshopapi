@@ -9,7 +9,10 @@
 .gp-cg-card{text-decoration:none;color:inherit}
 .gp-cg-card>div{background:var(--gp-bg);border:1px solid var(--gp-border);border-radius:16px;overflow:hidden;text-align:center;transition:transform .3s,box-shadow .3s,border-color .3s;display:flex;flex-direction:column}
 .gp-cg-card:hover>div{transform:translateY(-8px);box-shadow:0 20px 40px rgba(33,69,72,.1);border-color:#214548}
-.gp-cg-card img{width:100%;height:130px;object-fit:cover;transition:transform .4s;display:block}
-.gp-cg-card:hover img{transform:scale(1.06)}
-.gp-cg-no-img{height:130px;background:var(--gp-page-bg);display:flex;align-items:center;justify-content:center}
+/* Match category_carousel: square crop so images fill the frame (no top/bottom bands). */
+.gp-cg-img-wrap{width:100%;aspect-ratio:1/1;background:#f4f6f8;overflow:hidden;flex-shrink:0;border-radius:16px 16px 0 0}
+.gp-cg-card .gp-cg-img,
+.gp-cg-card .gp-cg-img-wrap img{width:100%;height:100%;object-fit:cover;object-position:center;transition:transform .4s;display:block}
+.gp-cg-card:hover .gp-cg-img-wrap img{transform:scale(1.06)}
+.gp-cg-no-img{aspect-ratio:1/1;width:100%;min-height:0;background:var(--gp-page-bg);display:flex;align-items:center;justify-content:center}
 .gp-cg-card h5{padding:14px 12px;margin:0;font-size:13px;font-weight:700;color:#214548;border-top:1px solid #f1f5f9;min-height:44px;display:flex;align-items:center;justify-content:center}
