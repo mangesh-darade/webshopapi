@@ -799,26 +799,126 @@ class Webshop_api_model extends CI_Model {
      * @param int[] $want_ids
      * @return array<int,array> id => normalized row
      */
-    protected function _legacy_fetch_products_by_numeric_ids(array $want_ids) {
-        $out = array();
-        foreach ($want_ids as $id) {
-            $pid = (int) $id;
-            if ($pid < 1) {
-                continue;
+    /**
+     * Resolve one cart/catalogue row by numeric product id (multiple API strategies).
+     *
+     * @param  int $product_id
+     * @return array Normalized product row or empty array
+     */
+    /**
+     * Bulk resolve cart/catalogue rows (one list API call when possible).
+     *
+     * @param  int[] $product_ids
+     * @return array<int,array> id => normalized row
+     */
+    public function resolve_product_rows_by_ids(array $product_ids) {
+        $want = array();
+        foreach ($product_ids as $id) {
+            $id = (int) $id;
+            if ($id > 0) {
+                $want[$id] = $id;
             }
-            $res = $this->api->get_product_by_hash(md5((string) $pid));
-            if (!$res || !$this->elintom_response->api_status_ok($res)) {
-                continue;
-            }
-            $bundle = $this->elintom_response->product_detail_bundle_from_api_response($res);
-            if ($bundle === null || !isset($bundle['item'])) {
-                continue;
-            }
-            $item = $bundle['item'];
-            $a = is_array($item) ? $item : (array) $item;
-            $out[$pid] = $this->elintom_response->normalize_product_detail_item($a);
         }
+        if ($want === array()) {
+            return array();
+        }
+
+        $out = array();
+        $id_list = implode(',', array_values($want));
+        $list = $this->get_products_list('products', $id_list, false, 0, 1);
+        if (is_array($list) && !empty($list['items']) && is_array($list['items'])) {
+            foreach ($list['items'] as $row) {
+                $a = is_array($row) ? $row : (array) $row;
+                $pid = isset($a['id']) ? (int) $a['id'] : (isset($a['product_id']) ? (int) $a['product_id'] : 0);
+                if ($pid > 0) {
+                    $out[$pid] = $this->elintom_response->normalize_product_detail_item($a);
+                }
+            }
+        }
+
+        $missing = array();
+        foreach ($want as $pid) {
+            if (!isset($out[$pid])) {
+                $missing[] = $pid;
+            }
+        }
+        if (!empty($missing)) {
+            $legacy = $this->_get_products_list_legacy_by_ids($id_list);
+            if (is_array($legacy) && !empty($legacy['items']) && is_array($legacy['items'])) {
+                foreach ($legacy['items'] as $row) {
+                    $a = is_array($row) ? $row : (array) $row;
+                    $pid = isset($a['id']) ? (int) $a['id'] : (isset($a['product_id']) ? (int) $a['product_id'] : 0);
+                    if ($pid > 0) {
+                        $out[$pid] = $this->elintom_response->normalize_product_detail_item($a);
+                    }
+                }
+            }
+        }
+
+        foreach ($want as $pid) {
+            if (isset($out[$pid])) {
+                continue;
+            }
+            $row = $this->resolve_product_row_by_id($pid);
+            if (!empty($row)) {
+                $out[$pid] = $row;
+            }
+        }
+
         return $out;
+    }
+
+    public function resolve_product_row_by_id($product_id) {
+        $pid = (int) $product_id;
+        if ($pid < 1) {
+            return array();
+        }
+
+        $list = $this->get_products_list('products', (string) $pid, false, 0, 1);
+        if (is_array($list) && !empty($list['items']) && is_array($list['items'])) {
+            foreach ($list['items'] as $row) {
+                $a = is_array($row) ? $row : (array) $row;
+                $rid = isset($a['id']) ? (int) $a['id'] : (isset($a['product_id']) ? (int) $a['product_id'] : 0);
+                if ($rid === $pid) {
+                    return $this->elintom_response->normalize_product_detail_item($a);
+                }
+            }
+            $first = $list['items'][0];
+            $a = is_array($first) ? $first : (array) $first;
+            return $this->elintom_response->normalize_product_detail_item($a);
+        }
+
+        $hash = md5((string) $pid);
+        $res = $this->api->get_product_by_hash($hash, $pid);
+        if ($res && $this->elintom_response->api_status_ok($res)) {
+            $bundle = $this->elintom_response->product_detail_bundle_from_api_response($res);
+            if (is_array($bundle) && isset($bundle['item'])) {
+                $a = is_array($bundle['item']) ? $bundle['item'] : (array) $bundle['item'];
+                if (!empty($a)) {
+                    return $this->elintom_response->normalize_product_detail_item($a);
+                }
+            }
+        }
+
+        $bundle = $this->get_product_by_hash($hash);
+        if (is_array($bundle) && isset($bundle['item'])) {
+            $a = is_array($bundle['item']) ? $bundle['item'] : (array) $bundle['item'];
+            if (!empty($a)) {
+                return $this->elintom_response->normalize_product_detail_item($a);
+            }
+        }
+
+        $flat = $this->get_product_by_id($pid);
+        if (isset($flat[$pid]) && is_array($flat[$pid]) && $flat[$pid] !== array()) {
+            $a = $flat[$pid];
+            return $this->elintom_response->normalize_product_detail_item($a);
+        }
+
+        return array();
+    }
+
+    protected function _legacy_fetch_products_by_numeric_ids(array $want_ids) {
+        return $this->resolve_product_rows_by_ids($want_ids);
     }
 
     /** Load legacy model without overwriting controller alias `$this->webshop_model` → webshop_api_model. */
@@ -922,6 +1022,74 @@ class Webshop_api_model extends CI_Model {
         if (isset($res->count) && (int) $res->count > 0 && (!isset($normalized['items_total']) || (int) $normalized['items_total'] === 0)) {
             $normalized['items_total'] = (int) $res->count;
         }
+        return $normalized;
+    }
+
+    /**
+     * Legacy api3/eshop getallproducts filtered to explicit product ids (cart enrichment).
+     *
+     * @param string|int|array $byid Comma list or array of numeric ids
+     * @return array|null Normalized list payload
+     */
+    protected function _get_products_list_legacy_by_ids($byid) {
+        $want = array();
+        if (is_array($byid)) {
+            foreach ($byid as $id) {
+                $id = (int) $id;
+                if ($id > 0) {
+                    $want[$id] = true;
+                }
+            }
+        } else {
+            foreach (preg_split('/\s*,\s*/', (string) $byid, -1, PREG_SPLIT_NO_EMPTY) as $part) {
+                $id = (int) $part;
+                if ($id > 0) {
+                    $want[$id] = true;
+                }
+            }
+        }
+        if ($want === array()) {
+            return null;
+        }
+
+        $res = $this->api->get_all_products(array(
+            'keyword'        => '',
+            'category_id'    => '',
+            'subcategory_id' => '',
+            'offset'         => '0',
+            'limit'          => '3000',
+        ));
+        if (!$res || !$this->elintom_response->api_status_ok($res)) {
+            return null;
+        }
+        $raw = $this->elintom_response->unwrap_legacy_products_payload($res);
+        if ($raw === null) {
+            return null;
+        }
+        if (is_string($raw) && $raw !== '') {
+            $decoded = json_decode($raw, true);
+            if (is_array($decoded)) {
+                $raw = $decoded;
+            }
+        }
+        $normalized = $this->elintom_response->normalize_products_list_payload($raw, 1);
+        $items = isset($normalized['items']) && is_array($normalized['items']) ? $normalized['items'] : array();
+        if (empty($items)) {
+            $items = $this->elintom_response->coerce_associative_product_map_to_rows($raw);
+        }
+        $filtered = array();
+        foreach ($items as $row) {
+            $a = is_array($row) ? $row : (array) $row;
+            $pid = isset($a['id']) ? (int) $a['id'] : (isset($a['product_id']) ? (int) $a['product_id'] : 0);
+            if ($pid > 0 && isset($want[$pid])) {
+                $filtered[] = $this->elintom_response->normalize_product_detail_item($a);
+            }
+        }
+        if ($filtered === array()) {
+            return null;
+        }
+        $normalized['items'] = $filtered;
+        $normalized['items_total'] = count($filtered);
         return $normalized;
     }
 
@@ -1083,6 +1251,13 @@ class Webshop_api_model extends CI_Model {
                 $legacyList = $this->_get_products_list_legacy_category($byid, $hash, $limit, $page);
                 if ($legacyList !== null && $this->elintom_response->products_list_item_count($legacyList) > 0) {
                     return $legacyList;
+                }
+            }
+
+            if ($by === 'products' && $byid !== null && $byid !== '') {
+                $legacyByIds = $this->_get_products_list_legacy_by_ids($byid);
+                if ($legacyByIds !== null && $this->elintom_response->products_list_item_count($legacyByIds) > 0) {
+                    return $legacyByIds;
                 }
             }
 

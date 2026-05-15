@@ -99,6 +99,16 @@ class Webshop_action_engine
             }
         }
 
+        $product_name = '';
+        if (is_array($api_product) && !empty($api_product)) {
+            foreach (array('name', 'product_name', 'title') as $nk) {
+                if (!empty($api_product[$nk])) {
+                    $product_name = trim((string) $api_product[$nk]);
+                    break;
+                }
+            }
+        }
+
         if (isset($_SESSION['cart'][$item_key])) {
             $_SESSION['cart'][$item_key]['quantity'] += $quantity;
             // Refresh price on existing row so a stale 0-price entry from an
@@ -114,6 +124,9 @@ class Webshop_action_engine
             if ($tax_method > 0) {
                 $_SESSION['cart'][$item_key]['tax_method'] = $tax_method;
             }
+            if ($product_name !== '') {
+                $_SESSION['cart'][$item_key]['product_name'] = $product_name;
+            }
         } else {
             $_SESSION['cart'][$item_key] = array(
                 'product_id' => $product_id,
@@ -126,6 +139,7 @@ class Webshop_action_engine
                 'tax_method' => $tax_method,
                 'price' => $price,
                 'promotion_price' => $promotion_price,
+                'product_name' => $product_name,
             );
         }
 
@@ -155,11 +169,23 @@ class Webshop_action_engine
         if (!isset($this->CI->webshop_model) || !is_object($this->CI->webshop_model)) {
             return array();
         }
+        $out = array();
         try {
-            $row = $this->CI->webshop_model->get_product_by_id(
-                $pid,
-                'id,price,eshop_price,tax_rate,tax_method,promo_price,promotion,start_date,end_date,quantity'
-            );
+            if (method_exists($this->CI->webshop_model, 'resolve_product_row_by_id')) {
+                $resolved = $this->CI->webshop_model->resolve_product_row_by_id($pid);
+                if (is_array($resolved) && !empty($resolved)) {
+                    $out = $resolved;
+                }
+            }
+            if ($out === array()) {
+                $row = $this->CI->webshop_model->get_product_by_id(
+                    $pid,
+                    'id,price,eshop_price,tax_rate,tax_method,promo_price,promotion,start_date,end_date,quantity'
+                );
+                if (is_array($row) && isset($row[$pid]) && is_array($row[$pid]) && !empty($row[$pid])) {
+                    $out = $row[$pid];
+                }
+            }
         } catch (\Exception $e) {
             log_message('error', 'Webshop_action_engine::resolve_product_pricing — ' . $e->getMessage());
             return array();
@@ -167,10 +193,9 @@ class Webshop_action_engine
             log_message('error', 'Webshop_action_engine::resolve_product_pricing — ' . $e->getMessage());
             return array();
         }
-        if (!is_array($row) || !isset($row[$pid]) || !is_array($row[$pid]) || empty($row[$pid])) {
+        if ($out === array()) {
             return array();
         }
-        $out = $row[$pid];
         $vid = (int) $variant_id;
         if ($vid > 0 && isset($out['variant_stock']) && is_array($out['variant_stock']) && !empty($out['variant_stock'])) {
             if (array_key_exists($vid, $out['variant_stock'])) {

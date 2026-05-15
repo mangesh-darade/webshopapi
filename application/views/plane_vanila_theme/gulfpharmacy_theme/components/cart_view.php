@@ -4,28 +4,64 @@
 /**
  * Reusable Premium Cart Component
  */
-$cart_items = isset($_SESSION['cart']) ? $_SESSION['cart'] : array();
+$cart_items = isset($cart_items) && is_array($cart_items)
+    ? $cart_items
+    : (isset($_SESSION['cart']) && is_array($_SESSION['cart']) ? $_SESSION['cart'] : array());
 $Settings = isset($Settings) ? $Settings : (object) array('symbol' => '$');
 
 $cv_products = (isset($cart_data['products']) && is_array($cart_data['products'])) ? $cart_data['products'] : array();
 
+$cv_clean_label = function ($raw) {
+    $clean = trim(strip_tags((string) $raw));
+    $clean = preg_replace('/\*+/', '', $clean);
+    return trim($clean);
+};
+
+$cv_resolve_name = function ($p_id, $item) use ($cv_products, $cv_clean_label) {
+    if (!empty($item['product_name'])) {
+        $from_session = $cv_clean_label($item['product_name']);
+        if ($from_session !== '' && strcasecmp($from_session, 'product') !== 0) {
+            return $from_session;
+        }
+    }
+    $candidates = array();
+    if ($p_id > 0 && isset($cv_products[$p_id]) && is_array($cv_products[$p_id])) {
+        $p = $cv_products[$p_id];
+        foreach (array('name', 'product_name', 'title') as $k) {
+            if (!empty($p[$k])) {
+                $candidates[] = (string) $p[$k];
+            }
+        }
+    }
+    foreach (array('product_name', 'name') as $k) {
+        if (!empty($item[$k])) {
+            $candidates[] = (string) $item[$k];
+        }
+    }
+    foreach ($candidates as $raw) {
+        $clean = $cv_clean_label($raw);
+        if ($clean !== '' && strcasecmp($clean, 'product') !== 0) {
+            return $clean;
+        }
+    }
+    return $p_id > 0 ? ('Product #' . $p_id) : 'Product';
+};
+
 /**
- * Resolve unit price for a cart row.
- * Session-stored prices are preferred (set by Webshop_action_engine::add_to_cart),
- * but fall back to the API-resolved product list so legacy 0-price rows still
- * display a meaningful number on screen.
+ * Resolve unit price for a cart row (session first, then API product map).
  */
-$cv_unit_price = function($item) use ($cv_products) {
-    foreach (array('product_price', 'price', 'promotion_price') as $k) {
+$cv_unit_price = function ($item) use ($cv_products) {
+    foreach (array('product_price', 'price', 'promotion_price', 'promo_price') as $k) {
         if (isset($item[$k]) && (float) $item[$k] > 0) {
             return (float) $item[$k];
         }
     }
     $pid = isset($item['product_id']) ? (int) $item['product_id'] : 0;
     if ($pid > 0 && isset($cv_products[$pid]) && is_array($cv_products[$pid])) {
-        foreach (array('price', 'eshop_price', 'sale_price', 'mrp') as $k) {
-            if (isset($cv_products[$pid][$k]) && (float) $cv_products[$pid][$k] > 0) {
-                return (float) $cv_products[$pid][$k];
+        $p = $cv_products[$pid];
+        foreach (array('eshop_price', 'price', 'sale_price', 'mrp', 'promo_price') as $k) {
+            if (isset($p[$k]) && (float) $p[$k] > 0) {
+                return (float) $p[$k];
             }
         }
     }
@@ -34,14 +70,16 @@ $cv_unit_price = function($item) use ($cv_products) {
 
 $subtotal = 0;
 foreach ($cart_items as $item) {
-    $subtotal += ($cv_unit_price($item) * (isset($item['quantity']) ? (float) $item['quantity'] : 0));
+    if (!is_array($item)) {
+        continue;
+    }
+    $subtotal += $cv_unit_price($item) * (isset($item['quantity']) ? (float) $item['quantity'] : 0);
 }
 ?>
 <?php $cv_assets = isset($assets) ? $assets : base_url('assets/webshop/'); ?>
-<link rel="stylesheet" href="<?= $cv_assets ?>gulfpharmacy_theme/css/cart.css">
 <div class="cart-container">
     <h2 class="cart-title">Your Shopping Cart</h2>
-    
+
     <?php if (empty($cart_items)): ?>
         <div class="empty-cart-message">
             <div class="empty-icon">🛒</div>
@@ -53,35 +91,44 @@ foreach ($cart_items as $item) {
         <div class="cart-grid">
             <div class="cart-items-list">
                 <?php foreach ($cart_items as $hash => $item):
+                    if (!is_array($item)) {
+                        continue;
+                    }
                     $p_id = isset($item['product_id']) ? (int) $item['product_id'] : 0;
-                    $name = isset($cv_products[$p_id]['name']) ? $cv_products[$p_id]['name'] : 'Product';
+                    $name = $cv_resolve_name($p_id, $item);
                     $price = $cv_unit_price($item);
                     $qty = isset($item['quantity']) ? (float) $item['quantity'] : 0;
+                    $line_total = $price * $qty;
                 ?>
-                    <div class="cart-item-card">
+                    <div class="cart-item-card" data-cart-line="<?= html_escape($hash) ?>">
                         <div class="item-details">
                             <h4 class="item-name"><?= html_escape($name) ?></h4>
                             <div class="item-meta">
-                                <?php if ($price > 0): ?>
-                                <span class="item-price"><?= $Settings->symbol ?> <?= number_format($price, 2) ?></span>
-                                <?php else: ?>
-                                <span class="item-price item-price-na">Price on request</span>
-                                <?php endif; ?>
-                                <div class="quantity-control">
-                                    <button type="button" class="qty-btn minus" data-qty-change="minus" data-hash="<?= html_escape($hash) ?>">-</button>
-                                    <input type="number" class="qty-input" value="<?= (int) $qty ?>" data-hash="<?= html_escape($hash) ?>" min="1" readonly>
-                                    <button type="button" class="qty-btn plus" data-qty-change="plus" data-hash="<?= html_escape($hash) ?>">+</button>
+                                <div class="item-price-wrap">
+                                    <?php if ($price > 0): ?>
+                                    <span class="item-price"><?= html_escape($Settings->symbol) ?> <?= number_format($price, 2) ?></span>
+                                    <?php if ($qty > 1): ?>
+                                    <span class="item-price-each-hint">each</span>
+                                    <?php endif; ?>
+                                    <?php else: ?>
+                                    <span class="item-price item-price-na">Price on request</span>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="quantity-control" role="group" aria-label="Quantity">
+                                    <button type="button" class="qty-btn minus" data-qty-change="minus" data-hash="<?= html_escape($hash) ?>" aria-label="Decrease quantity">−</button>
+                                    <input type="number" class="qty-input" value="<?= (int) $qty ?>" data-hash="<?= html_escape($hash) ?>" min="1" step="1" readonly aria-label="Quantity">
+                                    <button type="button" class="qty-btn plus" data-qty-change="plus" data-hash="<?= html_escape($hash) ?>" aria-label="Increase quantity">+</button>
                                 </div>
                             </div>
                         </div>
-                        <div class="item-total">
+                        <div class="item-total" data-line-total>
                             <?php if ($price > 0): ?>
-                            <?= $Settings->symbol ?> <?= number_format($price * $qty, 2) ?>
+                            <?= html_escape($Settings->symbol) ?> <?= number_format($line_total, 2) ?>
                             <?php else: ?>
-                            &mdash;
+                            <span class="item-total-na">&mdash;</span>
                             <?php endif; ?>
                         </div>
-                        <button type="button" class="remove-item-btn" data-cart-remove="<?= html_escape($hash) ?>" aria-label="Remove item">×</button>
+                        <button type="button" class="remove-item-btn" data-cart-remove="<?= html_escape($hash) ?>" aria-label="Remove item">&times;</button>
                     </div>
                 <?php endforeach; ?>
             </div>
@@ -91,11 +138,11 @@ foreach ($cart_items as $item) {
                     <h3>Cart Totals</h3>
                     <div class="summary-row">
                         <span>Subtotal</span>
-                        <span><?= $Settings->symbol ?> <?= number_format($subtotal, 2) ?></span>
+                        <span data-cart-subtotal><?= html_escape($Settings->symbol) ?> <?= number_format($subtotal, 2) ?></span>
                     </div>
                     <div class="summary-row total">
                         <span>Grand Total</span>
-                        <span><?= $Settings->symbol ?> <?= number_format($subtotal, 2) ?></span>
+                        <span data-cart-grand-total><?= html_escape($Settings->symbol) ?> <?= number_format($subtotal, 2) ?></span>
                     </div>
                     <a href="<?= base_url('webshop/checkout') ?>" class="checkout-btn">Proceed to Checkout</a>
                     <?php
@@ -119,5 +166,8 @@ foreach ($cart_items as $item) {
         </div>
     <?php endif; ?>
 </div>
-<script>window.GP_CART_CTX=<?= json_encode(array('request_url' => base_url('webshop/webshop_request')), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+<script>window.GP_CART_CTX=<?= json_encode(array(
+    'request_url' => base_url('webshop/webshop_request'),
+    'currency'    => isset($Settings->symbol) ? (string) $Settings->symbol : '$',
+), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
 <script defer src="<?= $cv_assets ?>gulfpharmacy_theme/js/cart.js"></script>

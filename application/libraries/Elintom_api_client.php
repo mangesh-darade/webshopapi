@@ -171,11 +171,27 @@ class Elintom_api_client {
             'limit'    => 0,
             'page'     => 1,
         );
-        return $this->post('getproductslist', array_merge($defaults, $params));
+        $merged = array_merge($defaults, $params);
+        if (isset($merged['byid']) && is_array($merged['byid'])) {
+            $ids = array();
+            foreach ($merged['byid'] as $id) {
+                $id = (int) $id;
+                if ($id > 0) {
+                    $ids[] = $id;
+                }
+            }
+            $merged['byid'] = $ids === array() ? null : implode(',', $ids);
+        }
+        return $this->post('getproductslist', $merged);
     }
 
-    public function get_product_by_hash($hash) {
-        return $this->post('getproductbyhash', array('product_hash' => $hash));
+    public function get_product_by_hash($hash, $product_id = null) {
+        $extra = array('product_hash' => (string) $hash);
+        $pid = (int) $product_id;
+        if ($pid > 0) {
+            $extra['product_id'] = $pid;
+        }
+        return $this->post('getproductbyhash', $extra);
     }
 
     public function get_entity_tags($entity_code, $entity_id) {

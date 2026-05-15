@@ -14,7 +14,15 @@ $theme = (isset($webshop_settings) && is_object($webshop_settings) && isset($web
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Your Cart | <?= isset($Settings->site_name) ? html_escape($Settings->site_name) : 'Webshop' ?></title>
     <?= isset($meta_tags) ? $meta_tags : '' ?>
+    <link rel="preload" href="<?= $assets ?>gulfpharmacy_theme/css/common.css" as="style">
     <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/common.css">
+    <link rel="preload" href="<?= $assets ?>gulfpharmacy_theme/css/cart.css" as="style">
+    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/cart.css">
+    <style>
+    .cart-page-main{min-height:40vh}
+    .cart-container{max-width:1200px;margin:40px auto;padding:0 20px;font-family:Inter,system-ui,sans-serif}
+    .cart-title{font-size:2rem;margin:0 0 30px;color:var(--gp-text,#1a202c);font-weight:700;line-height:1.2}
+    </style>
 </head>
 <body>
 <div class="gp-site-wrapper">

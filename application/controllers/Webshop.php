@@ -43,6 +43,7 @@ class Webshop extends MY_Controller
         $this->load->helper('webshop_helper');
 
         $this->webshop_lightweight_bootstrap = in_array((string) $this->uri->segment(2), array(
+            'cart',
             'order_success',
             'payment_declined',
             'payment_cancel',
@@ -548,7 +549,11 @@ XSL;
         if (!is_array($data)) {
             return $data;
         }
-        if (strtolower(trim((string) $method)) === 'index') {
+        $method_lc = strtolower(trim((string) $method));
+        if (in_array($method_lc, array('index', 'cart'), true)) {
+            if (!array_key_exists('gp_header_logo_fetchpriority', $data)) {
+                $data['gp_header_logo_fetchpriority'] = false;
+            }
             return $data;
         }
         $logo = $this->resolve_storefront_header_logo_url_for_preload($data);
@@ -2713,11 +2718,170 @@ XSL;
         $this->load_view("compare", $this->data);
     }
 
+    /**
+     * True when session cart enrichment has displayable name + price for every line.
+     *
+     * @param array|false $raw_cd
+     * @return bool
+     */
+    private function _cart_enrichment_is_complete($raw_cd)
+    {
+        if (!isset($_SESSION['cart']) || !is_array($_SESSION['cart']) || $_SESSION['cart'] === array()) {
+            return true;
+        }
+        $products = (is_array($raw_cd) && isset($raw_cd['products']) && is_array($raw_cd['products']))
+            ? $raw_cd['products']
+            : array();
+        foreach ($_SESSION['cart'] as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $pid = isset($item['product_id']) ? (int) $item['product_id'] : 0;
+            if ($pid < 1) {
+                continue;
+            }
+            $p = isset($products[$pid]) && is_array($products[$pid]) ? $products[$pid] : array();
+            $name = '';
+            if (!empty($item['product_name'])) {
+                $name = trim((string) $item['product_name']);
+            } elseif (!empty($p['name'])) {
+                $name = trim((string) $p['name']);
+            } elseif (!empty($p['product_name'])) {
+                $name = trim((string) $p['product_name']);
+            }
+            if ($name === '' || strcasecmp($name, 'product') === 0) {
+                return false;
+            }
+            $price = 0.0;
+            foreach (array('product_price', 'price') as $sk) {
+                if (isset($item[$sk]) && (float) $item[$sk] > 0) {
+                    $price = (float) $item[$sk];
+                    break;
+                }
+            }
+            if ($price <= 0) {
+                foreach (array('eshop_price', 'price', 'sale_price', 'mrp') as $pk) {
+                    if (isset($p[$pk]) && (float) $p[$pk] > 0) {
+                        $price = (float) $p[$pk];
+                        break;
+                    }
+                }
+            }
+            if ($price <= 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Cart page enrichment: one bulk API pass when possible; refresh session cache only if incomplete.
+     */
+    private function _prepare_cart_page_data()
+    {
+        if (!isset($_SESSION['cart']) || !is_array($_SESSION['cart']) || $_SESSION['cart'] === array()) {
+            $this->data['cart_items'] = array();
+            $this->data['cart_data']  = array();
+            return;
+        }
+
+        $this->data['cart_items'] = $_SESSION['cart'];
+        $raw_cd = $this->webshop_model->get_cart_data();
+        if (!$this->_cart_enrichment_is_complete($raw_cd)) {
+            $this->session->unset_userdata('elintom_cache_cart_data');
+            $raw_cd = $this->webshop_model->get_cart_data();
+        }
+
+        $products = (is_array($raw_cd) && isset($raw_cd['products']) && is_array($raw_cd['products']))
+            ? $raw_cd['products']
+            : array();
+
+        $missing_ids = array();
+        foreach ($_SESSION['cart'] as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $pid = isset($item['product_id']) ? (int) $item['product_id'] : 0;
+            if ($pid < 1) {
+                continue;
+            }
+            $p = isset($products[$pid]) && is_array($products[$pid]) ? $products[$pid] : array();
+            $name_ok = !empty($item['product_name'])
+                || (!empty($p['name']) && strcasecmp(trim((string) $p['name']), 'product') !== 0)
+                || (!empty($p['product_name']) && strcasecmp(trim((string) $p['product_name']), 'product') !== 0);
+            if (!$name_ok) {
+                $missing_ids[$pid] = $pid;
+            }
+        }
+
+        if (!empty($missing_ids) && method_exists($this->webshop_model, 'resolve_product_rows_by_ids')) {
+            $fetched = $this->webshop_model->resolve_product_rows_by_ids(array_values($missing_ids));
+            foreach ($fetched as $pid => $row) {
+                if (is_array($row) && !empty($row)) {
+                    $products[(int) $pid] = isset($products[$pid]) && is_array($products[$pid])
+                        ? array_merge($products[$pid], $row)
+                        : $row;
+                }
+            }
+        }
+
+        foreach ($_SESSION['cart'] as $key => $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $pid = isset($item['product_id']) ? (int) $item['product_id'] : 0;
+            if ($pid < 1) {
+                continue;
+            }
+
+            $p = isset($products[$pid]) && is_array($products[$pid]) ? $products[$pid] : array();
+            $unit = 0.0;
+            foreach (array('eshop_price', 'price', 'sale_price', 'mrp') as $pk) {
+                if (isset($p[$pk]) && (float) $p[$pk] > 0) {
+                    $unit = (float) $p[$pk];
+                    break;
+                }
+            }
+            if ($unit <= 0) {
+                foreach (array('product_price', 'price', 'promotion_price') as $sk) {
+                    if (isset($item[$sk]) && (float) $item[$sk] > 0) {
+                        $unit = (float) $item[$sk];
+                        break;
+                    }
+                }
+            }
+            if ($unit > 0) {
+                if (!isset($_SESSION['cart'][$key]['product_price']) || (float) $_SESSION['cart'][$key]['product_price'] <= 0) {
+                    $_SESSION['cart'][$key]['product_price'] = $unit;
+                }
+                if (!isset($_SESSION['cart'][$key]['price']) || (float) $_SESSION['cart'][$key]['price'] <= 0) {
+                    $_SESSION['cart'][$key]['price'] = $unit;
+                }
+            }
+            if (!empty($p['name']) && empty($_SESSION['cart'][$key]['product_name'])) {
+                $_SESSION['cart'][$key]['product_name'] = (string) $p['name'];
+            }
+        }
+
+        $this->data['cart_items'] = $_SESSION['cart'];
+        $this->data['cart_data']  = array('products' => $products);
+        if (is_array($raw_cd) && isset($raw_cd['coupon'])) {
+            $this->data['cart_data']['coupon'] = $raw_cd['coupon'];
+        }
+    }
+
     public function cart()
     {
 
         // var_dump($this->data);
         // exit;
+
+        if (isset($_SESSION['cart']) && is_array($_SESSION['cart']) && $_SESSION['cart'] !== array()) {
+            $this->_prepare_cart_page_data();
+        }
+
+        $this->data['gp_header_logo_fetchpriority'] = false;
+        $this->data['cart_page_perf'] = true;
 
         $theme = $this->webshop_settings->webshop_theme;
         if ($theme == 'restaurant') {
