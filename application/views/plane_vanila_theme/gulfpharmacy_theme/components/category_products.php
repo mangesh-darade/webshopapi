@@ -323,6 +323,7 @@ function wsAddToCart(itemId, hash, btn) {
     var orig = btn.getAttribute('data-label-default') || (btn.textContent || '').trim();
     btn.disabled = true;
     btn.textContent = 'Adding…';
+    requestAnimationFrame(function () {
     fetch('<?= base_url('webshop/webshop_request') ?>', {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -355,6 +356,7 @@ function wsAddToCart(itemId, hash, btn) {
     .catch(function() {
         btn.textContent = orig;
         btn.disabled = false;
+    });
     });
 }
 </script>

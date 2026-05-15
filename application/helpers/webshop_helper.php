@@ -60,6 +60,69 @@ function webshop_media_src($uploads_base, $path) {
 }
 
 /**
+ * Map HTML attribute URLs that start with /assets/... to the app base_url (fixes 404 when the storefront
+ * runs under a subfolder like /ElintOm/ and CMS meta/body uses root-relative paths).
+ * runs under a subfolder like /ElintOm/ and CMS meta/body uses root-relative paths).
+ *
+ * @param string $html
+ * @return string
+ */
+function webshop_rewrite_root_relative_asset_urls($html)
+{
+    if (!is_string($html) || trim($html) === '') {
+        return (string) $html;
+    }
+    $appBase = '';
+    if (function_exists('get_instance')) {
+        $CI = @get_instance();
+        if ($CI && isset($CI->config)) {
+            $appBase = rtrim((string) $CI->config->item('base_url'), '/') . '/';
+        }
+    }
+    if ($appBase === '') {
+        return $html;
+    }
+    $abs = $appBase . 'assets/';
+    return str_replace(array('"/assets/', "'/assets/"), array('"' . $abs, "'" . $abs), $html);
+}
+
+/**
+ * Fix common CMS typos: querySelector(#id) is invalid JS (# starts a private field); must be querySelector('#id').
+ * Only runs inside &lt;script&gt; tags.
+ *
+ * @param string $html
+ * @return string
+ */
+function webshop_fix_cms_script_hash_selectors($html)
+{
+    if (!is_string($html) || trim($html) === '') {
+        return (string) $html;
+    }
+    return preg_replace_callback(
+        '#<script\b[^>]*>[\s\S]*?</script>#i',
+        function ($m) {
+            $s = $m[0];
+            $s = preg_replace_callback(
+                '/\b(querySelector(?:All)?)\s*\(\s*#([a-zA-Z_][\w-]*)\s*\)/',
+                function ($x) {
+                    return $x[1] . "('#" . $x[2] . "')";
+                },
+                $s
+            );
+            $s = preg_replace_callback(
+                '/\$\s*\(\s*#([a-zA-Z_][\w-]*)\s*\)/',
+                function ($x) {
+                    return "$('#" . $x[1] . "')";
+                },
+                $s
+            );
+            return $s;
+        },
+        $html
+    );
+}
+
+/**
  * Normalize CMS HTML media links to the current uploads base.
  * Useful when API/CMS body contains hardcoded /assets/uploads/... URLs.
  *
@@ -120,6 +183,7 @@ function webshop_normalize_html_media_urls($html, $uploads_base) {
         },
         $out
     );
+    $out = webshop_rewrite_root_relative_asset_urls($out);
     return $out;
 }
 
@@ -144,7 +208,8 @@ function webshop_prepare_cms_html_for_output($html, $uploads_base)
         }
         $s = $next;
     }
-    return webshop_normalize_html_media_urls($s, $uploads_base);
+    $s = webshop_normalize_html_media_urls($s, $uploads_base);
+    return webshop_fix_cms_script_hash_selectors($s);
 }
 
 /**

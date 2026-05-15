@@ -105,7 +105,21 @@
     border-color: #f8fafc !important;
     vertical-align: middle;
 }
+/* Reserve header space for sort icons on orderable columns (before DT adds .sorting* classes). */
+#pagesTable thead th:nth-child(1) {
+    padding-right: 0.75rem !important;
+}
+#pagesTable thead th:nth-child(2),
+#pagesTable thead th:nth-child(3),
+#pagesTable thead th:nth-child(4) {
+    padding-right: 2rem !important;
+}
+#pagesTable thead th:nth-child(5) {
+    padding-right: 1rem !important;
+}
 </style>
+
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css"/>
 
 <div class="d-flex justify-content-between align-items-end mb-4">
     <div>
@@ -239,8 +253,7 @@
     </div>
 </div>
 
-<!-- DataTables & jQuery Requirements -->
-<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css"/>
+<!-- DataTables & jQuery (DataTables CSS is linked above the table to avoid late style/layout shift) -->
 <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
@@ -267,14 +280,21 @@
             });
         }
         
-        // DataTables Initialization
+        // DataTables Initialization — minimal dom (no filter/length row) + stable widths reduce CLS.
         if (typeof $ !== 'undefined') {
             $('#pagesTable').DataTable({
-                "pageLength": 25,
-                "ordering": true,
-                "responsive": true,
-                "columnDefs": [
-                    { "orderable": false, "targets": [0, 4] }
+                dom: 'tip',
+                pageLength: 25,
+                lengthChange: false,
+                ordering: true,
+                responsive: false,
+                autoWidth: false,
+                orderClasses: false,
+                columnDefs: [
+                    { orderable: false, targets: [0, 4] },
+                    { targets: 1, width: '32%' },
+                    { targets: 2, width: '24%' },
+                    { targets: 3, width: '18%' }
                 ]
             });
         }

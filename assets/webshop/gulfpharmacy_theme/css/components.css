@@ -1,5 +1,5 @@
 /* Gulf Pharmacy small components — tokens from common.css :root.
-   Includes: banner, html_block, cms_header_section, cms_footer_section, order_actions, footer. */
+   Includes: banner, html_block, cms_header_section, cms_footer_section, footer. */
 
 /* ── Banner ─────────────────────────────────────────────── */
 .gp-banner-section{position:relative;border-radius:16px;overflow:hidden;min-height:260px;display:flex;align-items:center;justify-content:center;margin-bottom:28px}
@@ -53,18 +53,6 @@
     .gp-cms-footer-nav{flex-direction:column;gap:2px;margin-bottom:14px}
     .gp-cms-footer-nav a{display:block;padding:12px 14px;font-size:15px;border-radius:10px}
 }
-
-/* ── Order Actions ──────────────────────────────────────── */
-.oa-wrap{margin-top:28px;padding:18px;border:1px solid var(--gp-border);border-radius:12px;background:var(--gp-bg)}
-.oa-wrap h3{margin:0 0 4px;font-size:18px}
-.oa-sub{margin:0 0 12px;color:var(--gp-muted);font-size:13px}
-.oa-row{margin-bottom:10px}
-.oa-row select,.oa-row textarea{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box}
-.oa-form button{background:var(--gp-primary);color:#fff;border:0;border-radius:8px;padding:10px 14px;cursor:pointer}
-.oa-form button:hover{background:var(--gp-primary-light)}
-.oa-msg{margin-top:10px;padding:9px 10px;border-radius:8px;font-size:13px}
-.oa-msg.ok{background:#ecfdf3;border:1px solid #bbf7d0;color:#166534}
-.oa-msg.err{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
 
 /* ── Theme Footer ───────────────────────────────────────── */
 .gp-footer{background:transparent;margin-top:auto}

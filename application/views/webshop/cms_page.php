@@ -8,6 +8,9 @@ $pageTitle    = !empty($page_title) ? (string) $page_title : 'Page';
 $metaTagsHtml = isset($meta_tags) ? (string) $meta_tags : '';
 if ($metaTagsHtml !== '') {
     $metaTagsHtml = preg_replace('/<title\b[^>]*>.*?<\/title>/is', '', $metaTagsHtml);
+    if (function_exists('webshop_rewrite_root_relative_asset_urls')) {
+        $metaTagsHtml = webshop_rewrite_root_relative_asset_urls($metaTagsHtml);
+    }
 }
 
 $bodyHtml = '';
@@ -17,6 +20,13 @@ elseif (isset($cms_page) && is_object($cms_page) && !empty($cms_page->page_text)
 
 $headerHtml = isset($cms_header_sections_html) ? (string) $cms_header_sections_html : '';
 $footerHtml = isset($cms_footer_sections_html) ? (string) $cms_footer_sections_html : '';
+$uploadsForCms = isset($uploads) ? $uploads : '';
+if ($headerHtml !== '' && function_exists('webshop_prepare_cms_html_for_output')) {
+    $headerHtml = webshop_prepare_cms_html_for_output($headerHtml, $uploadsForCms);
+}
+if ($footerHtml !== '' && function_exists('webshop_prepare_cms_html_for_output')) {
+    $footerHtml = webshop_prepare_cms_html_for_output($footerHtml, $uploadsForCms);
+}
 ?>
 <!doctype html>
 <html lang="en">
@@ -56,9 +66,11 @@ $footerHtml = isset($cms_footer_sections_html) ? (string) $cms_footer_sections_h
         <h1 class="cms-title"><?= htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8') ?></h1>
         <?php if ($bodyHtml !== ''): ?>
             <div class="cms-body">
-                <?= function_exists('webshop_normalize_html_media_urls')
-                    ? webshop_normalize_html_media_urls($bodyHtml, isset($uploads) ? $uploads : '')
-                    : $bodyHtml ?>
+                <?= function_exists('webshop_prepare_cms_html_for_output')
+                    ? webshop_prepare_cms_html_for_output($bodyHtml, $uploadsForCms)
+                    : (function_exists('webshop_normalize_html_media_urls')
+                        ? webshop_normalize_html_media_urls($bodyHtml, $uploadsForCms)
+                        : $bodyHtml) ?>
             </div>
         <?php else: ?>
             <div class="cms-body"><p>No content available for this page.</p></div>

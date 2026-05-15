@@ -88,7 +88,6 @@ $grandTotal = isset($order['grand_total']) ? (float) $order['grand_total'] : 0;
                     <a href="<?= base_url('webshop/your_orders') ?>" class="os-btn os-btn-secondary">My Orders</a>
                 <?php endif; ?>
             </div>
-            <?php $this->load->view('webshop/components/order_actions', array('order_id' => isset($order['id']) ? $order['id'] : null, 'order' => $order)); ?>
         </div>
     </main>
 

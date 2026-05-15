@@ -15,6 +15,9 @@ $metaTagsHtml = isset($meta_tags) ? (string) $meta_tags : '';
 if ($metaTagsHtml !== '') {
     // Avoid duplicate <title> in head when API meta already contains one.
     $metaTagsHtml = preg_replace('/<title\b[^>]*>.*?<\/title>/is', '', $metaTagsHtml);
+    if (function_exists('webshop_rewrite_root_relative_asset_urls')) {
+        $metaTagsHtml = webshop_rewrite_root_relative_asset_urls($metaTagsHtml);
+    }
 }
 $flashMsg = $this->session->flashdata('message');
 
@@ -146,7 +149,7 @@ if ($bodyHtml !== '') {
 
         <?php if ($bodyHtml !== ''): ?>
             <section class="section section--body">
-                <div class="panel panel--body gp-body-content"><?= webshop_normalize_html_media_urls($bodyHtml, $uploads) ?></div>
+                <div class="panel panel--body gp-body-content"><?= $bodyHtml ?></div>
             </section>
         <?php endif; ?>
 
@@ -199,8 +202,8 @@ if ($bodyHtml !== '') {
 
     <?php require_once(VIEWPATH . 'plane_vanila_theme/gulfpharmacy_theme/footer.php'); ?>
 </div>
-<script src="<?= $assets ?>gulfpharmacy_theme/js/main.js?ver=200406"></script>
-<script src="<?= $assets ?>gulfpharmacy_theme/js/index.js" defer></script>
+<script defer src="<?= $assets ?>gulfpharmacy_theme/js/main.js?ver=200406"></script>
+<script defer src="<?= $assets ?>gulfpharmacy_theme/js/index.js"></script>
 <script>window.GP_INDEX_CTX=<?= json_encode(array('baseUrl' => base_url('webshop'), 'assets' => $assets), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;const baseUrl=window.GP_INDEX_CTX.baseUrl;const assets=window.GP_INDEX_CTX.assets;</script>
 </body>
 </html>

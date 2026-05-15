@@ -121,9 +121,6 @@ $os_preload_logo = function_exists('webshop_resolve_header_logo_url')
                     <a href="<?= base_url('webshop/your_orders') ?>" class="os-btn os-btn-secondary">My Orders</a>
                 <?php endif; ?>
             </div>
-            <?php if (!empty($order['id'])): ?>
-                <?php $this->load->view('plane_vanila_theme/gulfpharmacy_theme/components/order_actions', array('order_id' => $order['id'], 'order' => $order)); ?>
-            <?php endif; ?>
         </div>
     </main>
 
