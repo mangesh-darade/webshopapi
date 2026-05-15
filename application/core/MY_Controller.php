@@ -106,7 +106,7 @@ class MY_Controller extends CI_Controller {
         $this->load->helper('genfun_helper');
         $this->data['Settings'] = $this->Settings;
         $this->data['Shopowner'] = $this->shopowner;
-
+        $this->data['Assets_directory_name'] = $this->get_host_name();
         $this->Customer_url = $this->Customer_assets;
         $this->data['Customer_assets'] = $this->Customer_assets;
 
@@ -192,7 +192,17 @@ class MY_Controller extends CI_Controller {
 
         }
     }
-
+    protected function get_host_name() {
+      $host = isset($_SERVER['HTTP_HOST']) ? strtolower(trim((string) $_SERVER['HTTP_HOST'])) : '';
+        if ($host === '') {
+            return;
+        }
+        if (preg_match('/:\d+$/', $host)) {
+            $host = preg_replace('/:\d+$/', '', $host);
+        }
+        $host_no_www = preg_replace('/^www\./', '', $host);
+        return $host_no_www;
+    }
     /**
      * Legacy Api3/merged API payloads may omit columns the POS webshop always had (sma_settings row).
      * Fill safe defaults so views and Sma do not throw notices/fatals.
