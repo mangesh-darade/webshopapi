@@ -318,7 +318,7 @@ class Webshop_api_model extends CI_Model {
         }
 
         // ElintOm often registers the storefront home as `/home-page` (see CMS "URL" field), not `/`.
-        $candidates = array('/', '/home-page', '/home');
+        $candidates = array('/home-page', '/home', '/');
         foreach ($candidates as $path) {
             $apiPage = $this->get_cms_page_content($path);
             if ($apiPage !== null) {
@@ -451,7 +451,10 @@ class Webshop_api_model extends CI_Model {
         if (!$res || !isset($res->status) || strtoupper((string) $res->status) !== 'SUCCESS') {
             $statusText = ($res && isset($res->status)) ? (string) $res->status : 'NULL';
             $msgText = ($res && isset($res->msg)) ? (string) $res->msg : '';
-            log_message('error', 'Webshop_api_model:get_cms_page_content failed url=' . (string) $url_path . ' status=' . $statusText . ' msg=' . $msgText);
+            $logLine = 'Webshop_api_model:get_cms_page_content failed url=' . (string) $url_path
+                . ' status=' . $statusText . ' msg=' . $msgText;
+            $benignMiss = stripos($msgText, 'not found') !== false;
+            log_message($benignMiss ? 'debug' : 'error', $logLine);
             return null;
         }
         $pick_first_string = function ($sources, $keys) {
@@ -1220,6 +1223,106 @@ class Webshop_api_model extends CI_Model {
     }
 
     /**
+     * Merge sellable quantity into category PLP rows when the list API omits stock fields.
+     *
+     * @param array $items
+     * @param int   $category_id
+     * @return array
+     */
+    public function enrich_product_list_items_with_stock(array $items, $category_id = 0) {
+        if ($items === array() || !$this->use_elintom_api_catalogue()) {
+            return $items;
+        }
+        $this->load->helper('webshop');
+        $needs = false;
+        foreach ($items as $item) {
+            $row = is_array($item) ? $item : (array) $item;
+            if (function_exists('webshop_row_numeric_stock') && webshop_row_numeric_stock($row) === null) {
+                $needs = true;
+                break;
+            }
+        }
+        if (!$needs) {
+            return $items;
+        }
+        $stockMap = $this->_fetch_category_product_stock_map((int) $category_id);
+        if ($stockMap === array()) {
+            return $items;
+        }
+        foreach ($items as $i => $item) {
+            $row = is_array($item) ? $item : (array) $item;
+            $pid = isset($row['id']) ? (int) $row['id'] : 0;
+            if ($pid < 1 || !isset($stockMap[$pid])) {
+                continue;
+            }
+            if (function_exists('webshop_row_numeric_stock') && webshop_row_numeric_stock($row) !== null) {
+                continue;
+            }
+            $row['quantity'] = $stockMap[$pid];
+            $items[$i] = $row;
+        }
+        return $items;
+    }
+
+    /**
+     * @param int $category_id
+     * @return array<int,float> product_id => sellable qty
+     */
+    protected function _fetch_category_product_stock_map($category_id) {
+        $res = $this->api->get_product_stocks((int) $category_id, 1);
+        if (!$res || !$this->elintom_response->api_status_ok($res)) {
+            return array();
+        }
+        $payload = is_object($res) ? (array) $res : (is_array($res) ? $res : array());
+        $rows = array();
+        foreach (array('stocks', 'product_stocks', 'items', 'data', 'result') as $key) {
+            if (isset($payload[$key]) && is_array($payload[$key])) {
+                $rows = $payload[$key];
+                break;
+            }
+        }
+        $map = array();
+        if ($rows !== array()) {
+            foreach ($rows as $row) {
+                $r = is_array($row) ? $row : (array) $row;
+                $pid = isset($r['product_id']) ? (int) $r['product_id'] : (isset($r['id']) ? (int) $r['id'] : 0);
+                if ($pid < 1) {
+                    continue;
+                }
+                $qty = null;
+                foreach (array('quantity', 'qty', 'quantity_balance', 'stock', 'available_qty') as $qk) {
+                    if (isset($r[$qk]) && is_numeric($r[$qk])) {
+                        $qty = max(0.0, (float) $r[$qk]);
+                        break;
+                    }
+                }
+                if ($qty === null) {
+                    continue;
+                }
+                if (!isset($map[$pid])) {
+                    $map[$pid] = 0.0;
+                }
+                $map[$pid] += $qty;
+            }
+            return $map;
+        }
+        foreach ($payload as $k => $v) {
+            if (!is_numeric($k) || !is_array($v)) {
+                continue;
+            }
+            $pid = (int) $k;
+            $sum = 0.0;
+            foreach ($v as $optQty) {
+                if (is_numeric($optQty)) {
+                    $sum += max(0.0, (float) $optQty);
+                }
+            }
+            $map[$pid] = $sum;
+        }
+        return $map;
+    }
+
+    /**
      * @param string $by     category|brand|products
      * @param mixed  $byid   id or array of ids
      * @param bool   $hash   use MD5 hash lookup
@@ -1241,6 +1344,10 @@ class Webshop_api_model extends CI_Model {
                 if ($payload !== null) {
                     $normalized = $this->elintom_response->normalize_products_list_payload($payload, $page);
                     if ($this->elintom_response->products_list_item_count($normalized) > 0) {
+                        if ($by === 'category' && !empty($normalized['items'])) {
+                            $catId = (!$hash && is_numeric($byid)) ? (int) $byid : 0;
+                            $normalized['items'] = $this->enrich_product_list_items_with_stock($normalized['items'], $catId);
+                        }
                         return $normalized;
                     }
                 }
@@ -1250,6 +1357,10 @@ class Webshop_api_model extends CI_Model {
             if ($by === 'category' && $byid !== null && $byid !== '') {
                 $legacyList = $this->_get_products_list_legacy_category($byid, $hash, $limit, $page);
                 if ($legacyList !== null && $this->elintom_response->products_list_item_count($legacyList) > 0) {
+                    if (!empty($legacyList['items'])) {
+                        $catId = (!$hash && is_numeric($byid)) ? (int) $byid : 0;
+                        $legacyList['items'] = $this->enrich_product_list_items_with_stock($legacyList['items'], $catId);
+                    }
                     return $legacyList;
                 }
             }

@@ -308,6 +308,11 @@ class Webshop_section_engine
         if (empty($items)) {
             $items = $this->fetch_products_for_section_config($cfg);
         }
+        if (!empty($items) && isset($this->CI->webshop_model)
+            && method_exists($this->CI->webshop_model, 'enrich_product_list_items_with_stock')) {
+            $catId = (isset($cfg['category_id']) && is_numeric($cfg['category_id'])) ? (int) $cfg['category_id'] : 0;
+            $items = $this->CI->webshop_model->enrich_product_list_items_with_stock($items, $catId);
+        }
         return array(
             'title' => isset($cfg['title']) && trim((string) $cfg['title']) !== '' ? (string) $cfg['title'] : '',
             'products_per_page' => isset($cfg['products_per_page']) ? (int) $cfg['products_per_page'] : 8,

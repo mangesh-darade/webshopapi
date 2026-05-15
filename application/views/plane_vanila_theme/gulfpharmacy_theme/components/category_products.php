@@ -175,13 +175,14 @@ if (isset($webshop_settings) && is_object($webshop_settings)) {
                     $detailUrl = base_url('webshop/product_details/' . $hash);
                     $rAvg = isset($row['ratings_avarage']) ? (float) $row['ratings_avarage'] : 0;
                     $rCount = isset($row['ratings_count']) ? (int) $row['ratings_count'] : 0;
-                    $stockQty = null;
-                    foreach (array('quantity', 'qty', 'product_quantity', 'stock', 'alert_quantity') as $_sk) {
-                        if (isset($row[$_sk]) && $row[$_sk] !== '' && is_numeric($row[$_sk])) {
-                            $stockQty = (float) $row[$_sk];
-                            break;
-                        }
-                    }
+                    $purchaseState = function_exists('webshop_product_list_purchase_state')
+                        ? webshop_product_list_purchase_state($row, $isActive)
+                        : array('can_purchase' => true, 'label' => '', 'limited' => false, 'qty' => 0.0, 'unavailable' => false);
+                    $canPurchase   = !empty($purchaseState['can_purchase']);
+                    $statusLabel   = isset($purchaseState['label']) ? (string) $purchaseState['label'] : '';
+                    $unavailable   = !empty($purchaseState['unavailable']);
+                    $limitedStock  = !empty($purchaseState['limited']);
+                    $stockQty      = isset($purchaseState['qty']) ? (float) $purchaseState['qty'] : 0.0;
                     $newProd = false;
                     foreach (array('created_at', 'date', 'product_added_date', 'added') as $_dk) {
                         if (!empty($row[$_dk])) {
@@ -200,30 +201,29 @@ if (isset($webshop_settings) && is_object($webshop_settings)) {
                         }
                     }
                     $bestseller = ($rCount >= 12) || ($rAvg >= 4.5 && $rCount >= 4) || ($discount >= 28 && $rCount >= 2);
-                    $limitedStock = ($stockQty !== null && $stockQty > 0 && $stockQty <= 15);
                     $reviewPhrase = $rCount === 0 ? 'No reviews yet' : ($rCount === 1 ? '1 review' : $rCount . ' reviews');
                     $starFill = (int) round(max(0, min(5, $rAvg)));
                     $imgFinal = ($imgSrc !== '') ? $imgSrc : $noImgSrc;
                 ?>
-                    <div class="pc-card">
+                    <div class="pc-card<?= $unavailable ? ' pc-card--unavailable' : '' ?>">
                         <a class="pc-media" href="<?= $detailUrl ?>">
                             <div class="pc-img-frame is-loading">
                                 <div class="pc-badges-tl">
-                                    <?php if ($discount >= 5): ?>
+                                    <?php if ($discount >= 5 && !$unavailable): ?>
                                         <span class="pc-pill pc-pill-off"><?= (int) $discount ?>% OFF</span>
                                     <?php endif; ?>
-                                    <?php if ($rxProd): ?>
+                                    <?php if ($rxProd && !$unavailable): ?>
                                         <span class="pc-pill pc-pill-rx">Rx</span>
                                     <?php endif; ?>
-                                    <?php if ($limitedStock): ?>
+                                    <?php if ($limitedStock && !$unavailable): ?>
                                         <span class="pc-pill pc-pill-stock">Limited stock</span>
                                     <?php endif; ?>
                                 </div>
                                 <div class="pc-badges-tr">
-                                    <?php if ($bestseller): ?>
+                                    <?php if ($bestseller && !$unavailable): ?>
                                         <span class="pc-pill pc-pill-bs">Bestseller</span>
                                     <?php endif; ?>
-                                    <?php if ($newProd): ?>
+                                    <?php if ($newProd && !$unavailable): ?>
                                         <span class="pc-pill pc-pill-new">New</span>
                                     <?php endif; ?>
                                 </div>
@@ -257,13 +257,21 @@ if (isset($webshop_settings) && is_object($webshop_settings)) {
                                 <?php endif; ?>
                             </div>
 
+                            <?php if ($statusLabel !== ''): ?>
+                                <p class="pc-stock-status pc-stock-status--unavailable" role="status"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></p>
+                            <?php elseif ($limitedStock): ?>
+                                <p class="pc-stock-status pc-stock-status--low" role="status">Only <?= (int) $stockQty ?> left in stock</p>
+                            <?php endif; ?>
+
+                            <?php if ($canPurchase): ?>
                             <p class="pc-delivery">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M15 18h2M15 18h-5M17 18h2l4-4V8a2 2 0 0 0-2-2h-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="7" cy="18" r="2" stroke="currentColor" stroke-width="2"/></svg>
                                 <?= htmlspecialchars($deliveryEta, ENT_QUOTES, 'UTF-8') ?>
                             </p>
+                            <?php endif; ?>
 
-                            <div class="pc-actions<?= ($isActive === 'true' || $isActive === true || $isActive === 1) ? '' : ' pc-actions-inactive' ?>">
-                                <?php if ($isActive === 'true' || $isActive === true || $isActive === 1): ?>
+                            <div class="pc-actions<?= $canPurchase ? '' : ' pc-actions--unavailable' ?>">
+                                <?php if ($canPurchase): ?>
                                     <button type="button" class="pc-btn pc-btn-cart"
                                             onclick="wsAddToCart('<?= (int) $itemId ?>', '<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>', this)"
                                             data-item-id="<?= (int) $itemId ?>" data-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>"
@@ -272,7 +280,7 @@ if (isset($webshop_settings) && is_object($webshop_settings)) {
                                     </button>
                                     <a href="<?= $detailUrl ?>" class="pc-btn pc-btn-buy">Buy now</a>
                                 <?php else: ?>
-                                    <div class="pc-unavailable">Currently unavailable</div>
+                                    <button type="button" class="pc-btn pc-btn-cart is-disabled" disabled aria-disabled="true">Add to cart</button>
                                     <a href="<?= $detailUrl ?>" class="pc-btn pc-btn-view">View details</a>
                                 <?php endif; ?>
                             </div>
@@ -320,6 +328,9 @@ if (isset($webshop_settings) && is_object($webshop_settings)) {
 
 <script>
 function wsAddToCart(itemId, hash, btn) {
+    if (!btn || btn.disabled || btn.getAttribute('aria-disabled') === 'true') {
+        return;
+    }
     var orig = btn.getAttribute('data-label-default') || (btn.textContent || '').trim();
     btn.disabled = true;
     btn.textContent = 'Adding…';
@@ -348,6 +359,11 @@ function wsAddToCart(itemId, hash, btn) {
                 badge.textContent = d.cart_count;
                 badge.style.display = d.cart_count > 0 ? '' : 'none';
             }
+        } else if (d && (d.error === 'out_of_stock' || (d.message && /out of stock/i.test(d.message)))) {
+            btn.textContent = 'Out of stock';
+            btn.classList.add('is-disabled');
+            btn.setAttribute('aria-disabled', 'true');
+            setTimeout(function(){ btn.textContent = orig; btn.disabled = true; }, 2500);
         } else {
             btn.textContent = 'Try again';
             setTimeout(function(){ btn.textContent = orig; btn.disabled = false; }, 2000);

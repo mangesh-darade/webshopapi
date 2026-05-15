@@ -416,7 +416,7 @@ class Elintom_api_response {
                     $a['id'] = $a['code'];
                 }
             }
-            $items[] = $a;
+            $items[] = $this->normalize_product_detail_item($a);
         }
         $normalized['items'] = $items;
         return $normalized;
@@ -514,6 +514,14 @@ class Elintom_api_response {
         }
         if (!isset($a['subcategory_id'])) {
             $a['subcategory_id'] = isset($a['subcategory']) ? $a['subcategory'] : (isset($a['subcategoryId']) ? $a['subcategoryId'] : 0);
+        }
+        if (!isset($a['quantity']) || $a['quantity'] === '' || $a['quantity'] === null) {
+            foreach (array('qty', 'stock', 'available_qty', 'quantity_balance', 'product_quantity') as $qk) {
+                if (isset($a[$qk]) && $a[$qk] !== '' && is_numeric($a[$qk])) {
+                    $a['quantity'] = $a[$qk];
+                    break;
+                }
+            }
         }
         return $a;
     }

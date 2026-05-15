@@ -83,7 +83,13 @@ function webshop_rewrite_root_relative_asset_urls($html)
         return $html;
     }
     $abs = $appBase . 'assets/';
-    return str_replace(array('"/assets/', "'/assets/"), array('"' . $abs, "'" . $abs), $html);
+    $html = str_replace(array('"/assets/', "'/assets/"), array('"' . $abs, "'" . $abs), $html);
+    // href="assets/... from CMS/meta breaks when the page URL contains index.php (→ index.php/assets/...).
+    return preg_replace(
+        '#(\b(?:href|src|content)\s*=\s*["\'])assets/#i',
+        '$1' . $abs,
+        $html
+    );
 }
 
 /**
@@ -409,6 +415,72 @@ function webshop_product_display_sellable_qty($product, $variants = null) {
 
     $pq = webshop_row_numeric_stock($product);
     return $pq !== null ? max(0.0, $pq) : 0.0;
+}
+
+/**
+ * Stock state for product listing cards (category PLP, CMS product grid).
+ * When the API omits stock fields, treats the item as in stock (legacy list behaviour).
+ *
+ * @param array|object $row
+ * @return array{known:bool,in_stock:bool,qty:float}
+ */
+function webshop_product_list_stock_state($row) {
+    $row = is_array($row) ? $row : (array) $row;
+    $variants = array();
+    foreach (array('variants', 'product_variants', 'options', 'product_options') as $vk) {
+        if (!empty($row[$vk]) && is_array($row[$vk])) {
+            $variants = $row[$vk];
+            break;
+        }
+    }
+    $parent = webshop_row_numeric_stock($row);
+    $hasVariantStock = false;
+    if (!empty($variants)) {
+        foreach ($variants as $v) {
+            if (webshop_row_numeric_stock($v) !== null) {
+                $hasVariantStock = true;
+                break;
+            }
+        }
+    }
+    if ($parent === null && !$hasVariantStock) {
+        return array('known' => false, 'in_stock' => true, 'qty' => 0.0);
+    }
+    $qty = webshop_product_display_sellable_qty($row, $variants);
+    return array(
+        'known'    => true,
+        'in_stock' => $qty > 0,
+        'qty'      => max(0.0, (float) $qty),
+    );
+}
+
+/**
+ * Single PLP status line + purchase flag (one label only; no duplicate badges).
+ *
+ * @param array|object $row
+ * @param bool         $is_active_ok From productAvailable / product_is_active
+ * @return array{can_purchase:bool,label:string,limited:bool,qty:float}
+ */
+function webshop_product_list_purchase_state($row, $is_active_ok = true) {
+    $stock = webshop_product_list_stock_state($row);
+    $known = !empty($stock['known']);
+    $inStock = !empty($stock['in_stock']);
+    $qty = isset($stock['qty']) ? (float) $stock['qty'] : 0.0;
+    $outOfStock = $known && !$inStock;
+    $activeOk = ($is_active_ok === true || $is_active_ok === 1 || $is_active_ok === 'true' || $is_active_ok === '1');
+    $label = '';
+    if ($outOfStock) {
+        $label = 'Out of stock';
+    } elseif (!$activeOk) {
+        $label = 'Unavailable';
+    }
+    return array(
+        'can_purchase' => $activeOk && !$outOfStock,
+        'label'        => $label,
+        'limited'      => $known && $inStock && $qty > 0 && $qty <= 15,
+        'qty'          => $qty,
+        'unavailable'  => ($label !== ''),
+    );
 }
 
 /**

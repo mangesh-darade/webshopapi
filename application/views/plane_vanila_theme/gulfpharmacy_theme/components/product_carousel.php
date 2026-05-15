@@ -24,17 +24,18 @@ $pc_assets = isset($assets) ? $assets : base_url('assets/webshop/');
     <h2 class="cms-pc-title"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h2>
     <?php endif; ?>
     <div class="gp-carousel-wrap">
-        <button class="gp-carousel-btn gp-carousel-prev" onclick="gpc_scroll('<?= $uid ?>',-1)" aria-label="Previous">
+        <button type="button" class="gp-carousel-btn gp-carousel-prev" onclick="gpc_scroll('<?= $uid ?>',-1)" aria-label="Previous">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
         <div class="gp-carousel" id="<?= $uid ?>">
             <?php foreach ($items as $p):
                 $p     = is_object($p) ? (array)$p : (is_array($p) ? $p : array());
-                $img   = htmlspecialchars(webshop_product_image_src($uploadsB, isset($thumbs) ? $thumbs : '', $p), ENT_QUOTES, 'UTF-8');
-                $name  = htmlspecialchars(isset($p['name']) ? $p['name'] : '', ENT_QUOTES, 'UTF-8');
+                $img   = webshop_product_image_src($uploadsB, isset($thumbs) ? $thumbs : '', $p);
+                $name  = isset($p['name']) ? (string) $p['name'] : '';
                 $promo = isset($p['promo_price']) ? (float)$p['promo_price'] : 0;
                 $base  = isset($p['price'])       ? (float)$p['price']       : 0;
                 $price = ($promo > 0) ? $promo : $base;
+                $orig  = ($promo > 0 && $base > $promo) ? $base : 0;
                 $hash  = '';
                 foreach (array('hash_id', 'proudctIdHash', 'product_hash', 'id_hash', 'hash') as $hk) {
                     if (isset($p[$hk]) && trim((string) $p[$hk]) !== '') {
@@ -45,31 +46,55 @@ $pc_assets = isset($assets) ? $assets : base_url('assets/webshop/');
                 if ($hash === '') {
                     $hash = md5((string)(isset($p['id']) ? $p['id'] : ''));
                 }
+                $pId = isset($p['id']) ? (int) $p['id'] : 0;
+                $pcPurchase = function_exists('webshop_product_list_purchase_state')
+                    ? webshop_product_list_purchase_state($p, true)
+                    : array('can_purchase' => true, 'label' => '', 'unavailable' => false);
+                $pcUnavailable = !empty($pcPurchase['unavailable']);
+                $pcStatusLabel = isset($pcPurchase['label']) ? (string) $pcPurchase['label'] : '';
+                $pcCanPurchase = !empty($pcPurchase['can_purchase']);
                 $url   = base_url('webshop/product_details/' . rawurlencode($hash));
-             
+                if (strpos($url, '/ElintOm/') !== false && strpos($_SERVER['REQUEST_URI'], '/webshopapi/') !== false) {
+                    $url = str_replace('/ElintOm/', '/webshopapi/', $url);
+                }
             ?>
             <div class="gp-carousel-item">
-                <a href="<?= $url ?>" class="gp-pc-card" data-product-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>">
-                    <div class="gp-pc-img-wrap">
+                <article class="gp-pc-card<?= $pcUnavailable ? ' gp-pc-card--unavailable' : '' ?>">
+                    <a href="<?= $url ?>" class="gp-pc-img-wrap" data-product-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>">
                         <?php if ($img !== ''): ?>
-                        <img src="<?= htmlspecialchars($img, ENT_QUOTES, 'UTF-8') ?>" alt="<?= $name ?>" loading="lazy" class="gp-pc-img">
+                        <img src="<?= htmlspecialchars($img, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>" loading="lazy" class="gp-pc-img">
                         <?php else: ?>
                         <div class="gp-pc-img-placeholder">
                              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
                         </div>
                         <?php endif; ?>
-                    </div>
+                    </a>
                     <div class="gp-pc-info">
-                        <span class="gp-product-name"><?= $name ?></span>
+                        <a href="<?= $url ?>" class="gp-product-name" data-product-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?></a>
                         <div class="gp-pc-pricing">
+                            <?php if ($price > 0): ?>
                             <span class="gp-price-current"><?= $currency ?><?= number_format($price, 2) ?></span>
+                            <?php else: ?>
+                            <span class="gp-price-current is-muted">&mdash;</span>
+                            <?php endif; ?>
+                            <?php if ($orig > 0 && $price > 0): ?>
+                            <span class="gp-price-old"><?= $currency ?><?= number_format($orig, 2) ?></span>
+                            <?php endif; ?>
                         </div>
+                        <?php if ($pcStatusLabel !== ''): ?>
+                        <p class="gp-pc-stock-status<?= $pcUnavailable ? ' gp-pc-stock-status--unavailable' : '' ?>" role="status"><?= htmlspecialchars($pcStatusLabel, ENT_QUOTES, 'UTF-8') ?></p>
+                        <?php endif; ?>
+                        <?php if (!$pcCanPurchase): ?>
+                        <span class="gp-pc-add-btn is-disabled" aria-disabled="true">Add to Cart</span>
+                        <?php else: ?>
+                        <a href="<?= $url ?>" class="gp-pc-add-btn" data-id="<?= $pId ?>" data-product-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>">Add to Cart</a>
+                        <?php endif; ?>
                     </div>
-                </a>
+                </article>
             </div>
             <?php endforeach; ?>
         </div>
-        <button class="gp-carousel-btn gp-carousel-next" onclick="gpc_scroll('<?= $uid ?>',1)" aria-label="Next">
+        <button type="button" class="gp-carousel-btn gp-carousel-next" onclick="gpc_scroll('<?= $uid ?>',1)" aria-label="Next">
              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
         </button>
     </div>

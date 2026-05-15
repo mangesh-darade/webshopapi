@@ -145,9 +145,18 @@ class Webshop extends MY_Controller
             if (isset($_SESSION['cart']) && !empty($_SESSION['cart'])) {
                 $this->data['cart_items'] = $_SESSION['cart'];
             }
-            $this->data['wishlist_count'] = 0;
+            $ws_sess = $this->session->userdata('webshop');
+            $webshopUserId = null;
+            if ($ws_sess) {
+                $webshopUserId = is_object($ws_sess) ? (isset($ws_sess->user_id) ? $ws_sess->user_id : null) : (isset($ws_sess['user_id']) ? $ws_sess['user_id'] : null);
+            }
+            $this->data['wishlist_count'] = $this->webshop_model->get_wishlist_count($webshopUserId);
             $this->data['custom_pages'] = [];
-            $this->data['cms_nav_pages'] = [];
+            // Header/sidebar nav (CMS pages) — still required on cart/checkout-light pages.
+            $this->data['cms_nav_pages'] = $this->webshop_model->get_cms_nav_pages();
+            if (!is_array($this->data['cms_nav_pages'])) {
+                $this->data['cms_nav_pages'] = [];
+            }
             $this->data['header_theme_pages'] = [];
             $this->data['footer_theme_pages'] = [];
             $this->data['has_active_blogs'] = false;
@@ -1805,9 +1814,15 @@ XSL;
                 $seen[$pid] = true;
                 $out[] = $a;
                 if (count($out) >= 16) {
+                    if (method_exists($this->webshop_model, 'enrich_product_list_items_with_stock')) {
+                        return $this->webshop_model->enrich_product_list_items_with_stock($out, 0);
+                    }
                     return $out;
                 }
             }
+        }
+        if (!empty($out) && method_exists($this->webshop_model, 'enrich_product_list_items_with_stock')) {
+            return $this->webshop_model->enrich_product_list_items_with_stock($out, 0);
         }
         return $out;
     }
@@ -2483,6 +2498,12 @@ XSL;
             }
         }
 
+        if (!empty($products) && method_exists($this->webshop_model, 'enrich_product_list_items_with_stock')) {
+            $products = $this->webshop_model->enrich_product_list_items_with_stock(
+                $products,
+                (int) $this->data['get_category_id']
+            );
+        }
         $this->data['listItems'] = $products;
 
         foreach ($specialItemsList as $key => $item1) {

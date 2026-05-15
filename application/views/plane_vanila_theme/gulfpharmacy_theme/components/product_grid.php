@@ -44,6 +44,12 @@ $pg_assets = isset($assets) ? $assets : base_url('assets/webshop/');
                 $hash = md5((string)(isset($p['id']) ? $p['id'] : ''));
             }
             $pId   = isset($p['id']) ? (int)$p['id'] : 0;
+            $pgPurchase = function_exists('webshop_product_list_purchase_state')
+                ? webshop_product_list_purchase_state($p, true)
+                : array('can_purchase' => true, 'label' => '', 'unavailable' => false);
+            $pgUnavailable = !empty($pgPurchase['unavailable']);
+            $pgStatusLabel = isset($pgPurchase['label']) ? (string) $pgPurchase['label'] : '';
+            $pgCanPurchase = !empty($pgPurchase['can_purchase']);
             $url   = base_url('webshop/product_details/' . rawurlencode($hash));
             // Ensure URL doesn't point to ElintOm if we are in webshopapi
             if (strpos($url, '/ElintOm/') !== false && strpos($_SERVER['REQUEST_URI'], '/webshopapi/') !== false) {
@@ -51,7 +57,7 @@ $pg_assets = isset($assets) ? $assets : base_url('assets/webshop/');
             }
 
         ?>
-        <div class="gp-product-card">
+        <div class="gp-product-card<?= $pgUnavailable ? ' gp-product-card--unavailable' : '' ?>">
             <a href="<?= $url ?>" class="gp-product-img-wrap" data-product-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>">
                 <?php if ($img !== ''): ?>
                 <img src="<?= htmlspecialchars($img, ENT_QUOTES, 'UTF-8') ?>" alt="<?= $name ?>" class="gp-product-img" loading="lazy">
@@ -90,10 +96,17 @@ $pg_assets = isset($assets) ? $assets : base_url('assets/webshop/');
                     <span class="gp-price-old"><?= $currency ?><?= number_format($orig, 2) ?></span>
                     <?php endif; ?>
                 </div>
+                <?php if ($pgStatusLabel !== ''): ?>
+                <p class="gp-stock-status gp-stock-status--unavailable" role="status"><?= htmlspecialchars($pgStatusLabel, ENT_QUOTES, 'UTF-8') ?></p>
+                <?php endif; ?>
+                <?php if (!$pgCanPurchase): ?>
+                <span class="gp-add-to-cart-btn is-disabled" aria-disabled="true">Add to Cart</span>
+                <?php else: ?>
                 <a href="<?= $url ?>" class="gp-add-to-cart-btn" data-id="<?= $pId ?>" data-product-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>">
                     <svg class="gp-add-to-cart-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
                     Add to Cart
                 </a>
+                <?php endif; ?>
             </div>
         </div>
         <?php endforeach; ?>

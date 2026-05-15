@@ -1,5 +1,12 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
+
+    # Serve static assets directly (never route through CodeIgniter)
+    RewriteRule ^assets/ - [L,NC]
+
+    # Fix relative asset URLs resolved from index.php/webshop/* pages
+    RewriteRule ^index\.php/assets/(.*)$ assets/$1 [L,NC]
+
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule ^(.*)$ index.php/$1 [L]
