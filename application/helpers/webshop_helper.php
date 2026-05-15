@@ -1281,21 +1281,31 @@ if (!function_exists('webshop_api_website_setting_sections')) {
                         
                         $row_key = function_exists('webshop_ws_row_field_key') ? webshop_ws_row_field_key($row) : (isset($row['field_key']) ? (string)$row['field_key'] : '');
                         
-                        // Check if already present in API data to avoid duplicates
-                        $exists = false;
-                        if ($row_key !== '') {
-                            $current_list = isset($api_sections->$st) ? $api_sections->$st : array();
-                            foreach ($current_list as $existing) {
-                                $ek = function_exists('webshop_ws_row_field_key') ? webshop_ws_row_field_key($existing) : '';
-                                if ($ek !== '' && $ek === $row_key) {
-                                    $exists = true;
-                                    break;
-                                }
+                        if ($row_key === '') {
+                            if (!isset($api_sections->$st)) {
+                                $api_sections->$st = array();
                             }
+                            $api_sections->{$st}[] = $row;
+                            continue;
                         }
-                        
-                        if (!$exists) {
-                            if (!isset($api_sections->$st)) $api_sections->$st = array();
+                        if (!isset($api_sections->$st)) {
+                            $api_sections->$st = array();
+                        }
+                        $merged = false;
+                        foreach ($api_sections->{$st} as $idx => $existing) {
+                            $ek = function_exists('webshop_ws_row_field_key') ? webshop_ws_row_field_key($existing) : '';
+                            if ($ek === '' || $ek !== $row_key) {
+                                continue;
+                            }
+                            $merged = true;
+                            $api_val = function_exists('webshop_ws_row_value_string') ? webshop_ws_row_value_string($existing) : '';
+                            $db_val  = function_exists('webshop_ws_row_value_string') ? webshop_ws_row_value_string($row) : '';
+                            if ($db_val !== '' || $api_val === '') {
+                                $api_sections->{$st}[$idx] = $row;
+                            }
+                            break;
+                        }
+                        if (!$merged) {
                             $api_sections->{$st}[] = $row;
                         }
                     }
@@ -1556,7 +1566,10 @@ if (!function_exists('webshop_footer_identity_rows')) {
 
         foreach ($sections_obj as $section_name => $section_rows) {
             $sn = strtolower(trim((string) $section_name));
-            // Include both header and footer sections in the identity rows for full dynamic coverage
+            // Footer template only — header slots (logo_image, etc.) are not footer columns.
+            if ($sn !== 'footer') {
+                continue;
+            }
 
             $normalized = webshop_normalize_setting_section_row_list($section_rows);
             if (!empty($normalized)) {
@@ -1569,7 +1582,10 @@ if (!function_exists('webshop_footer_identity_rows')) {
                     if ($fk === '' && $val === '' && $lab === '') {
                         continue;
                     }
-                    
+                    if ($fk !== '' && webshop_footer_row_is_header_only_field($fk)) {
+                        continue;
+                    }
+
                     if ($fk !== '') {
                         $seen_keys[$fk] = true;
                     }
@@ -1604,6 +1620,9 @@ if (!function_exists('webshop_footer_identity_rows')) {
                     continue;
                 }
                 if (isset($header_keys[$fk])) {
+                    continue;
+                }
+                if (webshop_footer_row_is_header_only_field($fk)) {
                     continue;
                 }
                 $val = webshop_ws_row_value_string($item);
@@ -1655,6 +1674,204 @@ if (!function_exists('webshop_resolve_storefront_logo_image_url')) {
     }
 }
 
+if (!function_exists('webshop_footer_row_is_header_only_field')) {
+    /**
+     * Storefront keys that belong in the header only — never as footer text columns.
+     *
+     * @param string $field_key
+     * @return bool
+     */
+    function webshop_footer_row_is_header_only_field($field_key) {
+        static $keys = array('logo_image', 'banner_image', 'favicon', 'header_logo', 'store_logo', 'site_logo');
+        return in_array(strtolower(trim((string) $field_key)), $keys, true);
+    }
+}
+
+if (!function_exists('webshop_footer_row_display_icon_class')) {
+    /**
+     * Icon class for a footer content row: DB icons column, else defaults by field_key.
+     *
+     * @param string $field_key
+     * @param string $icons_from_db
+     * @return string
+     */
+    function webshop_footer_row_display_icon_class($field_key, $icons_from_db = '') {
+        $icon = trim((string) $icons_from_db);
+        if ($icon !== '' && preg_match('/\bfa[\s-]/i', $icon)) {
+            return $icon;
+        }
+        $fk = strtolower(trim((string) $field_key));
+        if (preg_match('/phone|tel|mobile|hotline|whatsapp|fax|call/i', $fk)) {
+            return 'fa fa-phone';
+        }
+        if (preg_match('/address|location|visit|office|branch/i', $fk)) {
+            return 'fa fa-map-marker';
+        }
+        if (preg_match('/email|e-mail|mail/i', $fk)) {
+            return 'fa fa-envelope';
+        }
+        if (preg_match('/about|intro|company|story|mission/i', $fk)) {
+            return 'fa fa-info-circle';
+        }
+        return $icon;
+    }
+}
+
+if (!function_exists('webshop_footer_gather_display_rows')) {
+    /**
+     * Footer view data: content columns + social icons from sma_webshop_header_footer (footer section, social in header too).
+     * One column per active footer row (sort_order); values from API/DB with POS fallbacks when value is NULL.
+     *
+     * @return array{content: array<int, array>, social: array<int, array>}
+     */
+    function webshop_footer_gather_display_rows() {
+        $content = array();
+        $social = array();
+        $seen_social = array();
+
+        $push = function ($item, $section) use (&$content, &$social, &$seen_social) {
+            $fk = webshop_ws_row_field_key($item);
+            if ($fk === '' || webshop_footer_row_is_header_only_field($fk)) {
+                return;
+            }
+            $row = array(
+                'field_key'   => $fk,
+                'label'       => webshop_ws_row_label_string($item, $fk),
+                'value'       => webshop_ws_row_value_string($item),
+                'icons'       => webshop_ws_row_icons_string($item),
+                'sort_order'  => webshop_ws_row_sort_order($item),
+                'section'     => $section,
+            );
+            if (webshop_footer_row_is_social_field($fk)) {
+                if (isset($seen_social[$fk])) {
+                    return;
+                }
+                $seen_social[$fk] = true;
+                $social[] = $row;
+                return;
+            }
+            $content[] = $row;
+        };
+
+        foreach (webshop_website_setting_section_rows('footer') as $item) {
+            $push($item, 'footer');
+        }
+        foreach (webshop_website_setting_section_rows('header') as $item) {
+            $fk = webshop_ws_row_field_key($item);
+            if ($fk !== '' && webshop_footer_row_is_social_field($fk)) {
+                $push($item, 'header');
+            }
+        }
+
+        $seen_content = array();
+        foreach ($content as $r) {
+            $seen_content[$r['field_key']] = true;
+        }
+        $header_keys = array();
+        foreach (webshop_website_setting_section_rows('header') as $hitem) {
+            $hf = webshop_ws_row_field_key($hitem);
+            if ($hf !== '') {
+                $header_keys[$hf] = true;
+            }
+        }
+        foreach (webshop_ws_website_setting_bundles() as $items) {
+            foreach ($items as $item) {
+                $fk = webshop_ws_row_field_key($item);
+                if ($fk === '' || webshop_footer_row_is_header_only_field($fk)) {
+                    continue;
+                }
+                if (webshop_footer_row_is_social_field($fk)) {
+                    if (!isset($seen_social[$fk])) {
+                        $seen_social[$fk] = true;
+                        $social[] = array(
+                            'field_key'   => $fk,
+                            'label'       => webshop_ws_row_label_string($item, $fk),
+                            'value'       => webshop_ws_row_value_string($item),
+                            'icons'       => webshop_ws_row_icons_string($item),
+                            'sort_order'  => webshop_ws_row_sort_order($item),
+                            'section'     => 'footer',
+                        );
+                    }
+                    continue;
+                }
+                if (isset($seen_content[$fk]) || isset($header_keys[$fk])) {
+                    continue;
+                }
+                $seen_content[$fk] = true;
+                $content[] = array(
+                    'field_key'   => $fk,
+                    'label'       => webshop_ws_row_label_string($item, $fk),
+                    'value'       => webshop_ws_row_value_string($item),
+                    'icons'       => webshop_ws_row_icons_string($item),
+                    'sort_order'  => webshop_ws_row_sort_order($item),
+                    'section'     => 'footer',
+                );
+            }
+        }
+
+        $social = webshop_footer_sort_identity_rows($social);
+        $content = webshop_footer_fill_row_fallbacks(webshop_footer_sort_identity_rows($content));
+
+        return array('content' => $content, 'social' => $social);
+    }
+}
+
+if (!function_exists('webshop_footer_row_is_social_field')) {
+    /**
+     * True for ElintOm storefront keys (media_facebook_link, media_instagram_link, …) and common aliases.
+     *
+     * @param string $field_key
+     * @return bool
+     */
+    function webshop_footer_row_is_social_field($field_key) {
+        $fk = strtolower(trim((string) $field_key));
+        if ($fk === '') {
+            return false;
+        }
+        if (preg_match('/^media_[a-z0-9_]+_link$/', $fk)) {
+            return true;
+        }
+        if (preg_match('/^(facebook|fb|instagram|insta|ig|twitter|x_twitter|linkedin|youtube|tiktok)(?:_link|_url|_page)?$/', $fk)) {
+            return true;
+        }
+        if (preg_match('/^(social_)?(facebook|fb|instagram|insta|twitter|linkedin|youtube|tiktok)(?:_link|_url)?$/', $fk)) {
+            return true;
+        }
+        return false;
+    }
+}
+
+if (!function_exists('webshop_footer_social_icon_class')) {
+    /**
+     * Font Awesome 4 icon class for a social field_key (footer uses techmarket-font-awesome.css).
+     *
+     * @param string $field_key
+     * @return string e.g. fa fa-instagram
+     */
+    function webshop_footer_social_icon_class($field_key) {
+        $fk = strtolower(trim((string) $field_key));
+        if (strpos($fk, 'facebook') !== false || strpos($fk, 'fb') !== false) {
+            return 'fa fa-facebook-f';
+        }
+        if (strpos($fk, 'instagram') !== false || strpos($fk, 'insta') !== false || $fk === 'ig') {
+            return 'fa fa-instagram';
+        }
+        if (strpos($fk, 'twitter') !== false || strpos($fk, '_x_') !== false) {
+            return 'fa fa-twitter';
+        }
+        if (strpos($fk, 'youtube') !== false) {
+            return 'fa fa-youtube-play';
+        }
+        if (strpos($fk, 'linkedin') !== false) {
+            return 'fa fa-linkedin';
+        }
+        if (strpos($fk, 'tiktok') !== false) {
+            return 'fa fa-link';
+        }
+        return 'fa fa-link';
+    }
+}
+
 if (!function_exists('webshop_footer_external_url')) {
     /**
      * Normalize footer/social values that may be a bare URL or legacy HTML snippet with href=.
@@ -1671,7 +1888,11 @@ if (!function_exists('webshop_footer_external_url')) {
             return $raw;
         }
         if (preg_match('#https?://[^\s"\'<>]+#i', $raw, $m)) {
-            return $m[0];
+            return trim($m[0]);
+        }
+        $bare = preg_replace('/\s+/', '', $raw);
+        if (preg_match('#^(?:www\.)?[a-z0-9][-a-z0-9.]*\.[a-z]{2,}(?:/[^\s]*)?$#i', $bare)) {
+            return 'https://' . ltrim($bare, '/');
         }
         return '';
     }
@@ -1690,6 +1911,10 @@ if (!function_exists('webshop_footer_row_link_href')) {
         $val = trim((string) $value);
         if ($val === '') {
             return '';
+        }
+        if (function_exists('webshop_footer_row_is_social_field') && webshop_footer_row_is_social_field($fk)) {
+            $u = webshop_footer_external_url($val);
+            return $u !== '' ? $u : '';
         }
         if (preg_match('/^media_[a-z0-9_]+_link$/', $fk)) {
             $u = webshop_footer_external_url($val);
@@ -1835,20 +2060,24 @@ if (!function_exists('webshop_footer_media_link_rows')) {
         if (empty($bundles)) {
             $bundles = webshop_ws_website_setting_bundles();
         }
+        if (function_exists('webshop_website_setting_section_rows')) {
+            foreach (webshop_website_setting_section_rows('header') as $item) {
+                $bundles[] = array($item);
+            }
+        }
         foreach ($bundles as $items) {
             foreach ($items as $item) {
                 $f = webshop_ws_row_field_key($item);
-                if ($f === '' || !preg_match('/^media_[a-z0-9_]+_link$/', $f)) {
+                if ($f === '' || !webshop_footer_row_is_social_field($f)) {
                     continue;
                 }
                 if (isset($seen_fields[$f])) {
                     continue;
                 }
                 $rawVal = webshop_ws_row_value_string($item);
-                if ($rawVal === '') {
-                    continue;
-                }
-                $url = webshop_footer_external_url($rawVal);
+                $url = function_exists('webshop_footer_row_link_href')
+                    ? webshop_footer_row_link_href($f, $rawVal)
+                    : webshop_footer_external_url($rawVal);
                 if ($url === '') {
                     continue;
                 }

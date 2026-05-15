@@ -67,6 +67,9 @@
 .gp-footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 32px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 32px; padding-bottom: 32px; }
 
 .gp-footer-col { display: flex; flex-direction: column; gap: 16px; }
+.gp-footer-col--brand { min-width: 180px; }
+.gp-footer-brand-link { display: inline-block; line-height: 0; }
+.gp-footer-brand-img { max-width: 160px; max-height: 56px; width: auto; height: auto; object-fit: contain; filter: brightness(0) invert(1); opacity: 0.95; }
 .gp-footer-heading { font-size: 16px; font-weight: 700; color: #fff; margin: 0; text-transform: uppercase; letter-spacing: 0.05em; }
 .gp-footer-heading-link { color: inherit; text-decoration: none; }
 .gp-footer-heading-link:hover { color: var(--gp-accent); }
@@ -79,12 +82,15 @@
 .gp-footer-slot-body { flex: 1; color: #cbd5e1; font-weight: 400; }
 .gp-footer-slot-body a { color: inherit; text-decoration: none; transition: color 0.2s; }
 .gp-footer-slot-body a:hover { color: var(--gp-accent); }
+.gp-footer-empty { color: #64748b; font-style: italic; }
 
 /* Social Icons */
 .gp-footer-social { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
 .gp-social-btn { display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 50%; background: rgba(255,255,255,0.08); color: #fff; text-decoration: none; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid rgba(255,255,255,0.05); }
 .gp-social-btn:hover { background: var(--gp-accent); color: #fff; transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); border-color: var(--gp-accent); }
 .gp-social-btn i { font-size: 16px; }
+.gp-social-btn--disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+.gp-social-btn--disabled:hover { background: rgba(255,255,255,0.08); transform: none; box-shadow: none; border-color: rgba(255,255,255,0.05); }
 
 .gp-copy{color:#94a3b8;font-size:14px;line-height:1.5; font-weight: 500; }
 .gp-credit{color:#94a3b8;font-size:13px;text-decoration:none;transition:all .3s; padding: 4px 12px; border-radius: 6px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); }
