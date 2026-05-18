@@ -3248,7 +3248,7 @@ XSL;
                         $product['product_type']    = isset($product['product_type'])  ? $product['product_type']  : '';
                         $product['tax_id']          = isset($product['tax_id'])        ? $product['tax_id']        : null;
                         $product['promotion']       = isset($product['promotion'])     ? $product['promotion']     : 0;
-                        $product['price']           = isset($product['price'])         ? $product['price']         : $unit_price;
+                        $product['price'] = webshop_checkout_resolve_product_price($product, $unit_price, $item_price);
                         $product['tax_method']      = isset($product['tax_method'])    ? $product['tax_method']    : $tax_method;
 
                         $sale_unit_id = $product['sale_unit_id'];
@@ -4506,6 +4506,32 @@ XSL;
     }
 
     /**
+     * WhatsApp: single entry for checkout + order_success retry (API mode).
+     * Skips if wa_notify_done_{id} session flag set after a successful send.
+     * See cheerio_whatsapp_helper.php header for full chain to ElintOm/Cheerio.
+     */
+    private function _attempt_order_whatsapp_notify($order_id)
+    {
+        $order_id = (int) $order_id;
+        if ($order_id <= 0 || !$this->webshop_api_model->uses_elintom_api_for_orders()) {
+            return false;
+        }
+        if ($this->session->userdata('wa_notify_done_' . $order_id)) {
+            return false;
+        }
+        try {
+            $wa_res = $this->webshop_api_model->notify_order_placed_whatsapp_remote($order_id, 'true');
+            if (is_object($wa_res) && !empty($wa_res->whatsapp_sent)) {
+                $this->session->set_userdata('wa_notify_done_' . $order_id, 1);
+                return true;
+            }
+        } catch (\Throwable $e) {
+            log_message('error', 'WhatsApp notify failed for order ' . $order_id . ': ' . $e->getMessage());
+        }
+        return false;
+    }
+
+    /**
      * Post-checkout WhatsApp (ElintOm / Cheerio) + confirmation email. Sets flash for order_success view.
      *
      * @param int         $order_id
@@ -4520,9 +4546,10 @@ XSL;
         $attempted = false;
         try {
             if ($this->webshop_api_model->uses_elintom_api_for_orders()) {
-                $this->webshop_api_model->notify_order_placed_whatsapp_remote($order_id, 'true');
+                $this->_attempt_order_whatsapp_notify($order_id);
                 $attempted = true;
             } elseif (isset($this->db) && $order_row !== null) {
+                // Legacy: local DB + Whatsapp_model (no ElintOm HTTP). Prefer API mode in production.
                 $billing_id = null;
                 if (is_array($order_row) && isset($order_row['billing_address_id'])) {
                     $billing_id = $order_row['billing_address_id'];
@@ -4560,6 +4587,12 @@ XSL;
     public function order_success()
     {
         $order_id = $this->input->get('order');
+        $order_id_int = (int) $order_id;
+
+        // Retry WhatsApp if checkout notify failed before redirect (same path as _notify_order_placed_customer).
+        if ($order_id_int > 0) {
+            $this->_attempt_order_whatsapp_notify($order_id_int);
+        }
 
         $this->data['order'] = $this->webshop_model->get_order_by_id($order_id);
         $this->data['items'] = $this->webshop_model->get_order_items_by_order_id($order_id);
@@ -5181,6 +5214,14 @@ XSL;
             $last   = trim($this->input->post('last'));
             $email  = trim($this->input->post('email'));
             $phone  = trim($this->input->post('phone'));
+            if (function_exists('webshop_phone_digit_variants')) {
+                $reg_dial = function_exists('webshop_settings_phone_dial_code') ? webshop_settings_phone_dial_code() : '91';
+                $reg_local = function_exists('webshop_settings_local_phone_length') ? webshop_settings_local_phone_length() : 10;
+                $reg_variants = webshop_phone_digit_variants($phone, $reg_dial, $reg_local);
+                if (!empty($reg_variants)) {
+                    $phone = $reg_variants[0];
+                }
+            }
             $passwd = $this->input->post('passwd');
             $passwd_confirm = $this->input->post('passwd_confirm');
 
@@ -6276,6 +6317,9 @@ XSL;
             && (is_object($ws_sess) ? !empty($ws_sess->is_login)  : !empty($ws_sess['is_login']))
             && (is_object($ws_sess) ? !empty($ws_sess->user_id)   : !empty($ws_sess['user_id']));
         if ($already_logged_in) {
+            if (function_exists('webshop_forgot_password_log')) {
+                webshop_forgot_password_log('controller.already_logged_in', array());
+            }
             redirect('webshop/index');
         }
 
@@ -6286,7 +6330,11 @@ XSL;
                 $countries_list = array();
             }
         } catch (Exception $e) {
-            log_message('error', 'forgot_password: getCountry failed: ' . $e->getMessage());
+            if (function_exists('webshop_forgot_password_log')) {
+                webshop_forgot_password_log('controller.getCountry.exception', array('error' => $e->getMessage()));
+            } else {
+                log_message('error', 'forgot_password: getCountry failed: ' . $e->getMessage());
+            }
         }
         $phone_code = function_exists('webshop_settings_phone_dial_code')
             ? webshop_settings_phone_dial_code($countries_list)
@@ -6296,33 +6344,78 @@ XSL;
             ? webshop_settings_local_phone_length($countries_list)
             : 10;
 
+        $country_setting = (isset($this->Settings) && is_object($this->Settings) && isset($this->Settings->country))
+            ? (string) $this->Settings->country : '';
+        $theme_name = (isset($this->webshop_settings) && is_object($this->webshop_settings) && isset($this->webshop_settings->webshop_theme))
+            ? (string) $this->webshop_settings->webshop_theme : '';
+
+        if (strtoupper((string) $this->input->server('REQUEST_METHOD')) === 'POST' && function_exists('webshop_forgot_password_log')) {
+            $sendOtpVal = $this->input->post('send_otp');
+            $resetVal = $this->input->post('reset_password');
+            webshop_forgot_password_log('controller.post_received', array(
+                'send_otp'        => ($sendOtpVal !== false && $sendOtpVal !== null && $sendOtpVal !== '') ? 'yes' : 'no',
+                'reset_password'  => ($resetVal !== false && $resetVal !== null && $resetVal !== '') ? 'yes' : 'no',
+                'has_mobile'      => ($this->input->post('mobile') !== false && $this->input->post('mobile') !== null && $this->input->post('mobile') !== ''),
+                'post_field_keys' => array_keys($_POST),
+            ));
+        }
+
         // ── Step 1: deliver OTP ────────────────────────────────────────
         if ($this->input->post('send_otp') !== false && $this->input->post('send_otp') !== null) {
-            $mobile = $this->_normalize_mobile($this->input->post('mobile'));
-            
-            $local_digits = isset($this->data['phone_local_digits']) ? (int) $this->data['phone_local_digits'] : 10;
-            if ($local_digits > 0 && strlen($mobile) === $local_digits && strpos($mobile, $phone_code) !== 0) {
-                $mobile = $phone_code . $mobile;
+            $raw_mobile = (string) $this->input->post('mobile');
+            $mobile = $this->_normalize_mobile($raw_mobile);
+
+            if (function_exists('webshop_forgot_password_log')) {
+                webshop_forgot_password_log('controller.send_otp.start', array(
+                    'raw_mobile'    => $raw_mobile,
+                    'mobile'        => $mobile,
+                    'phone_code'    => $phone_code,
+                    'local_digits'  => isset($this->data['phone_local_digits']) ? $this->data['phone_local_digits'] : null,
+                    'country'       => $country_setting,
+                ));
             }
 
             if ($mobile === '' || !$this->_is_valid_mobile($mobile)) {
+                if (function_exists('webshop_forgot_password_log')) {
+                    webshop_forgot_password_log('controller.send_otp.invalid_mobile', array('mobile' => $mobile));
+                }
                 $this->session->set_flashdata('error', 'Please enter a valid mobile number (10-15 digits).');
                 $this->session->set_flashdata('error_field', 'mobile');
                 redirect('webshop/forgot_password');
                 return;
             }
 
-            // Verify the customer exists via the API (DB-less compliant).
+            // Verify the customer exists via the API (try local + intl — register stores 10-digit local).
             try {
-                $customer = $this->webshop_api_model->get_customer(array('phone' => $mobile));
+                $customer = $this->webshop_api_model->get_customer_by_phone_variants(
+                    $mobile,
+                    $phone_code,
+                    isset($this->data['phone_local_digits']) ? (int) $this->data['phone_local_digits'] : 10
+                );
+                if ($customer && function_exists('webshop_phone_digit_variants')) {
+                    $matched = webshop_phone_digit_variants($mobile, $phone_code, (int) $this->data['phone_local_digits']);
+                    if (!empty($matched)) {
+                        $mobile = $matched[0];
+                    }
+                }
             } catch (Exception $e) {
-                log_message('error', 'forgot_password: get_customer failed: ' . $e->getMessage());
+                if (function_exists('webshop_forgot_password_log')) {
+                    webshop_forgot_password_log('controller.send_otp.get_customer.exception', array(
+                        'mobile' => $mobile,
+                        'error'  => $e->getMessage(),
+                    ));
+                } else {
+                    log_message('error', 'forgot_password: get_customer failed: ' . $e->getMessage());
+                }
                 $this->session->set_flashdata('error', 'Service temporarily unavailable. Please try again in a moment.');
                 $this->session->set_flashdata('forgot_mobile', $mobile);
                 redirect('webshop/forgot_password');
                 return;
             }
             if (!$customer) {
+                if (function_exists('webshop_forgot_password_log')) {
+                    webshop_forgot_password_log('controller.send_otp.customer_not_found', array('mobile' => $mobile));
+                }
                 $this->session->set_flashdata('error', 'No account found for this mobile number.');
                 $this->session->set_flashdata('error_field', 'mobile');
                 $this->session->set_flashdata('forgot_mobile', $mobile);
@@ -6332,7 +6425,11 @@ XSL;
 
             $otp = $this->_generate_numeric_otp(6);
             if ($otp === '') {
-                log_message('error', 'forgot_password: OTP generation returned empty (no entropy source available)');
+                if (function_exists('webshop_forgot_password_log')) {
+                    webshop_forgot_password_log('controller.send_otp.otp_generation_failed', array('mobile' => $mobile));
+                } else {
+                    log_message('error', 'forgot_password: OTP generation returned empty (no entropy source available)');
+                }
                 $this->session->set_flashdata('error', 'Could not generate a secure OTP. Please try again.');
                 redirect('webshop/forgot_password');
                 return;
@@ -6347,30 +6444,59 @@ XSL;
 
             // Hand off delivery to ElintOm (WhatsApp + SMS + Email). Exceptions
             // from the HTTP layer must never reach the browser.
+            // ElintOm passwordotpsend looks up sma_companies.phone exactly (same 10-digit local as register).
             try {
-                $delivery = $this->webshop_api_model->send_password_otp($mobile, $otp);
+                $delivery = $this->webshop_api_model->send_password_otp(
+                    $mobile,
+                    $otp,
+                    $phone_code,
+                    isset($this->data['phone_local_digits']) ? (int) $this->data['phone_local_digits'] : 10
+                );
             } catch (Exception $e) {
-                log_message('error', 'forgot_password: send_password_otp threw: ' . $e->getMessage());
+                if (function_exists('webshop_forgot_password_log')) {
+                    webshop_forgot_password_log('controller.send_otp.delivery_exception', array(
+                        'mobile' => $mobile,
+                        'error'  => $e->getMessage(),
+                    ));
+                } else {
+                    log_message('error', 'forgot_password: send_password_otp threw: ' . $e->getMessage());
+                }
                 $delivery = array('status' => 'ERROR', 'msg' => 'Unable to reach the messaging service. Please try again.', 'delivered' => array());
             }
 
             $delivered = isset($delivery['delivered']) && is_array($delivery['delivered']) ? $delivery['delivered'] : array();
             $channels = array();
             if (!empty($delivered['whatsapp'])) { $channels[] = 'WhatsApp'; }
-            if (!empty($delivered['sms']))      { $channels[] = 'SMS'; }
             if (!empty($delivered['email']))    { $channels[] = 'Email'; }
+            if (!empty($delivered['sms']))      { $channels[] = 'SMS'; }
 
             if ($delivery && isset($delivery['status']) && $delivery['status'] === 'SUCCESS' && !empty($channels)) {
-                // Mask the mobile so logs never leak the full number.
-                $maskedMobile = $this->_mask_secret($mobile);
-                log_message('info', 'forgot_password: OTP delivered to ' . $maskedMobile . ' via ' . implode(',', $channels));
-                $this->session->set_flashdata('message', 'OTP sent via ' . implode(' & ', $channels) . '. Please check your messages.');
+                if (function_exists('webshop_forgot_password_log')) {
+                    webshop_forgot_password_log('controller.send_otp.delivered', array(
+                        'mobile'   => $mobile,
+                        'channels' => implode(',', $channels),
+                    ));
+                }
+                $successMsg = 'OTP sent via ' . implode(' & ', $channels) . '. Please check your messages.';
+                if (!empty($delivered['email']) && empty($delivered['whatsapp'])) {
+                    $successMsg = 'OTP sent to your email. WhatsApp was not delivered — set WhatsApp API key in ElintOm POS Settings.';
+                }
+                $this->session->set_flashdata('message', $successMsg);
                 $this->session->set_flashdata('otp_sent', true);
             } else {
                 // Wipe the OTP so the user can retry cleanly.
                 $this->session->unset_userdata('forgot_password_otp_data');
-                log_message('error', 'forgot_password: delivery failed for ' . $this->_mask_secret($mobile)
-                    . ' (' . (isset($delivery['msg']) ? $delivery['msg'] : 'no msg') . ')');
+                if (function_exists('webshop_forgot_password_log')) {
+                    webshop_forgot_password_log('controller.send_otp.delivery_failed', array(
+                        'mobile'    => $mobile,
+                        'status'    => isset($delivery['status']) ? $delivery['status'] : null,
+                        'msg'       => isset($delivery['msg']) ? $delivery['msg'] : null,
+                        'delivered' => $delivered,
+                    ));
+                } else {
+                    log_message('error', 'forgot_password: delivery failed for ' . $this->_mask_secret($mobile)
+                        . ' (' . (isset($delivery['msg']) ? $delivery['msg'] : 'no msg') . ')');
+                }
                 $errMsg = ($delivery && !empty($delivery['msg'])) ? (string) $delivery['msg'] : 'Unable to deliver OTP right now. Please try again.';
                 $this->session->set_flashdata('error', $errMsg);
             }
@@ -6386,7 +6512,14 @@ XSL;
             $new_password     = (string) $this->input->post('new_password');
             $confirm_password = (string) $this->input->post('confirm_password');
 
+            if (function_exists('webshop_forgot_password_log')) {
+                webshop_forgot_password_log('controller.reset_password.start', array('mobile' => $mobile));
+            }
+
             if ($mobile === '' || $otp === '' || $new_password === '' || $confirm_password === '') {
+                if (function_exists('webshop_forgot_password_log')) {
+                    webshop_forgot_password_log('controller.reset_password.missing_fields', array('mobile' => $mobile));
+                }
                 $this->session->set_flashdata('error', 'All fields are required.');
                 $this->session->set_flashdata('forgot_mobile', $mobile);
                 $this->session->set_flashdata('otp_sent', true);
@@ -6394,12 +6527,18 @@ XSL;
                 return;
             }
             if (!$this->_is_valid_mobile($mobile)) {
+                if (function_exists('webshop_forgot_password_log')) {
+                    webshop_forgot_password_log('controller.reset_password.invalid_mobile', array('mobile' => $mobile));
+                }
                 $this->session->set_flashdata('error', 'Invalid mobile number.');
                 $this->session->set_flashdata('error_field', 'mobile');
                 redirect('webshop/forgot_password');
                 return;
             }
             if (strlen($otp) !== 6) {
+                if (function_exists('webshop_forgot_password_log')) {
+                    webshop_forgot_password_log('controller.reset_password.bad_otp_length', array('mobile' => $mobile));
+                }
                 $this->session->set_flashdata('error', 'OTP must be exactly 6 digits.');
                 $this->session->set_flashdata('error_field', 'otp');
                 $this->session->set_flashdata('forgot_mobile', $mobile);
@@ -6408,6 +6547,9 @@ XSL;
                 return;
             }
             if ($new_password !== $confirm_password) {
+                if (function_exists('webshop_forgot_password_log')) {
+                    webshop_forgot_password_log('controller.reset_password.password_mismatch', array('mobile' => $mobile));
+                }
                 $this->session->set_flashdata('error', 'Passwords do not match.');
                 $this->session->set_flashdata('error_field', 'confirm_password');
                 $this->session->set_flashdata('forgot_mobile', $mobile);
@@ -6416,6 +6558,9 @@ XSL;
                 return;
             }
             if (strlen($new_password) < 6) {
+                if (function_exists('webshop_forgot_password_log')) {
+                    webshop_forgot_password_log('controller.reset_password.password_too_short', array('mobile' => $mobile));
+                }
                 $this->session->set_flashdata('error', 'Password must be at least 6 characters.');
                 $this->session->set_flashdata('error_field', 'new_password');
                 $this->session->set_flashdata('forgot_mobile', $mobile);
@@ -6426,17 +6571,32 @@ XSL;
 
             $otpData = $this->session->userdata('forgot_password_otp_data');
             if (!is_array($otpData) || empty($otpData['otp']) || empty($otpData['mobile']) || empty($otpData['expires_at'])) {
+                if (function_exists('webshop_forgot_password_log')) {
+                    webshop_forgot_password_log('controller.reset_password.no_otp_session', array(
+                        'mobile' => $mobile,
+                        'has_session_data' => is_array($otpData),
+                    ));
+                }
                 $this->session->set_flashdata('error', 'OTP session expired. Please request a new OTP.');
                 redirect('webshop/forgot_password');
                 return;
             }
             if ($otpData['mobile'] !== $mobile) {
+                if (function_exists('webshop_forgot_password_log')) {
+                    webshop_forgot_password_log('controller.reset_password.mobile_mismatch', array(
+                        'posted_mobile'  => $mobile,
+                        'session_mobile' => $otpData['mobile'],
+                    ));
+                }
                 $this->session->set_flashdata('error', 'OTP verification failed for this mobile number.');
                 redirect('webshop/forgot_password');
                 return;
             }
             if (time() > (int) $otpData['expires_at']) {
                 $this->session->unset_userdata('forgot_password_otp_data');
+                if (function_exists('webshop_forgot_password_log')) {
+                    webshop_forgot_password_log('controller.reset_password.otp_expired', array('mobile' => $mobile));
+                }
                 $this->session->set_flashdata('error', 'OTP has expired. Please request a new OTP.');
                 redirect('webshop/forgot_password');
                 return;
@@ -6448,10 +6608,21 @@ XSL;
                 $otpData['attempts'] = $attempts;
                 if ($attempts >= 5) {
                     $this->session->unset_userdata('forgot_password_otp_data');
-                    log_message('warning', 'forgot_password: OTP locked out after 5 attempts for ' . $this->_mask_secret($mobile));
+                    if (function_exists('webshop_forgot_password_log')) {
+                        webshop_forgot_password_log('controller.reset_password.otp_locked', array(
+                            'mobile' => $mobile,
+                            'attempts' => $attempts,
+                        ));
+                    }
                     $this->session->set_flashdata('error', 'Too many invalid attempts. Please request a new OTP.');
                 } else {
                     $this->session->set_userdata('forgot_password_otp_data', $otpData);
+                    if (function_exists('webshop_forgot_password_log')) {
+                        webshop_forgot_password_log('controller.reset_password.invalid_otp', array(
+                            'mobile' => $mobile,
+                            'attempts' => $attempts,
+                        ));
+                    }
                     $this->session->set_flashdata('error', 'Invalid OTP. ' . (5 - $attempts) . ' attempt(s) left.');
                     $this->session->set_flashdata('error_field', 'otp');
                     $this->session->set_flashdata('forgot_mobile', $mobile);
@@ -6463,22 +6634,44 @@ XSL;
 
             // Hand off the password update to ElintOm (DB-less compliant).
             try {
-                $reset = $this->webshop_api_model->reset_customer_password($mobile, $new_password);
+                $reset = $this->webshop_api_model->reset_customer_password(
+                    $mobile,
+                    $new_password,
+                    $phone_code,
+                    isset($this->data['phone_local_digits']) ? (int) $this->data['phone_local_digits'] : 10
+                );
             } catch (Exception $e) {
-                log_message('error', 'forgot_password: reset_customer_password threw: ' . $e->getMessage());
+                if (function_exists('webshop_forgot_password_log')) {
+                    webshop_forgot_password_log('controller.reset_password.api_exception', array(
+                        'mobile' => $mobile,
+                        'error'  => $e->getMessage(),
+                    ));
+                } else {
+                    log_message('error', 'forgot_password: reset_customer_password threw: ' . $e->getMessage());
+                }
                 $reset = array('status' => 'ERROR', 'msg' => 'Service temporarily unavailable. Please try again.');
             }
 
             if ($reset && isset($reset['status']) && $reset['status'] === 'SUCCESS') {
                 $this->session->unset_userdata('forgot_password_otp_data');
-                log_message('info', 'forgot_password: password reset complete for ' . $this->_mask_secret($mobile));
+                if (function_exists('webshop_forgot_password_log')) {
+                    webshop_forgot_password_log('controller.reset_password.success', array('mobile' => $mobile));
+                }
                 $this->session->set_flashdata('message', 'Password has been changed successfully. Please login.');
                 redirect('webshop/login');
                 return;
             }
 
-            log_message('error', 'forgot_password: reset returned ERROR for ' . $this->_mask_secret($mobile)
-                . ' msg=' . (isset($reset['msg']) ? $reset['msg'] : 'none'));
+            if (function_exists('webshop_forgot_password_log')) {
+                webshop_forgot_password_log('controller.reset_password.api_failed', array(
+                    'mobile' => $mobile,
+                    'status' => isset($reset['status']) ? $reset['status'] : null,
+                    'msg'    => isset($reset['msg']) ? $reset['msg'] : null,
+                ));
+            } else {
+                log_message('error', 'forgot_password: reset returned ERROR for ' . $this->_mask_secret($mobile)
+                    . ' msg=' . (isset($reset['msg']) ? $reset['msg'] : 'none'));
+            }
             $this->session->set_flashdata('error', ($reset && !empty($reset['msg'])) ? (string) $reset['msg'] : 'Failed to update password.');
             $this->session->set_flashdata('forgot_mobile', $mobile);
             $this->session->set_flashdata('otp_sent', true);
@@ -6486,29 +6679,74 @@ XSL;
             return;
         }
 
-        $this->load_view('forgot_password', $this->data);
+        $view_path = $this->resolve_webshop_view_path('forgot_password');
+        if (function_exists('webshop_forgot_password_log')) {
+            webshop_forgot_password_log('controller.render_form', array(
+                'view'         => $view_path,
+                'theme'        => $theme_name,
+                'phone_code'   => $phone_code,
+                'local_digits' => isset($this->data['phone_local_digits']) ? $this->data['phone_local_digits'] : null,
+                'country'      => $country_setting,
+                'api_base'     => $this->config->item('elintom_api_base_url', 'elintom_api'),
+            ));
+        }
+
+        try {
+            $this->load_view('forgot_password', $this->data);
+        } catch (Exception $e) {
+            if (function_exists('webshop_forgot_password_log')) {
+                webshop_forgot_password_log('controller.render_form.exception', array(
+                    'view'  => $view_path,
+                    'error' => $e->getMessage(),
+                ));
+            }
+            show_error('Forgot password page could not be loaded. Check application/logs for [FP_TRACE] entries.');
+        }
     }
 
     private function _normalize_mobile($raw)
     {
         $s = trim((string) $raw);
-        if ($s === '') return '';
-        
-        $hasPlus = (strpos($s, '+') === 0);
-        $digits = preg_replace('/\D/', '', $s);
-        
-        // If it already has a plus or is very long (already has code), return as is
-        if ($hasPlus || strlen($digits) > 10) {
-            return $hasPlus ? ('+' . $digits) : $digits;
+        if ($s === '') {
+            return '';
         }
 
-        // Prepend country code from settings if missing
         $phone_code = $this->_get_cached_phone_code();
-        if ($phone_code && strpos($digits, $phone_code) !== 0) {
-            $digits = $phone_code . $digits;
+        $local_digits = function_exists('webshop_settings_local_phone_length')
+            ? webshop_settings_local_phone_length()
+            : 10;
+
+        if (function_exists('webshop_phone_digit_variants')) {
+            $variants = webshop_phone_digit_variants($s, $phone_code, $local_digits);
+            if (!empty($variants)) {
+                return $variants[0];
+            }
         }
 
+        $digits = preg_replace('/\D/', '', $s);
+        if ($phone_code && $local_digits > 0 && strlen($digits) === $local_digits) {
+            return $digits;
+        }
+        if ($phone_code && strpos($digits, $phone_code) !== 0 && strlen($digits) === $local_digits) {
+            return $digits;
+        }
         return $digits;
+    }
+
+    /**
+     * Phone for OTP/SMS gateways — prefer international (dial + local).
+     */
+    private function _mobile_for_otp_delivery($local_mobile)
+    {
+        $local = preg_replace('/\D/', '', (string) $local_mobile);
+        $dial = $this->_get_cached_phone_code();
+        if ($dial === '' || $local === '') {
+            return $local;
+        }
+        if (strpos($local, $dial) === 0) {
+            return $local;
+        }
+        return $dial . $local;
     }
 
     private function _get_cached_phone_code() {
@@ -6544,7 +6782,7 @@ XSL;
     }
 
     /**
-     * AJAX: Send WhatsApp OTP (used by Restaurant theme modals)
+     * AJAX forgot-password OTP (restaurant theme). Same ElintOm path as send_otp — not order WhatsApp.
      */
     public function send_whatsapp_otp() {
         $this->load->model('webshop_api_model');
@@ -7693,25 +7931,44 @@ XSL;
         $query = $this->db->get();
         return $query->row()->code;
     }
+    /**
+     * WhatsApp router: API mode → ElintOm notifywebshoporderwhatsapp; else local Whatsapp_model.
+     * Used by legacy checkout, Urbanpiper call_whatsapp_api (Ready), and Cheerio YES/NO webhook get_order_reply.
+     *
+     * @param string $phone      Ignored in API mode (ElintOm loads phone from order address)
+     * @param string $orderflag  'true' | 'YES' | 'NO' | 'Ready'
+     */
     public function call_whatsapp_cheerio($phone, $order_id, $orderflag)
     {
+        $this->load->model('webshop_api_model');
+        $order_id = (int) $order_id;
+        if ($this->webshop_api_model->uses_elintom_api_for_orders() && $order_id > 0) {
+            return $this->webshop_api_model->notify_order_placed_whatsapp_remote($order_id, (string) $orderflag);
+        }
         $this->load->model('Whatsapp_model');
-        $response = $this->Whatsapp_model->send_order_whatsapp_message($phone, $order_id, $orderflag);
-        return $response;
+        return $this->Whatsapp_model->send_order_whatsapp_message($phone, $order_id, $orderflag);
     }
     public function getTrackingData()
     {
-        $this->load->model('Whatsapp_model');
         $order_id = $this->input->post('order_id');
         if (!$order_id) {
             $this->json_response(['status' => 'error', 'message' => 'Missing order ID']);
             return;
         }
         $trackingData = $this->webshop_model->getFullOrderDatahashkey($order_id);
-        $shipping_address_id = $trackingData['order']['billing_address_id'];
-        $fulladdress = $this->Whatsapp_model->get_full_address($shipping_address_id);
-        // var_dump($fulladdress);
-        $trackingData['order']['deliver_to'] = $fulladdress;
+        $fulladdress = '';
+        if (!empty($trackingData['order']['billing_address_id'])) {
+            $this->load->model('webshop_api_model');
+            if ($this->webshop_api_model->uses_elintom_api_for_orders() && !empty($trackingData['address'])) {
+                $addr = is_array($trackingData['address']) ? (object) $trackingData['address'] : $trackingData['address'];
+                $this->load->helper('webshop_whatsapp');
+                $fulladdress = webshop_whatsapp_format_address($addr);
+            } else {
+                $this->load->model('Whatsapp_model');
+                $fulladdress = $this->Whatsapp_model->get_full_address($trackingData['order']['billing_address_id']);
+            }
+        }
+        $trackingData['order']['deliver_to'] = $fulladdress ? $fulladdress : '';
         if ($trackingData) {
             $this->json_response(['status' => 'success', 'tracking' => $trackingData]);
         } else {
@@ -7756,7 +8013,7 @@ XSL;
             'csrf_hash'      => $this->security->get_csrf_hash(),
         ));
     }
-    // every order status trigger below function 
+    /** AJAX: order status → WhatsApp (e.g. Ready for pickup). Routes through call_whatsapp_cheerio(). */
     public function call_whatsapp_api($order_id = null)
     {
         $order_id = $this->input->post('order_id');
@@ -7810,6 +8067,9 @@ XSL;
         }
         $this->json_response(['total' => $total, 'charges' => $this->sma->formatMoney($charges)]);
     }
+    /**
+     * Webhook: customer YES/NO on order summary → WhatsApp via call_whatsapp_cheerio().
+     */
     public function get_order_reply()
     {
         $json = file_get_contents('php://input');
@@ -7823,12 +8083,8 @@ XSL;
         $status = $data['order_msg_response'];
         $order_id = $data['order_id'];
 
-        if ($status == 'YES') {
-            $this->load->model('Whatsapp_model');
-            $response = $this->Whatsapp_model->send_order_whatsapp_message($mobile, $order_id, $status);
-        } else if ($status == 'NO') {
-            $this->load->model('Whatsapp_model');
-            $response = $this->Whatsapp_model->send_order_whatsapp_message($mobile, $order_id, $status);
+        if ($status == 'YES' || $status == 'NO') {
+            $response = $this->call_whatsapp_cheerio($mobile, $order_id, $status);
         } else {
             $this->json_response(['status' => 'error', 'message' => 'Invalid status.']);
             return;

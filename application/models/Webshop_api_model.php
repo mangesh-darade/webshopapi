@@ -2006,7 +2006,59 @@ class Webshop_api_model extends CI_Model {
     public function get_customer(array $filter) {
         $res = $this->api->get_customer($filter);
         if ($res && isset($res->status) && $res->status === 'SUCCESS') {
+            if (function_exists('webshop_forgot_password_log') && isset($filter['phone'])) {
+                webshop_forgot_password_log('api_model.get_customer.ok', array(
+                    'phone' => $filter['phone'],
+                    'customer_id' => isset($res->customer->id) ? $res->customer->id : (isset($res->customer['id']) ? $res->customer['id'] : null),
+                ));
+            }
             return (array) $res->customer;
+        }
+        if (function_exists('webshop_forgot_password_log') && isset($filter['phone'])) {
+            $apiErr = method_exists($this->api, 'get_last_error') ? $this->api->get_last_error() : null;
+            webshop_forgot_password_log('api_model.get_customer.fail', array(
+                'phone'      => $filter['phone'],
+                'status'     => $res && isset($res->status) ? (string) $res->status : 'null',
+                'msg'        => $res && isset($res->msg) ? (string) $res->msg : null,
+                'error_code' => $res && isset($res->error_code) ? (int) $res->error_code : null,
+                'last_error' => $apiErr,
+            ));
+        }
+        return false;
+    }
+
+    /**
+     * Resolve customer by phone trying local + international digit variants (register often stores 10-digit local).
+     *
+     * @param string $raw_phone
+     * @param string $dial_code
+     * @param int    $local_digits
+     * @return array|false Customer row, or false
+     */
+    public function get_customer_by_phone_variants($raw_phone, $dial_code = '91', $local_digits = 10) {
+        $variants = function_exists('webshop_phone_digit_variants')
+            ? webshop_phone_digit_variants($raw_phone, $dial_code, $local_digits)
+            : array(preg_replace('/\D/', '', (string) $raw_phone));
+        foreach ($variants as $phone) {
+            if ($phone === '') {
+                continue;
+            }
+            $customer = $this->get_customer(array('phone' => $phone));
+            if ($customer) {
+                if (function_exists('webshop_forgot_password_log')) {
+                    webshop_forgot_password_log('api_model.get_customer_by_phone_variants.matched', array(
+                        'phone'    => $phone,
+                        'variants' => $variants,
+                    ));
+                }
+                return $customer;
+            }
+        }
+        if (function_exists('webshop_forgot_password_log')) {
+            webshop_forgot_password_log('api_model.get_customer_by_phone_variants.not_found', array(
+                'raw'      => $raw_phone,
+                'variants' => $variants,
+            ));
         }
         return false;
     }
@@ -2034,55 +2086,175 @@ class Webshop_api_model extends CI_Model {
     }
 
     /**
-     * Deliver a forgot-password OTP via ElintOm (WhatsApp/SMS/Email).
-     * Returns associative array: ['status'=>SUCCESS|ERROR, 'msg'=>..., 'delivered'=>['whatsapp'=>bool,'sms'=>bool,'email'=>bool]].
-     * Never throws — transport errors are converted to ERROR responses so the
-     * caller can surface a clean message to the user.
+     * Forgot-password OTP delivery — WhatsApp leg runs on ElintOm only (passwordotpsend).
+     *
+     * ElintOm tries WhatsApp (direct text OTP) → SMS → email. Returns delivered.* flags for UI copy.
+     * whatsapp_phone: full international digits passed to ElintOm for Cheerio "to" field.
      */
-    public function send_password_otp($phone, $otp) {
+    public function send_password_otp($phone, $otp, $dial_code = '91', $local_digits = 10) {
+        $variants = function_exists('webshop_phone_digit_variants')
+            ? webshop_phone_digit_variants($phone, $dial_code, $local_digits)
+            : array(preg_replace('/\D/', '', (string) $phone));
+        if (empty($variants)) {
+            $variants = array((string) $phone);
+        }
+
+        $last = array(
+            'status' => 'ERROR',
+            'msg'    => 'OTP delivery failed.',
+            'delivered' => array(),
+        );
+
+        foreach ($variants as $try_phone) {
+            if ($try_phone === '') {
+                continue;
+            }
+            $last = $this->_send_password_otp_once($try_phone, $otp, $dial_code, $local_digits);
+            if ($last['status'] === 'SUCCESS') {
+                $delivered = isset($last['delivered']) && is_array($last['delivered']) ? $last['delivered'] : array();
+                if (!empty($delivered['whatsapp']) || !empty($delivered['sms']) || !empty($delivered['email'])) {
+                    return $last;
+                }
+            }
+            $msg = isset($last['msg']) ? strtolower((string) $last['msg']) : '';
+            $not_found = (strpos($msg, 'not found') !== false || strpos($msg, 'no account') !== false);
+            if (!$not_found) {
+                break;
+            }
+        }
+
+        return $last;
+    }
+
+    /**
+     * Single passwordotpsend API call.
+     *
+     * @param string $phone
+     * @param string $otp
+     * @return array
+     */
+    protected function _send_password_otp_once($phone, $otp, $dial_code = '91', $local_digits = 10) {
+        if (function_exists('webshop_forgot_password_log')) {
+            webshop_forgot_password_log('api_model.send_password_otp.request', array('phone' => $phone));
+        }
+        $whatsapp_phone = $phone;
+        if (function_exists('webshop_phone_digit_variants')) {
+            foreach (webshop_phone_digit_variants($phone, $dial_code, $local_digits) as $v) {
+                if (strlen($v) > (int) $local_digits) {
+                    $whatsapp_phone = $v;
+                    break;
+                }
+            }
+        }
+
         try {
-            $res = $this->api->send_password_otp($phone, $otp);
+            $res = $this->api->send_password_otp($phone, $otp, $whatsapp_phone);
         } catch (Exception $e) {
             log_message('error', 'Webshop_api_model::send_password_otp transport error: ' . $e->getMessage());
-            return [
+            if (function_exists('webshop_forgot_password_log')) {
+                webshop_forgot_password_log('api_model.send_password_otp.exception', array(
+                    'phone' => $phone,
+                    'whatsapp_phone' => $whatsapp_phone,
+                    'error' => $e->getMessage(),
+                ));
+            }
+            return array(
                 'status' => 'ERROR',
                 'msg'    => 'Unable to reach the messaging service. Please try again.',
-                'delivered' => [],
-            ];
+                'delivered' => array(),
+            );
         }
         if ($res && isset($res->status) && strtoupper((string) $res->status) === 'SUCCESS') {
-            return [
+            $out = array(
                 'status' => 'SUCCESS',
                 'msg'    => isset($res->msg) ? (string) $res->msg : 'OTP sent.',
-                'delivered' => isset($res->delivered) ? (array) $res->delivered : [],
-            ];
+                'delivered' => isset($res->delivered) ? (array) $res->delivered : array(),
+            );
+            if (function_exists('webshop_forgot_password_log')) {
+                webshop_forgot_password_log('api_model.send_password_otp.ok', array(
+                    'phone'          => $phone,
+                    'whatsapp_phone' => $whatsapp_phone,
+                    'delivered'      => $out['delivered'],
+                    'msg'            => $out['msg'],
+                ));
+            }
+            return $out;
         }
         $apiErr = method_exists($this->api, 'get_last_error') ? $this->api->get_last_error() : null;
+        if (function_exists('webshop_forgot_password_log')) {
+            webshop_forgot_password_log('api_model.send_password_otp.fail', array(
+                'phone'      => $phone,
+                'status'     => $res && isset($res->status) ? (string) $res->status : 'null',
+                'msg'        => $res && isset($res->msg) ? (string) $res->msg : null,
+                'delivered'  => $res && isset($res->delivered) ? (array) $res->delivered : array(),
+                'last_error' => $apiErr,
+            ));
+        }
         if (!$res && $apiErr) {
             log_message('error', 'Webshop_api_model::send_password_otp api error: ' . $apiErr);
         }
-        return [
+        return array(
             'status' => 'ERROR',
             'msg'    => $res && isset($res->msg) ? (string) $res->msg : 'OTP delivery failed.',
-            'delivered' => $res && isset($res->delivered) ? (array) $res->delivered : [],
-        ];
+            'delivered' => $res && isset($res->delivered) ? (array) $res->delivered : array(),
+        );
     }
 
     /**
      * Update the customer password through ElintOm. Caller must have verified the OTP first.
      * Never throws — transport errors are converted to ERROR responses.
      */
-    public function reset_customer_password($phone, $new_password) {
+    public function reset_customer_password($phone, $new_password, $dial_code = '91', $local_digits = 10) {
+        $variants = function_exists('webshop_phone_digit_variants')
+            ? webshop_phone_digit_variants($phone, $dial_code, $local_digits)
+            : array(preg_replace('/\D/', '', (string) $phone));
+        foreach ($variants as $try_phone) {
+            if ($try_phone === '') {
+                continue;
+            }
+            $result = $this->_reset_customer_password_once($try_phone, $new_password);
+            if ($result['status'] === 'SUCCESS') {
+                return $result;
+            }
+            $msg = isset($result['msg']) ? strtolower((string) $result['msg']) : '';
+            if (strpos($msg, 'not found') === false && strpos($msg, 'no account') === false) {
+                return $result;
+            }
+        }
+        return isset($result) ? $result : array('status' => 'ERROR', 'msg' => 'Failed to update password.');
+    }
+
+    protected function _reset_customer_password_once($phone, $new_password) {
+        if (function_exists('webshop_forgot_password_log')) {
+            webshop_forgot_password_log('api_model.reset_customer_password.request', array('phone' => $phone));
+        }
         try {
             $res = $this->api->reset_customer_password($phone, $new_password);
         } catch (Exception $e) {
             log_message('error', 'Webshop_api_model::reset_customer_password transport error: ' . $e->getMessage());
+            if (function_exists('webshop_forgot_password_log')) {
+                webshop_forgot_password_log('api_model.reset_customer_password.exception', array(
+                    'phone' => $phone,
+                    'error' => $e->getMessage(),
+                ));
+            }
             return ['status' => 'ERROR', 'msg' => 'Service temporarily unavailable. Please try again.'];
         }
         if ($res && isset($res->status) && strtoupper((string) $res->status) === 'SUCCESS') {
+            if (function_exists('webshop_forgot_password_log')) {
+                webshop_forgot_password_log('api_model.reset_customer_password.ok', array('phone' => $phone));
+            }
             return ['status' => 'SUCCESS', 'msg' => isset($res->msg) ? (string) $res->msg : 'Password updated.'];
         }
         $apiErr = method_exists($this->api, 'get_last_error') ? $this->api->get_last_error() : null;
+        if (function_exists('webshop_forgot_password_log')) {
+            webshop_forgot_password_log('api_model.reset_customer_password.fail', array(
+                'phone'      => $phone,
+                'status'     => $res && isset($res->status) ? (string) $res->status : 'null',
+                'msg'        => $res && isset($res->msg) ? (string) $res->msg : null,
+                'last_error' => $apiErr,
+            ));
+        }
         if (!$res && $apiErr) {
             log_message('error', 'Webshop_api_model::reset_customer_password api error: ' . $apiErr);
         }
@@ -2475,10 +2647,13 @@ class Webshop_api_model extends CI_Model {
     }
 
     /**
-     * Best-effort WhatsApp order confirmation via ElintOm (DB-less / API order mode).
+     * WhatsApp order notification — API mode only (no Cheerio calls in this app).
      *
-     * @param int    $order_id
-     * @param string $flag     Template flag for Whatsapp_model (default 'true')
+     * HTTP: Elintom_api_client::notify_webshop_order_whatsapp() → ElintOm notifywebshoporderwhatsapp
+     * ElintOm resolves billing phone, reads whatsapp_api_key, sends via Whatsapp_model + Cheerio.
+     *
+     * @param int    $order_id orders.id in ElintOm
+     * @param string $flag     'true' = post-checkout placed; 'Ready'|'YES'|'NO' = status templates
      */
     public function notify_order_placed_whatsapp_remote($order_id, $flag = 'true') {
         if (!$this->uses_elintom_api_for_orders()) {
@@ -2489,7 +2664,16 @@ class Webshop_api_model extends CI_Model {
             return null;
         }
         try {
-            return $this->api->notify_webshop_order_whatsapp($order_id, $flag);
+            $res = $this->api->notify_webshop_order_whatsapp($order_id, $flag);
+            if ($res === null) {
+                $err = method_exists($this->api, 'get_last_error') ? $this->api->get_last_error() : '';
+                log_message('error', 'notify_order_placed_whatsapp_remote: API null for order ' . $order_id
+                    . ($err !== '' && $err !== null ? ' — ' . $err : ''));
+            } elseif (is_object($res) && isset($res->whatsapp_sent) && !$res->whatsapp_sent) {
+                $msg = isset($res->msg) ? (string) $res->msg : 'not sent';
+                log_message('error', 'notify_order_placed_whatsapp_remote: order ' . $order_id . ' — ' . $msg);
+            }
+            return $res;
         } catch (Exception $e) {
             log_message('error', 'Webshop_api_model::notify_order_placed_whatsapp_remote: ' . $e->getMessage());
             return null;
@@ -2511,7 +2695,16 @@ class Webshop_api_model extends CI_Model {
             return null;
         }
         try {
-            return $this->api->notify_webshop_order_email($order_id);
+            $res = $this->api->notify_webshop_order_email($order_id);
+            if ($res === null) {
+                $err = method_exists($this->api, 'get_last_error') ? $this->api->get_last_error() : '';
+                log_message('error', 'notify_order_placed_email_remote: API null for order ' . $order_id
+                    . ($err !== '' && $err !== null ? ' — ' . $err : ''));
+            } elseif (is_object($res) && isset($res->email_sent) && !$res->email_sent) {
+                $msg = isset($res->msg) ? (string) $res->msg : 'not sent';
+                log_message('error', 'notify_order_placed_email_remote: order ' . $order_id . ' — ' . $msg);
+            }
+            return $res;
         } catch (Exception $e) {
             log_message('error', 'Webshop_api_model::notify_order_placed_email_remote: ' . $e->getMessage());
             return null;
@@ -2606,11 +2799,18 @@ class Webshop_api_model extends CI_Model {
         $res = $ref !== null ? $this->api->get_order(0, $ref) : $this->api->get_order($id_num);
         $ok = $res && isset($res->status) && strtoupper((string) $res->status) === 'SUCCESS' && isset($res->order);
         if ($ok) {
+            $order_arr = (array) $res->order;
+            $items_arr = isset($res->items) ? array_map(function ($i) {
+                return (array) $i;
+            }, (array) $res->items) : array();
+            if (function_exists('webshop_normalize_order_payload')) {
+                $normalized = webshop_normalize_order_payload($order_arr, $items_arr);
+                $order_arr = $normalized['order'];
+                $items_arr = $normalized['items'];
+            }
             $this->_order_cache[$cache_key] = array(
-                'order' => (array) $res->order,
-                'items' => isset($res->items) ? array_map(function ($i) {
-                    return (array) $i;
-                }, (array) $res->items) : array(),
+                'order' => $order_arr,
+                'items' => $items_arr,
             );
             return $this->_order_cache[$cache_key]['order'];
         }

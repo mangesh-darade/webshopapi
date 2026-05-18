@@ -360,6 +360,142 @@ function webshop_price_display_fallback($n, $Settings) {
     return $sym . $formatted;
 }
 
+/**
+ * Pick catalogue unit price for checkout when eshop_price is empty/zero (use cart/MRP).
+ */
+function webshop_checkout_resolve_product_price(array $product, $cart_unit_price = 0, $cart_item_price = 0) {
+    $price = isset($product['price']) ? (float) $product['price'] : 0;
+    if ($price <= 0) {
+        $price = (float) $cart_item_price;
+    }
+    if ($price <= 0) {
+        $price = (float) $cart_unit_price;
+    }
+    if ($price <= 0 && !empty($product['mrp'])) {
+        $price = (float) $product['mrp'];
+    }
+    if ($price <= 0 && !empty($product['promo_price'])) {
+        $price = (float) $product['promo_price'];
+    }
+    return $price;
+}
+
+/**
+ * Unit price for an order line (handles legacy rows with unit_price=0 but net_price/MRP set).
+ */
+function webshop_order_item_unit_price(array $item) {
+    $qty = isset($item['quantity']) ? (float) $item['quantity'] : 0;
+    if ($qty <= 0) {
+        $qty = isset($item['unit_quantity']) ? (float) $item['unit_quantity'] : 1;
+    }
+    if ($qty <= 0) {
+        $qty = 1;
+    }
+
+    foreach (array('unit_price', 'net_unit_price', 'invoice_unit_price', 'real_unit_price') as $k) {
+        if (isset($item[$k]) && (float) $item[$k] > 0) {
+            return (float) $item[$k];
+        }
+    }
+    if (isset($item['subtotal']) && (float) $item['subtotal'] > 0) {
+        return (float) $item['subtotal'] / $qty;
+    }
+    if (isset($item['net_price']) && (float) $item['net_price'] > 0) {
+        return (float) $item['net_price'] / $qty;
+    }
+    if (isset($item['mrp']) && (float) $item['mrp'] > 0) {
+        return (float) $item['mrp'];
+    }
+    if (isset($item['price']) && (float) $item['price'] > 0) {
+        return (float) $item['price'];
+    }
+    return 0;
+}
+
+function webshop_order_item_line_total(array $item) {
+    $qty = isset($item['quantity']) ? (float) $item['quantity'] : 0;
+    if ($qty <= 0) {
+        $qty = isset($item['unit_quantity']) ? (float) $item['unit_quantity'] : 1;
+    }
+    if ($qty <= 0) {
+        $qty = 1;
+    }
+    if (isset($item['subtotal']) && (float) $item['subtotal'] > 0) {
+        return (float) $item['subtotal'];
+    }
+    if (isset($item['net_price']) && (float) $item['net_price'] > 0) {
+        return (float) $item['net_price'];
+    }
+    return webshop_order_item_unit_price($item) * $qty;
+}
+
+/**
+ * Normalize order + line rows when unit_price/subtotal were stored as 0 (eshop_price missing).
+ *
+ * @return array{order: array, items: array}
+ */
+function webshop_normalize_order_payload(array $order, array $items) {
+    $line_sum = 0;
+    foreach ($items as $idx => $item) {
+        $row = is_array($item) ? $item : (array) $item;
+        $qty = isset($row['quantity']) ? (float) $row['quantity'] : 1;
+        if ($qty <= 0) {
+            $qty = 1;
+        }
+        $unit = webshop_order_item_unit_price($row);
+        $line = webshop_order_item_line_total($row);
+        if ($unit > 0) {
+            $row['unit_price'] = $unit;
+            $row['net_unit_price'] = isset($row['net_unit_price']) && (float) $row['net_unit_price'] > 0
+                ? (float) $row['net_unit_price'] : $unit;
+        }
+        if ($line > 0) {
+            $row['subtotal'] = $line;
+        }
+        $items[$idx] = $row;
+        $line_sum += $line;
+    }
+
+    if ($line_sum > 0) {
+        if (!isset($order['total']) || (float) $order['total'] <= 0) {
+            $order['total'] = $line_sum;
+        }
+        if (!isset($order['grand_total']) || (float) $order['grand_total'] <= 0) {
+            $shipping = isset($order['shipping']) ? (float) $order['shipping'] : 0;
+            $tax = isset($order['total_tax']) ? (float) $order['total_tax'] : 0;
+            if (isset($order['product_tax']) && (float) $order['product_tax'] > 0) {
+                $tax = (float) $order['product_tax'];
+            }
+            $order['grand_total'] = $line_sum + $shipping + $tax;
+        }
+    }
+
+    return array('order' => $order, 'items' => $items);
+}
+
+function webshop_order_grand_total_amount(array $order, array $items = array()) {
+    if (isset($order['grand_total']) && (float) $order['grand_total'] > 0) {
+        return (float) $order['grand_total'];
+    }
+    if (isset($order['total']) && (float) $order['total'] > 0) {
+        $shipping = isset($order['shipping']) ? (float) $order['shipping'] : 0;
+        $tax = isset($order['total_tax']) ? (float) $order['total_tax'] : 0;
+        if (isset($order['product_tax']) && (float) $order['product_tax'] > 0) {
+            $tax = (float) $order['product_tax'];
+        }
+        return (float) $order['total'] + $tax + $shipping;
+    }
+    $sum = 0;
+    foreach ($items as $item) {
+        $sum += webshop_order_item_line_total(is_array($item) ? $item : (array) $item);
+    }
+    if ($sum > 0) {
+        $shipping = isset($order['shipping']) ? (float) $order['shipping'] : 0;
+        return $sum + $shipping;
+    }
+    return 0;
+}
+
 if (!function_exists('webshop_country_row_dial_code')) {
     /**
      * Extract numeric dial code from a country row (API uses `code` e.g. +91; not always `phone_code`).
@@ -2506,5 +2642,116 @@ if (!function_exists('webshop_resolve_header_logo_url')) {
      */
     function webshop_resolve_header_logo_url($uploads_base, $Settings, $webshop_settings, $page_logo_cms = '') {
         return webshop_resolve_storefront_logo_image_url($uploads_base);
+    }
+}
+
+if (!function_exists('webshop_phone_digit_variants')) {
+    /**
+     * Build phone lookup variants so register (local 10-digit) and forgot-password (+91 prefix) match ElintOm DB.
+     *
+     * @param string $raw
+     * @param string $dial_code      e.g. 91 (no +)
+     * @param int    $local_digits   e.g. 10 for India
+     * @return string[] Unique digit strings, local first (matches register_check / sma_customers.phone)
+     */
+    function webshop_phone_digit_variants($raw, $dial_code = '91', $local_digits = 10) {
+        $digits = preg_replace('/\D/', '', (string) $raw);
+        if ($digits === '') {
+            return array();
+        }
+        $dial_code = preg_replace('/\D/', '', (string) $dial_code);
+        $local_digits = max(0, (int) $local_digits);
+
+        $local = $digits;
+        if ($dial_code !== '' && strpos($digits, $dial_code) === 0 && strlen($digits) > $local_digits) {
+            $local = substr($digits, strlen($dial_code));
+        }
+        if ($local_digits > 0 && strlen($local) > $local_digits) {
+            $local = substr($local, -$local_digits);
+        }
+
+        $variants = array();
+        if ($local !== '') {
+            $variants[] = $local;
+        }
+        if ($dial_code !== '' && $local !== '') {
+            $intl = $dial_code . $local;
+            if (!in_array($intl, $variants, true)) {
+                $variants[] = $intl;
+            }
+        }
+        if ($digits !== '' && !in_array($digits, $variants, true)) {
+            $variants[] = $digits;
+        }
+        return array_values($variants);
+    }
+}
+
+if (!function_exists('webshop_mask_phone_for_log')) {
+    /**
+     * Mask phone/mobile for log lines (last 4 digits visible).
+     *
+     * @param string $value
+     * @return string
+     */
+    function webshop_mask_phone_for_log($value) {
+        $digits = preg_replace('/\D/', '', (string) $value);
+        $len = strlen($digits);
+        if ($len <= 4) {
+            return str_repeat('*', max(1, $len));
+        }
+        return str_repeat('*', $len - 4) . substr($digits, -4);
+    }
+}
+
+if (!function_exists('webshop_forgot_password_log')) {
+    /**
+     * Structured trace for forgot-password flow. Uses log level "error" so it is
+     * always written when log_threshold >= 1 (see application/config/config.php).
+     *
+     * Log file: application/logs/log-YYYY-MM-DD.php
+     *
+     * @param string $step    Short step id, e.g. send_otp.customer_not_found
+     * @param array  $context Key/value context (phones/otp/passwords are masked)
+     */
+    function webshop_forgot_password_log($step, array $context = array()) {
+        $redact = array(
+            'mobile', 'phone', 'mobileno', 'otp', 'password', 'new_password',
+            'confirm_password', 'privatekey', 'private_key',
+        );
+        $safe = array();
+        foreach ($context as $key => $val) {
+            $lk = strtolower((string) $key);
+            $is_secret = in_array($lk, $redact, true)
+                || strpos($lk, 'pass') !== false
+                || strpos($lk, 'otp') !== false;
+            if ($is_secret) {
+                if ($lk === 'otp' && is_string($val)) {
+                    $safe[$key] = '******';
+                } elseif (in_array($lk, array('mobile', 'phone', 'mobileno'), true)) {
+                    $safe[$key] = webshop_mask_phone_for_log($val);
+                } else {
+                    $safe[$key] = '[redacted]';
+                }
+                continue;
+            }
+            if (is_scalar($val) || $val === null) {
+                $safe[$key] = $val;
+            } elseif (is_array($val)) {
+                $safe[$key] = $val;
+            } else {
+                $safe[$key] = json_encode($val);
+            }
+        }
+        $payload = '';
+        if ($safe !== array()) {
+            $json = json_encode($safe, defined('JSON_UNESCAPED_UNICODE') ? JSON_UNESCAPED_UNICODE : 0);
+            $payload = ' ' . ($json !== false ? $json : '{"json_encode_failed":true}');
+        }
+        $level = 'error';
+        if (strpos((string) $step, 'render_form') !== false || strpos((string) $step, 'post_received') !== false) {
+            $level = 'debug';
+        }
+        log_message($level, '[FP_TRACE] ' . trim((string) $step) . $payload);
     }
 }

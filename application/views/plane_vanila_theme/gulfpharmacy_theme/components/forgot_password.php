@@ -13,6 +13,13 @@ if ($phone_code === '' && function_exists('webshop_settings_phone_dial_code')) {
 if ($phone_code === '') {
     $phone_code = '91';
 }
+$phone_local_digits = isset($phone_local_digits) ? (int) $phone_local_digits : 10;
+if ($forgot_mobile && function_exists('webshop_phone_digit_variants')) {
+    $fp_variants = webshop_phone_digit_variants($forgot_mobile, $phone_code, $phone_local_digits);
+    if (!empty($fp_variants)) {
+        $forgot_mobile = $fp_variants[0];
+    }
+}
 $fp_field_err = function ($field) use ($error_field) {
     return $error_field === $field ? ' fp-input-error' : '';
 };
@@ -42,7 +49,7 @@ $fp_field_err = function ($field) use ($error_field) {
     <main class="fp-main">
         <div class="fp-card">
             <h1 class="fp-title">Reset Password</h1>
-            <p class="fp-sub">Request a one-time code on your registered mobile. Delivery uses WhatsApp, SMS, or email (configured in ElintOm).</p>
+            <p class="fp-sub">Request a one-time code on your registered mobile. We send it via WhatsApp and email (SMS may also be used if configured in ElintOm).</p>
 
             <?php if ($flash_msg): ?>
                 <div class="fp-alert fp-alert-success" role="status">
@@ -58,18 +65,20 @@ $fp_field_err = function ($field) use ($error_field) {
             <?php endif; ?>
 
             <form action="<?= base_url('webshop/forgot_password') ?>" method="post" id="fp-step1" autocomplete="off" novalidate>
+                <input type="hidden" name="send_otp" value="1">
                 <div class="fp-group">
                     <label class="fp-label" for="fp_mobile">Mobile Number</label>
                     <div class="fp-input-row">
                         <span class="fp-input-prefix" id="fp_phone_prefix">+<?= html_escape($phone_code) ?></span>
                         <input class="fp-input fp-input--prefixed<?= $fp_field_err('mobile') ?>" type="tel" id="fp_mobile" name="mobile"
-                               placeholder="Registered mobile number"
-                               inputmode="numeric" pattern="[0-9+\s\-()]{8,18}"
-                               maxlength="18" required
+                               placeholder="<?= (int) $phone_code === 91 ? '10-digit mobile (without +91)' : 'Registered mobile number' ?>"
+                               inputmode="numeric" pattern="[0-9]{<?= max(8, $phone_local_digits) ?>}"
+                               maxlength="<?= max(8, $phone_local_digits) ?>" required
+                               data-phone-dial="<?= html_escape($phone_code) ?>"
                                aria-describedby="fp_mobile_help fp_phone_prefix"
                                value="<?= html_escape($forgot_mobile ? $forgot_mobile : '') ?>">
                     </div>
-                    <small id="fp_mobile_help" class="fp-help">We will send a 6-digit OTP via WhatsApp, SMS, or email. Valid for 10 minutes.</small>
+                    <small id="fp_mobile_help" class="fp-help">Enter your mobile without the country code (+<?= html_escape($phone_code) ?> is already selected). OTP is sent via WhatsApp and email — valid 10 minutes.</small>
                 </div>
                 <button type="submit" name="send_otp" value="1" class="fp-btn fp-btn-step1" id="fp-send-otp-btn">
                     <?= $otp_sent ? 'Resend OTP' : 'Send OTP' ?>
@@ -78,6 +87,7 @@ $fp_field_err = function ($field) use ($error_field) {
 
             <div id="fp-step2" class="fp-step2" <?= $otp_sent ? '' : 'hidden' ?>>
                 <form action="<?= base_url('webshop/forgot_password') ?>" method="post" id="fp-reset-form" autocomplete="off" novalidate>
+                    <input type="hidden" name="reset_password" value="1">
                     <input type="hidden" name="mobile" value="<?= html_escape($forgot_mobile ? $forgot_mobile : '') ?>">
                     <div class="fp-group">
                         <label class="fp-label" for="fp_otp">OTP</label>

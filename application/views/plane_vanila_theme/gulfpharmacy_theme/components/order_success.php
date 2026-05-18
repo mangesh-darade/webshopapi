@@ -5,7 +5,9 @@ $items     = isset($items) && is_array($items)  ? $items  : array();
 $symbol    = isset($Settings->symbol) ? $Settings->symbol : '';
 $shopName  = isset($Settings->site_name) ? $Settings->site_name : 'Shop';
 $refNo     = isset($order['reference_no']) ? $order['reference_no'] : (isset($order['id']) ? $order['id'] : '—');
-$grandTotal = isset($order['grand_total']) ? (float) $order['grand_total'] : 0;
+$grandTotal = function_exists('webshop_order_grand_total_amount')
+    ? webshop_order_grand_total_amount($order, $items)
+    : (isset($order['grand_total']) ? (float) $order['grand_total'] : 0);
 $order_notify_hint = isset($order_notify_hint) && (string) $order_notify_hint !== ''
     ? (string) $order_notify_hint
     : (string) $this->session->flashdata('order_notify_hint');
@@ -65,19 +67,24 @@ $os_preload_logo = function_exists('webshop_resolve_header_logo_url')
                     <?php foreach ($items as $item):
                         $itemArr = is_array($item) ? $item : (array) $item;
                         $iName  = isset($itemArr['name']) ? $itemArr['name'] : (isset($itemArr['product_name']) ? $itemArr['product_name'] : 'Item');
-                        $iQty   = isset($itemArr['quantity']) ? (int) $itemArr['quantity'] : 1;
-                        $iPrice = isset($itemArr['unit_price']) ? (float) $itemArr['unit_price'] : (isset($itemArr['price']) ? (float) $itemArr['price'] : 0);
+                        $iQty   = isset($itemArr['quantity']) ? (float) $itemArr['quantity'] : 1;
+                        if ($iQty <= 0) {
+                            $iQty = 1;
+                        }
+                        $lineTotal = function_exists('webshop_order_item_line_total')
+                            ? webshop_order_item_line_total($itemArr)
+                            : 0;
                     ?>
                         <div class="os-item">
                             <span class="os-item-name"><?= htmlspecialchars($iName, ENT_QUOTES, 'UTF-8') ?></span>
-                            <span class="os-item-qty">× <?= $iQty ?></span>
-                            <span class="os-item-price"><?= $symbol ?> <?= number_format($iPrice * $iQty, 2) ?></span>
+                            <span class="os-item-qty">× <?= (int) $iQty ?></span>
+                            <span class="os-item-price"><?= function_exists('webshop_price_display') ? webshop_price_display($lineTotal, isset($Settings) ? $Settings : null) : ($symbol . ' ' . number_format($lineTotal, 2)) ?></span>
                         </div>
                     <?php endforeach; ?>
                     <?php if ($grandTotal > 0): ?>
                         <div class="os-total">
                             <span>Total</span>
-                            <span><?= $symbol ?> <?= number_format($grandTotal, 2) ?></span>
+                            <span><?= function_exists('webshop_price_display') ? webshop_price_display($grandTotal, isset($Settings) ? $Settings : null) : ($symbol . ' ' . number_format($grandTotal, 2)) ?></span>
                         </div>
                     <?php endif; ?>
                 </div>

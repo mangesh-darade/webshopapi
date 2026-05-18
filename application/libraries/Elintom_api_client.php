@@ -304,14 +304,18 @@ class Elintom_api_client {
     }
 
     /**
-     * Ask ElintOm to deliver a forgot-password OTP via WhatsApp / SMS / Email.
-     * The storefront still owns the OTP value and TTL — this is delivery only.
+     * Forgot-password OTP — ElintOm action passwordotpsend (WhatsApp + SMS + email on POS side).
+     * Optional whatsapp_phone: E.164-style digits for Cheerio when local phone is 10-digit only.
      */
-    public function send_password_otp($phone, $otp) {
-        return $this->post('passwordotpsend', array(
+    public function send_password_otp($phone, $otp, $whatsapp_phone = null) {
+        $payload = array(
             'phone' => $phone,
             'otp'   => $otp,
-        ));
+        );
+        if ($whatsapp_phone !== null && $whatsapp_phone !== '') {
+            $payload['whatsapp_phone'] = preg_replace('/\D/', '', (string) $whatsapp_phone);
+        }
+        return $this->post('passwordotpsend', $payload);
     }
 
     /**
@@ -327,13 +331,20 @@ class Elintom_api_client {
     }
 
     /**
-     * Ask ElintOm to send the post-checkout WhatsApp template for a sale (uses POS DB + whatsapp_api_key).
+     * Post-checkout WhatsApp — ElintOm action notifywebshoporderwhatsapp.
+     * Sends storefront_base_url so receipt/track links point at this shop, not the POS host.
+     * Cheerio key and customer phone are read from ElintOm DB/settings, not from webshopapi.
      */
     public function notify_webshop_order_whatsapp($order_id, $flag = 'true') {
-        return $this->post('notifywebshoporderwhatsapp', array(
+        $extra = array(
             'order_id' => (int) $order_id,
             'flag'     => (string) $flag,
-        ));
+        );
+        $storefront = rtrim((string) $this->CI->config->item('base_url'), '/');
+        if ($storefront !== '') {
+            $extra['storefront_base_url'] = $storefront;
+        }
+        return $this->post('notifywebshoporderwhatsapp', $extra);
     }
 
     /**
@@ -604,6 +615,22 @@ class Elintom_api_client {
                 $msg .= ' (code ' . $decoded->error_code . ')';
             }
             $this->last_error = $msg;
+        }
+
+        $fp_actions = array('getcustomer', 'passwordotpsend', 'customerresetpassword');
+        if (function_exists('webshop_forgot_password_log') && in_array(strtolower((string) $action), $fp_actions, true)) {
+            $ok = is_object($decoded) && isset($decoded->status) && strtoupper((string) $decoded->status) === 'SUCCESS';
+            if (!$ok) {
+                webshop_forgot_password_log('elintom_api.' . $action, array(
+                    'endpoint'   => $url,
+                    'http'       => isset($http) ? (int) $http : 0,
+                    'status'     => is_object($decoded) && isset($decoded->status) ? (string) $decoded->status : 'null',
+                    'msg'        => is_object($decoded) && isset($decoded->msg) ? (string) $decoded->msg : null,
+                    'error_code' => is_object($decoded) && isset($decoded->error_code) ? (int) $decoded->error_code : null,
+                    'last_error' => $this->last_error,
+                    'phone'      => isset($extra['phone']) ? $extra['phone'] : null,
+                ));
+            }
         }
 
         return $decoded;

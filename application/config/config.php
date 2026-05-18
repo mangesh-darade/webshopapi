@@ -24,7 +24,10 @@ $config['controller_trigger'] = 'c';
 $config['function_trigger'] = 'm';
 $config['directory_trigger'] = 'd';
 
-$config['log_threshold'] = 1;
+// 1=errors only; 4=all. Localhost uses 4 so [FP_TRACE] + debug lines are visible during forgot-password testing.
+$host_for_log = isset($_SERVER['HTTP_HOST']) ? strtolower((string) $_SERVER['HTTP_HOST']) : '';
+$is_local_host = ($host_for_log === 'localhost' || strpos($host_for_log, '127.0.0.1') === 0);
+$config['log_threshold'] = $is_local_host ? 4 : 1;
 $config['log_path'] = '';
 $config['log_file_extension'] = '';
 $config['log_file_permissions'] = 0644;

@@ -1,12 +1,22 @@
 (function () {
     'use strict';
     var m = document.getElementById('fp_mobile');
-    if (m) m.addEventListener('input', function () {
-        var v = m.value.replace(/[^0-9+]/g, '');
-        if (v.indexOf('+') > 0) v = v.replace(/\+/g, '');
-        m.value = v;
-        m.classList.remove('fp-input-error');
-    });
+    if (m) {
+        var dial = (m.getAttribute('data-phone-dial') || '').replace(/\D/g, '');
+        var maxLen = parseInt(m.getAttribute('maxlength'), 10) || 15;
+        var stripDialPrefix = function (v) {
+            if (!dial || v.indexOf(dial) !== 0) return v;
+            if (v.length > maxLen) return v.slice(dial.length);
+            return v;
+        };
+        m.addEventListener('input', function () {
+            var v = m.value.replace(/\D/g, '');
+            v = stripDialPrefix(v);
+            if (v.length > maxLen) v = v.slice(0, maxLen);
+            m.value = v;
+            m.classList.remove('fp-input-error');
+        });
+    }
     var o = document.getElementById('fp_otp');
     if (o) o.addEventListener('input', function () {
         o.value = o.value.replace(/\D/g, '').slice(0, 6);
