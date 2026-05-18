@@ -257,9 +257,61 @@ class Webshop_section_engine
             if (!$this->should_render_catalog_section($type, $sectionData)) {
                 continue;
             }
+            $sectionData = $this->merge_component_theme_globals($sectionData, $data);
             $html[] = $this->CI->load->view($view, $sectionData, true);
         }
         return implode("\n", $html);
+    }
+
+    /**
+     * Pass layout globals into CMS section partials (Assets_directory_name, view prefix, …).
+     *
+     * @param array $sectionData
+     * @param array $data
+     * @return array
+     */
+    protected function merge_component_theme_globals(array $sectionData, array $data)
+    {
+        $keys = array(
+            'Assets_directory_name',
+            'assets',
+            'webshop_settings',
+            'Settings',
+            'uploads',
+            'thumbs',
+            'Customer_assets',
+            'plane_vanila_theme_folder',
+            'plane_vanila_view_prefix',
+        );
+        foreach ($keys as $key) {
+            if ((!isset($sectionData[$key]) || $sectionData[$key] === '' || $sectionData[$key] === null)
+                && isset($data[$key]) && $data[$key] !== '' && $data[$key] !== null) {
+                $sectionData[$key] = $data[$key];
+            }
+        }
+        if (function_exists('webshop_theme_assets_base_url')) {
+            if (!isset($sectionData['assets']) || (string) $sectionData['assets'] === '') {
+                $sectionData['assets'] = webshop_theme_assets_base_url();
+            }
+        }
+        if (function_exists('webshop_theme_assets_directory_name')) {
+            if (!isset($sectionData['Assets_directory_name']) || (string) $sectionData['Assets_directory_name'] === '') {
+                $sectionData['Assets_directory_name'] = webshop_theme_assets_directory_name();
+            }
+        }
+        if (function_exists('webshop_plane_vanila_theme_folder')) {
+            if (!isset($sectionData['plane_vanila_theme_folder']) || (string) $sectionData['plane_vanila_theme_folder'] === '') {
+                $sectionData['plane_vanila_theme_folder'] = webshop_plane_vanila_theme_folder();
+            }
+        }
+        if (function_exists('webshop_plane_vanila_view_prefix')) {
+            if (!isset($sectionData['plane_vanila_view_prefix']) || (string) $sectionData['plane_vanila_view_prefix'] === '') {
+                $sectionData['plane_vanila_view_prefix'] = webshop_plane_vanila_view_prefix(
+                    isset($sectionData['plane_vanila_theme_folder']) ? $sectionData['plane_vanila_theme_folder'] : null
+                );
+            }
+        }
+        return $sectionData;
     }
 
     /**
@@ -598,21 +650,20 @@ class Webshop_section_engine
             $candidateBasenames = array('cms_footer_section');
         }
 
-        // 1. Try active theme components first
-        if ($theme !== 'default') {
+        // 1. Active theme folder from elintom_api_switch (per host)
+        if (function_exists('webshop_plane_vanila_view')) {
+            foreach ($candidateBasenames as $basename) {
+                $themePath = webshop_plane_vanila_view('components/' . $basename);
+                if (is_file(VIEWPATH . $themePath . '.php')) {
+                    return $themePath;
+                }
+            }
+        } elseif ($theme !== 'default') {
             foreach ($candidateBasenames as $basename) {
                 $themePath = 'plane_vanila_theme/' . $theme . '_theme/components/' . $basename;
                 if (is_file(VIEWPATH . $themePath . '.php')) {
                     return $themePath;
                 }
-            }
-        }
-
-        // 2. Try gulfpharmacy_theme components (User request: use this path)
-        foreach ($candidateBasenames as $basename) {
-            $gpPath = 'plane_vanila_theme/gulfpharmacy_theme/components/' . $basename;
-            if (is_file(VIEWPATH . $gpPath . '.php')) {
-                return $gpPath;
             }
         }
 

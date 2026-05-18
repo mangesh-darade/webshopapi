@@ -372,7 +372,9 @@ XSL;
      */
     private function resolve_webshop_view_path($method)
     {
-        $method = trim((string) $method, '/');
+        $method = function_exists('webshop_normalize_webshop_view_method')
+            ? webshop_normalize_webshop_view_method($method)
+            : trim((string) $method, '/');
         if ($method === '') {
             return 'webshop/index';
         }
@@ -408,16 +410,12 @@ XSL;
             return 'webshop/' . $method;
         }
 
-        // 4. Auto-resolve to theme components if migrated
-        $theme_comp = 'plane_vanila_theme/' . $theme . '_theme/components/' . $method;
-        if (is_file(VIEWPATH . $theme_comp . '.php')) {
-            return $theme_comp;
-        }
-
-        // 5. Fallback to gulfpharmacy components (User request)
-        $gp_comp = 'plane_vanila_theme/gulfpharmacy_theme/components/' . $method;
-        if (is_file(VIEWPATH . $gp_comp . '.php')) {
-            return $gp_comp;
+        // 4. Active plane_vanila theme components (folder from elintom_api_switch)
+        if (function_exists('webshop_plane_vanila_view')) {
+            $theme_comp = webshop_plane_vanila_view('components/' . $method);
+            if (is_file(VIEWPATH . $theme_comp . '.php')) {
+                return $theme_comp;
+            }
         }
 
         // 6. Fallback to default webshop/components/ (if it existed)
@@ -440,8 +438,9 @@ XSL;
             return '';
         }
 
-        $theme = isset($this->webshop_settings->webshop_theme) ? (string) $this->webshop_settings->webshop_theme : '';
-        $themeFolder = ($theme !== '') ? $theme . '_theme' : '';
+        $themeFolder = function_exists('webshop_plane_vanila_theme_folder')
+            ? webshop_plane_vanila_theme_folder()
+            : '';
 
         // 1. Direct path check within plane_vanila_theme
         $directPath = VIEWPATH . 'plane_vanila_theme/' . $method . '.php';
@@ -470,17 +469,7 @@ XSL;
             }
         }
 
-        // 3. Fallback to shared gulfpharmacy components
-        if ($theme !== 'gulfpharmacy') {
-            $baseName = str_replace('components/', '', $method);
-            $fallback = 'gulfpharmacy_theme/components/' . $baseName;
-            $path = VIEWPATH . 'plane_vanila_theme/' . $fallback . '.php';
-            if (is_file($path)) {
-                return 'plane_vanila_theme/' . $fallback;
-            }
-        }
-
-        // 4. Legacy allowed list check
+        // 3. Legacy allowed list check
         $allowed = array(
             'category_products',
             'cart',
@@ -987,6 +976,9 @@ XSL;
 
     private function resolve_theme_folder()
     {
+        if (function_exists('webshop_plane_vanila_theme_folder')) {
+            return webshop_plane_vanila_theme_folder();
+        }
         $theme = isset($this->webshop_settings->webshop_theme) ? $this->webshop_settings->webshop_theme : '';
         if ($theme === 'restaurant') {
             return 'restaurant';
@@ -1707,7 +1699,7 @@ XSL;
             } else if ($this->webshop_settings->webshop_theme == 'nw') {
                 $this->load_view("nw_theme/index", $this->data);
             } else if ($this->webshop_settings->webshop_theme == 'gulfpharmacy') {
-                $this->load_view("gulfpharmacy_theme/index", $this->data);
+                $this->load_view("index", $this->data);
             } else {
                 $this->load_view("index", $this->data);
             }
@@ -2051,7 +2043,7 @@ XSL;
             } else if ($this->webshop_settings->webshop_theme == 'nw') {
                 $this->load_view("nw_theme/index", $this->data);
             } else if ($this->webshop_settings->webshop_theme == 'gulfpharmacy') {
-                $this->load_view("gulfpharmacy_theme/index", $this->data);
+                $this->load_view("index", $this->data);
             } else {
                 $this->load_view("index", $this->data);
             }
@@ -5544,7 +5536,7 @@ XSL;
         }
 
         if ($theme === 'gulfpharmacy') {
-            $this->load_view("gulfpharmacy_theme/my_account", $this->data);
+            $this->load_view("my_account", $this->data);
             return;
         }
         if ($theme === 'restaurant') {
@@ -5556,7 +5548,7 @@ XSL;
             return;
         }
         // Final fallback: Gulf Pharmacy view (closest to current default storefront).
-        $this->load_view("gulfpharmacy_theme/my_account", $this->data);
+        $this->load_view("my_account", $this->data);
     }
 
     /**
@@ -7393,14 +7385,14 @@ XSL;
             $this->load_view("nw_theme/about_us", $this->data);
         }
         if ($this->webshop_settings->webshop_theme == 'gulfpharmacy') {
-            $this->load_view("gulfpharmacy_theme/about_us", $this->data);
+            $this->load_view("about_us", $this->data);
         }
         if (
             $this->webshop_settings->webshop_theme != 'restaurant'
             && $this->webshop_settings->webshop_theme != 'nw'
             && $this->webshop_settings->webshop_theme != 'gulfpharmacy'
         ) {
-            $this->load_view("gulfpharmacy_theme/about_us", $this->data);
+            $this->load_view("about_us", $this->data);
         }
     }
 
@@ -7426,9 +7418,9 @@ XSL;
         } else if ($theme == "nw") {
             $this->load_view("nw_theme/terms_and_conditions", $this->data);
         } else if ($theme == "gulfpharmacy") {
-            $this->load_view("gulfpharmacy_theme/terms_and_conditions", $this->data);
+            $this->load_view("terms_and_conditions", $this->data);
         } else {
-            $this->load_view("gulfpharmacy_theme/terms_and_conditions", $this->data);
+            $this->load_view("terms_and_conditions", $this->data);
         }
     }
 
@@ -7454,9 +7446,9 @@ XSL;
         } else if ($theme == "nw") {
             $this->load_view("nw_theme/privacy_policy", $this->data);
         } else if ($theme == "gulfpharmacy") {
-            $this->load_view("gulfpharmacy_theme/privacy_policy", $this->data);
+            $this->load_view("privacy_policy", $this->data);
         } else {
-            $this->load_view("gulfpharmacy_theme/privacy_policy", $this->data);
+            $this->load_view("privacy_policy", $this->data);
         }
     }
 
@@ -7475,7 +7467,7 @@ XSL;
         } else if ($theme == 'nw') {
             $this->load_view("nw_theme/contact_us", $this->data);
         } else if ($theme == 'gulfpharmacy') {
-            $this->load_view("gulfpharmacy_theme/contact_us", $this->data);
+            $this->load_view("contact_us", $this->data);
         }
     }
 
@@ -7508,9 +7500,9 @@ XSL;
         } elseif ($this->webshop_settings->webshop_theme == 'nw') {
             $this->load_view("nw_theme/blogs", $this->data);
         } elseif ($this->webshop_settings->webshop_theme == 'gulfpharmacy') {
-            $this->load_view("gulfpharmacy_theme/blogs", $this->data);
+            $this->load_view("blogs", $this->data);
         } else {
-            $this->load_view("gulfpharmacy_theme/blogs", $this->data);
+            $this->load_view("blogs", $this->data);
         }
     }
 
@@ -7620,9 +7612,9 @@ XSL;
         } elseif ($this->webshop_settings->webshop_theme == 'nw') {
             $this->load_view("nw_theme/blog_detail", $this->data);
         } elseif ($this->webshop_settings->webshop_theme == 'gulfpharmacy') {
-            $this->load_view("gulfpharmacy_theme/blog_detail", $this->data);
+            $this->load_view("blog_detail", $this->data);
         } else {
-            $this->load_view("gulfpharmacy_theme/blog_detail", $this->data);
+            $this->load_view("blog_detail", $this->data);
         }
     }
 
@@ -7659,9 +7651,9 @@ XSL;
         } else if ($this->webshop_settings->webshop_theme == 'nw') {
             $this->load_view("nw_theme/tracking_order", $this->data);
         } else if ($this->webshop_settings->webshop_theme == 'gulfpharmacy') {
-            $this->load_view("gulfpharmacy_theme/tracking_order", $this->data);
+            $this->load_view("tracking_order", $this->data);
         } else {
-            $this->load_view("gulfpharmacy_theme/tracking_order", $this->data);
+            $this->load_view("tracking_order", $this->data);
         }
     }
 

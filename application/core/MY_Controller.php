@@ -104,9 +104,13 @@ class MY_Controller extends CI_Controller {
             $this->data['assets'] = base_url() . 'themes/default/assets/';
         }
         $this->load->helper('genfun_helper');
+        $this->load->helper('webshop_helper');
+        $pv_folder = webshop_plane_vanila_theme_folder();
+        $this->data['plane_vanila_theme_folder'] = $pv_folder;
+        $this->data['plane_vanila_view_prefix'] = webshop_plane_vanila_view_prefix($pv_folder);
         $this->data['Settings'] = $this->Settings;
         $this->data['Shopowner'] = $this->shopowner;
-        $this->data['Assets_directory_name'] = $this->get_host_name();
+        $this->data['Assets_directory_name'] = webshop_theme_assets_directory_name();
         $this->Customer_url = $this->Customer_assets;
         $this->data['Customer_assets'] = $this->Customer_assets;
 

@@ -26,6 +26,16 @@ unset($path_to_switch_config);
 $config['elintom_api_base_url'] = $selected_api_base_url;
 $config['elintom_api_private_key'] = $selected_api_private_key;
 
+// Per-host theme assets folder (assets/webshop/{name}/). Empty = use HTTP_HOST in MY_Controller.
+$config['elintom_theme_assets_directory'] = isset($selected_theme_assets_directory)
+    ? trim((string) $selected_theme_assets_directory)
+    : '';
+
+// PHP views: plane_vanila_theme/{folder}/ — overrides {webshop_theme}_theme when set in switch.
+$config['elintom_theme_view_folder'] = isset($selected_theme_view_folder)
+    ? trim((string) $selected_theme_view_folder)
+    : '';
+
 // Relative to base URL above (no leading slash). Change only if your ElintOm needs index.php (common on WAMP without rewrite):
 //   index.php/webshop_api/index
 $config['elintom_api_webshop_endpoint_path'] = 'webshop_api/index';
@@ -177,6 +187,16 @@ $config['elintom_catalog_fallback_database'] = false;
 
 if (!isset($config['elintom_domain_theme_map'])) {
     $config['elintom_domain_theme_map'] = array();
+}
+
+// Host → webshop_theme from elintom_api_switch.php (merged; does not remove entries in elintom_api.local.php).
+if (!empty($detected_host_for_api) && !empty($selected_webshop_theme)) {
+    $host_key = strtolower(trim((string) $detected_host_for_api));
+    $config['elintom_domain_theme_map'][$host_key] = trim((string) $selected_webshop_theme);
+    $host_no_www = preg_replace('/^www\./', '', $host_key);
+    if ($host_no_www !== '' && $host_no_www !== $host_key) {
+        $config['elintom_domain_theme_map'][$host_no_www] = trim((string) $selected_webshop_theme);
+    }
 }
 
 // Session-backed HTTP response cache (seconds). 0 = disable. Low values reduce ElintOm round-trips per shopper session.
