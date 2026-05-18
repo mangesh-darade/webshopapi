@@ -340,9 +340,14 @@ class Elintom_api_client {
      * Ask ElintOm to send a post-checkout order confirmation email for a sale.
      */
     public function notify_webshop_order_email($order_id) {
-        return $this->post('notifywebshoporderemail', array(
+        $extra = array(
             'order_id' => (int) $order_id,
-        ));
+        );
+        $storefront = rtrim((string) $this->CI->config->item('base_url'), '/');
+        if ($storefront !== '') {
+            $extra['storefront_base_url'] = $storefront;
+        }
+        return $this->post('notifywebshoporderemail', $extra);
     }
 
 
