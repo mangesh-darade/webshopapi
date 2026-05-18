@@ -50,31 +50,9 @@ class MY_Controller extends CI_Controller {
             $this->_sync_customer_assets_from_api_settings();
             $this->_apply_domain_theme_override();
         } else {
-            // Transport failure, empty body, or JSON { status: ERROR }
-            echo "<h2>API Connection Error</h2>";
-            if ($api_data && isset($api_data->status) && strtoupper((string) $api_data->status) === 'ERROR') {
-                $em = isset($api_data->msg) ? (string) $api_data->msg : 'Unknown API error.';
-                echo "<p><strong>ElintOm API returned an error (HTTP OK, JSON error):</strong><br>"
-                    . htmlspecialchars($em) . "</p>";
-                echo "<p>Fix this in ElintOm (settings, API key, POS version ≥ 3, etc.), then reload.</p><br>";
-            } else {
-                echo "Failed to reach ElintOm or retrieve settings (network / empty response / invalid JSON).<br><br>";
-            }
-
-            // Get the exact API client instance that executed the request
             $client = $this->webshop_api_model->get_api_client();
-            
-            if ($client) {
-                $err = $client->get_last_error();
-                echo "<strong>Internal Client Error:</strong> " . ($err !== null && $err !== '' ? htmlspecialchars((string) $err) : '(none — see Parsed API Payload)') . "<br>";
-                $raw = $client->get_last_raw_response();
-                echo "<strong>Raw Response String:</strong> <pre>" . htmlentities($raw === null || $raw === '' ? '(empty)' : (string) $raw) . "</pre><br>";
-            }
-
-            echo "<strong>Parsed API Payload:</strong><br><pre>";
-            echo htmlspecialchars($api_data === null ? '(null)' : print_r($api_data, true));
-            echo "</pre>";
-            die();
+            $this->_render_elintom_api_connection_error($api_data, $client);
+            return;
         }
 
         // $this->site->resetExpirePromos(); // Disabled without DB
@@ -469,5 +447,125 @@ class MY_Controller extends CI_Controller {
       
         $data = $data;
        return $data;
+    }
+
+    /**
+     * Full-page error when getsettings fails (JSON ERROR, transport, or invalid body).
+     *
+     * @param object|null $api_data Decoded ElintOm response
+     * @param object|null $client    Elintom_api_client
+     */
+    protected function _render_elintom_api_connection_error($api_data, $client = null)
+    {
+        $this->config->load('elintom_api', true);
+        $api_base = (string) $this->config->item('elintom_api_base_url', 'elintom_api');
+        $api_key  = trim((string) $this->config->item('elintom_api_private_key', 'elintom_api'));
+        $http_host = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
+
+        $is_json_error = ($api_data && isset($api_data->status) && strtoupper((string) $api_data->status) === 'ERROR');
+        $error_code = null;
+        $api_message = '';
+        $private_key_msg = '';
+
+        if ($is_json_error) {
+            if (isset($api_data->error_code)) {
+                $error_code = (int) $api_data->error_code;
+            }
+            if (!empty($api_data->msg)) {
+                $api_message = trim((string) $api_data->msg);
+            } elseif (!empty($api_data->mag)) {
+                $api_message = trim((string) $api_data->mag);
+            }
+            if (!empty($api_data->private_key_msg)) {
+                $private_key_msg = trim((string) $api_data->private_key_msg);
+            }
+        }
+
+        $client_error = ($client && method_exists($client, 'get_last_error')) ? $client->get_last_error() : null;
+        $raw = ($client && method_exists($client, 'get_last_raw_response')) ? $client->get_last_raw_response() : null;
+
+        if ($api_message === '' && $client_error) {
+            $api_message = trim((string) $client_error);
+        }
+        if ($api_message === '') {
+            $api_message = $is_json_error ? 'ElintOm returned an error.' : 'Could not reach ElintOm or read a valid JSON response.';
+        }
+
+        $title = 'API connection error';
+        $detail_lines = array();
+        $help_steps = array();
+
+        if ($error_code === 102 || stripos($api_message, 'private key') !== false) {
+            $title = 'API private key mismatch';
+            $detail_lines[] = 'The key in webshopapi does not match ElintOm → Settings → API private key on the POS you are calling.';
+            if ($private_key_msg !== '') {
+                $detail_lines[] = 'ElintOm detail: ' . $private_key_msg;
+            }
+            $help_steps[] = 'Log in to ElintOm at <strong>' . htmlspecialchars(rtrim($api_base, '/'), ENT_QUOTES, 'UTF-8') . '</strong> (or your POS URL).';
+            $help_steps[] = 'Open <strong>Settings</strong> and copy the <strong>API private key</strong> (<code>sma_settings.api_privatekey</code>).';
+            $help_steps[] = 'Paste that exact value into <code>application/config/elintom_api_switch.php</code> for your host profile (<code>webshop.elintpos.in</code> → <code>gulfpharmacy_testing</code>), or into <code>elintom_api.local.php</code> on the server.';
+            $help_steps[] = 'Remove any old or duplicate key in <code>elintom_api.local.php</code> that overrides the switch with a wrong value.';
+            $help_steps[] = 'Reload this page after saving the file.';
+        } elseif ($raw !== null && stripos((string) $raw, '<!DOCTYPE') !== false) {
+            $title = 'ElintOm database error';
+            if (preg_match('/<p>Table\s+([^<]+)<\/p>/i', (string) $raw, $m)) {
+                $detail_lines[] = strip_tags($m[0]);
+            }
+            if (preg_match('/<p>Error Number:\s*(\d+)<\/p>/i', (string) $raw, $m)) {
+                $detail_lines[] = 'MySQL error ' . $m[1];
+            }
+            $help_steps[] = 'Fix the database on the <strong>ElintOm server</strong> (create missing tables or run migrations).';
+            $help_steps[] = 'This is not fixed in the webshopapi codebase alone.';
+        } elseif (!$is_json_error) {
+            $title = 'Cannot connect to ElintOm';
+            $help_steps[] = 'Confirm <code>elintom_api_base_url</code> in <code>elintom_api_switch.php</code> matches your POS URL.';
+            $help_steps[] = 'Open the API URL in a browser and ensure ElintOm is running (no 404/500).';
+            $help_steps[] = 'Check firewall/SSL between the webshop server and ElintOm.';
+        } else {
+            $help_steps[] = 'Review the message from ElintOm below and fix the cause on the POS (settings, modules, database).';
+            $help_steps[] = 'Reload after ElintOm is corrected.';
+        }
+
+        $technical = array();
+        if ($client_error !== null && $client_error !== '') {
+            $technical[] = array('label' => 'Client diagnostic', 'content' => (string) $client_error);
+        }
+        if ($raw !== null && $raw !== '') {
+            $raw_show = (string) $raw;
+            if (stripos($raw_show, '<!DOCTYPE') !== false) {
+                $raw_show = preg_replace('/\s+/', ' ', strip_tags($raw_show));
+                $raw_show = substr($raw_show, 0, 4000);
+            }
+            $technical[] = array('label' => 'Raw response', 'content' => $raw_show);
+        }
+        if ($api_data !== null) {
+            $technical[] = array(
+                'label' => 'Parsed JSON',
+                'content' => print_r($api_data, true),
+            );
+        }
+
+        $view_data = array(
+            'error_title'     => $title,
+            'error_message'   => $api_message,
+            'error_code'      => $error_code,
+            'detail_lines'    => $detail_lines,
+            'help_steps'      => $help_steps,
+            'http_host'       => $http_host,
+            'api_base'        => $api_base,
+            'key_configured'  => ($api_key !== ''),
+            'show_technical'  => !empty($technical),
+            'technical'       => $technical,
+        );
+
+        $view = APPPATH . 'views/errors/elintom_api_connection.php';
+        if (is_file($view)) {
+            extract($view_data, EXTR_SKIP);
+            include $view;
+        } else {
+            echo '<h1>' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '</h1>';
+            echo '<p>' . htmlspecialchars($api_message, ENT_QUOTES, 'UTF-8') . '</p>';
+        }
+        exit;
     }
 }

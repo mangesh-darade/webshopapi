@@ -5,58 +5,84 @@ $detected_host_for_api = isset($_SERVER['HTTP_HOST']) ? strtolower(trim((string)
 if (preg_match('/:\d+$/', $detected_host_for_api)) {
     $detected_host_for_api = preg_replace('/:\d+$/', '', $detected_host_for_api);
 }
+if ($detected_host_for_api === '[::1]' || $detected_host_for_api === '::1') {
+    $detected_host_for_api = 'localhost';
+}
+if (strpos($detected_host_for_api, 'www.') === 0) {
+    $detected_host_for_api = substr($detected_host_for_api, 4);
+}
 
-// Filled per `case` below. Empty `$selected_media_uploads_base_url` lets `Webshop_api_model::get_media_uploads_base()`
-// build `…/assets/mdata/{HTTP_HOST}/uploads/` from the browser host (`elintom_media_use_http_host` + `elintom_mdata_include_http_host_segment`).
 $selected_api_base_url = '';
 $selected_api_private_key = '';
 $selected_media_uploads_base_url = '';
-
-/*
-| Per-host storefront theme (one switch file for API + theme + CSS folder).
-|
-| $selected_webshop_theme
-|   ElintOm / CMS view theme id: gulfpharmacy | nw | restaurant …
-|   Maps to views under plane_vanila_theme/{theme}_theme/
-|
-| $selected_theme_assets_directory
-|   Folder under assets/webshop/{name}/ for CSS & JS
-|   Examples: gulfpharmacy_theme, gulfpharmacy_theme_new, nw_theme, localhost
-|   Leave empty to use the browser hostname as the folder name.
-|
-| $selected_theme_view_folder
-|   PHP views under application/views/plane_vanila_theme/{name}/
-|   Use when the folder name is NOT {webshop_theme}_theme (e.g. gulfpharmacy_theme_new).
-|   Leave empty to use {webshop_theme}_theme (gulfpharmacy → gulfpharmacy_theme).
-*/
 $selected_webshop_theme = '';
 $selected_theme_assets_directory = '';
 $selected_theme_view_folder = '';
+$selected_customer_assets_folder = '';
+$selected_mdata_include_http_host_segment = null;
+$selected_media_use_http_host = null;
 
-/////////////////////////////////////////////////////////////// Switch Case for API Base URL and Private Key ///////////////////////////////////////////////////////////////
+$elintom_switch_profiles = array(
+    'gulfpharmacy_local' => array(
+        // API can stay on local ElintOm; images use remote testingpos mdata (same as production).
+        'api_base_url'                    => 'http://localhost/ElintOm/',
+        'api_private_key'                 => '3e8676ed23c627117437c7e6a1bbd6e9',
+        'media_uploads_base_url'          => 'https://testingpos.elintpos.in/assets/mdata/testingpos/uploads/',
+        'customer_assets_folder'          => 'testingpos',
+        'mdata_include_http_host_segment' => false,
+        'media_use_http_host'             => false,
+        'webshop_theme'                   => 'gulfpharmacy',
+        'theme_view_folder'               => 'gulfpharmacy_theme',
+        'theme_assets_directory'          => 'gulfpharmacy_theme',
+    ),
+    'gulfpharmacy_testing' => array(
+        'api_base_url'                       => 'https://testingpos.elintpos.in/',
+        'api_private_key'                    => '3e8676ed23c627117437c7e6a1bbd6e9',
+        'media_uploads_base_url'             => 'https://testingpos.elintpos.in/assets/mdata/testingpos/uploads/',
+        'customer_assets_folder'             => 'testingpos',
+        'mdata_include_http_host_segment'    => false,
+        'media_use_http_host'                => false,
+        'webshop_theme'                      => 'gulfpharmacy',
+        'theme_view_folder'                  => 'gulfpharmacy_theme',
+        'theme_assets_directory'             => 'gulfpharmacy_theme',
+    ),
+);
+
+$elintom_active_profile = 'gulfpharmacy_testing';
 
 switch ($detected_host_for_api) {
-
     case '127.0.0.1':
     case 'localhost':
-        // API host matches how you open the shop (localhost vs 127.0.0.1).
-        $selected_api_base_url = 'http://localhost/ElintOm/';
-        $selected_api_private_key = '3e8676ed23c627117437c7e6a1bbd6e9';
-        $selected_media_uploads_base_url = '';
-        $selected_webshop_theme = 'gulfpharmacy';
-        $selected_theme_view_folder = 'gulfpharmacy_theme';
-        $selected_theme_assets_directory = 'gulfpharmacy_theme';
+        $elintom_active_profile = 'gulfpharmacy_local';
         break;
 
-    // Add customer domains here, for example:
-    // case 'customer1.yourdomain.com':
-    //     $selected_api_base_url = 'https://customer1.yourdomain.com/ElintOm/';
-    //     $selected_api_private_key = 'customer1-private-key';
-    //     $selected_media_uploads_base_url = '';
-    //     $selected_webshop_theme = 'gulfpharmacy';
-    //     $selected_theme_assets_directory = 'customer1.yourdomain.com';
-    //     break;
+    case 'webshop':
+    case 'webshop.elintpos.in':
+        $elintom_active_profile = 'gulfpharmacy_testing';
+        break;
 
     default:
+        $elintom_active_profile = 'gulfpharmacy_testing';
         break;
 }
+
+if (isset($elintom_switch_profiles[$elintom_active_profile])) {
+    $p = $elintom_switch_profiles[$elintom_active_profile];
+    $selected_api_base_url = $p['api_base_url'];
+    $selected_api_private_key = $p['api_private_key'];
+    $selected_media_uploads_base_url = isset($p['media_uploads_base_url']) ? $p['media_uploads_base_url'] : '';
+    $selected_webshop_theme = $p['webshop_theme'];
+    $selected_theme_view_folder = $p['theme_view_folder'];
+    $selected_theme_assets_directory = $p['theme_assets_directory'];
+    if (!empty($p['customer_assets_folder'])) {
+        $selected_customer_assets_folder = $p['customer_assets_folder'];
+    }
+    if (array_key_exists('mdata_include_http_host_segment', $p)) {
+        $selected_mdata_include_http_host_segment = $p['mdata_include_http_host_segment'];
+    }
+    if (array_key_exists('media_use_http_host', $p)) {
+        $selected_media_use_http_host = $p['media_use_http_host'];
+    }
+}
+
+unset($elintom_switch_profiles, $elintom_active_profile, $p);

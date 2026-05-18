@@ -47,14 +47,20 @@ $config['elintom_api_legacy_endpoint_path']  = 'api3/eshop';
 $config['elintom_media_uploads_base_url'] = $selected_media_uploads_base_url;
 
 // When host-based mdata is off, this folder name is used: …/mdata/{this}/uploads/
-$config['elintom_customer_assets_folder'] = 'default';
+$config['elintom_customer_assets_folder'] = !empty($selected_customer_assets_folder)
+    ? trim((string) $selected_customer_assets_folder)
+    : 'default';
 
 // TRUE  → images under …/assets/mdata/{website-hostname}/uploads/
-// FALSE → images under …/assets/mdata/{elintom_customer_assets_folder}/uploads/
-$config['elintom_mdata_include_http_host_segment'] = true;
+// FALSE → images under …/assets/mdata/{elintom_customer_assets_folder}/uploads/ (e.g. testingpos)
+$config['elintom_mdata_include_http_host_segment'] = ($selected_mdata_include_http_host_segment !== null)
+    ? (bool) $selected_mdata_include_http_host_segment
+    : true;
 
-// TRUE = use the same host the customer types in the browser (localhost vs 127.0.0.1).
-$config['elintom_media_use_http_host'] = true;
+// TRUE = build media URL from browser host (webshop.elintpos.in). FALSE = use ElintOm API host.
+$config['elintom_media_use_http_host'] = ($selected_media_use_http_host !== null)
+    ? (bool) $selected_media_use_http_host
+    : true;
 
 // TRUE = recalculate the image base on every request. FALSE = use the prebuilt value at the bottom of this file.
 $config['elintom_media_resolve_at_runtime'] = true;

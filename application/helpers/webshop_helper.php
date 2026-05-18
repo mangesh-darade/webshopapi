@@ -1,6 +1,32 @@
 <?php
 
 /**
+ * CMS banners on ElintOm live under uploads/webshop/cms_pages/ (not uploads/webshop/ alone).
+ *
+ * @param string $path_part Relative path after mdata/uploads/ prefix is removed
+ * @return string
+ */
+function webshop_fixup_cms_media_relative_path($path_part) {
+    $path_part = ltrim(str_replace('\\', '/', (string) $path_part), '/');
+    if ($path_part === '') {
+        return $path_part;
+    }
+    if (preg_match('#^webshop/cms_pages/#i', $path_part)) {
+        return $path_part;
+    }
+    if (preg_match('#^webshop/(?!cms_pages/)(.+)$#i', $path_part, $m)) {
+        return 'webshop/cms_pages/' . $m[1];
+    }
+    if (preg_match('#^cms_pages/(.+)$#i', $path_part, $m)) {
+        return 'webshop/cms_pages/' . $m[1];
+    }
+    if (preg_match('#^uploads/webshop/cms_pages/#i', $path_part)) {
+        return preg_replace('#^uploads/#i', '', $path_part);
+    }
+    return $path_part;
+}
+
+/**
  * Build image URL: POS paths are relative to uploads base; some payloads return absolute URLs.
  * ElintOm/CMS may still emit legacy …/assets/uploads/… — those are mapped onto the mdata uploads
  * root ($uploads_base), i.e. …/assets/mdata/{host}/uploads/…
@@ -38,8 +64,10 @@ function webshop_media_src($uploads_base, $path) {
         return '';
     }
 
-    // Absolute path variants.
+    // Absolute path variants (with or without /ElintOm/ app folder in URL).
     if (preg_match('#/assets/mdata/[^/]+/uploads/(.+)$#i', $path_part, $m) && isset($m[1]) && trim($m[1]) !== '') {
+        $path_part = $m[1];
+    } elseif (preg_match('#/ElintOm/assets/mdata/[^/]+/uploads/(.+)$#i', $path_part, $m) && isset($m[1]) && trim($m[1]) !== '') {
         $path_part = $m[1];
     } elseif (preg_match('#/assets/uploads/(.+)$#i', $path_part, $m) && isset($m[1]) && trim($m[1]) !== '') {
         $path_part = $m[1];
@@ -53,9 +81,9 @@ function webshop_media_src($uploads_base, $path) {
             $quoted = preg_quote($base_mdata_folder, '#');
             $path_part = preg_replace('#^/?' . $quoted . '/uploads/#i', '', $path_part);
         }
-        // Fallback for any "<segment>/uploads/file.jpg".
-        $path_part = preg_replace('#^/?[^/]+/uploads/#i', '', $path_part);
+        // Do not strip "webshop/uploads/…" — that removes the webshop/ folder and breaks cms_pages paths.
     }
+    $path_part = webshop_fixup_cms_media_relative_path($path_part);
     return $base . ltrim($path_part, '/') . $query;
 }
 
@@ -143,6 +171,9 @@ function webshop_normalize_html_media_urls($html, $uploads_base) {
     }
     $base = rtrim(str_replace('\\', '/', (string) $uploads_base), '/') . '/';
     $map_tail = function ($tail) use ($base) {
+        $tail = function_exists('webshop_fixup_cms_media_relative_path')
+            ? webshop_fixup_cms_media_relative_path($tail)
+            : ltrim(str_replace('\\', '/', (string) $tail), '/');
         return $base . ltrim(str_replace('\\', '/', (string) $tail), '/');
     };
 
@@ -154,6 +185,12 @@ function webshop_normalize_html_media_urls($html, $uploads_base) {
     );
     $out = preg_replace_callback(
         '#https?://[^"\'\s)]+/assets/mdata/[^/]+/uploads/([^"\'\s)]+)#i',
+        function ($m) use ($map_tail) { return $map_tail($m[1]); },
+        $out
+    );
+    // CMS rows saved with full ElintOm app path (e.g. http://localhost/ElintOm/assets/mdata/localhost/uploads/…).
+    $out = preg_replace_callback(
+        '#https?://[^"\'\s)]+/ElintOm/assets/mdata/[^/]+/uploads/([^"\'\s)]+)#i',
         function ($m) use ($map_tail) { return $map_tail($m[1]); },
         $out
     );
