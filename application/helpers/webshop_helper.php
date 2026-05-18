@@ -360,6 +360,158 @@ function webshop_price_display_fallback($n, $Settings) {
     return $sym . $formatted;
 }
 
+if (!function_exists('webshop_country_row_dial_code')) {
+    /**
+     * Extract numeric dial code from a country row (API uses `code` e.g. +91; not always `phone_code`).
+     *
+     * @param array|object $row
+     * @return string Digits only, e.g. 91
+     */
+    function webshop_country_row_dial_code($row) {
+        $a = is_object($row) ? (array) $row : (is_array($row) ? $row : array());
+        foreach (array('code', 'phone_code', 'country_code', 'dial_code') as $k) {
+            if (empty($a[$k])) {
+                continue;
+            }
+            $digits = preg_replace('/\D/', '', (string) $a[$k]);
+            if ($digits !== '') {
+                return $digits;
+            }
+        }
+        return '';
+    }
+}
+
+if (!function_exists('webshop_settings_default_country_key')) {
+    /**
+     * POS default country from getsettings ($Settings): name, id, or label.
+     *
+     * @param object|null $settings
+     * @return string
+     */
+    function webshop_settings_default_country_key($settings = null) {
+        if ($settings === null && function_exists('get_instance')) {
+            $CI = get_instance();
+            $settings = (isset($CI->Settings) && is_object($CI->Settings)) ? $CI->Settings : null;
+        }
+        if (!is_object($settings)) {
+            return '';
+        }
+        foreach (array('country', 'default_country', 'country_name') as $k) {
+            if (!empty($settings->$k)) {
+                return trim((string) $settings->$k);
+            }
+        }
+        return '';
+    }
+}
+
+if (!function_exists('webshop_settings_phone_dial_code')) {
+    /**
+     * Dial prefix for storefront forms (forgot password, etc.) from ElintOm country + countries list.
+     *
+     * @param mixed $countries_list Optional preloaded getCountry() rows
+     * @return string Digits only (no +), e.g. 91 for India
+     */
+    function webshop_settings_phone_dial_code($countries_list = null) {
+        $CI = function_exists('get_instance') ? get_instance() : null;
+        $key = webshop_settings_default_country_key();
+        $key_lc = strtolower($key);
+
+        $name_to_dial = array(
+            'india' => '91',
+            'oman' => '968',
+            'united arab emirates' => '971',
+            'uae' => '971',
+            'saudi arabia' => '966',
+        );
+        if ($key_lc !== '' && isset($name_to_dial[$key_lc])) {
+            return $name_to_dial[$key_lc];
+        }
+
+        if ($countries_list === null && $CI && isset($CI->webshop_model) && method_exists($CI->webshop_model, 'getCountry')) {
+            try {
+                $countries_list = $CI->webshop_model->getCountry();
+            } catch (Exception $e) {
+                $countries_list = array();
+            }
+        }
+
+        if (is_array($countries_list) && !empty($countries_list)) {
+            foreach ($countries_list as $c) {
+                $a = is_object($c) ? (array) $c : (is_array($c) ? $c : array());
+                $id = isset($a['id']) ? trim((string) $a['id']) : (isset($a['country_id']) ? trim((string) $a['country_id']) : '');
+                $name = isset($a['name']) ? trim((string) $a['name']) : (isset($a['country_name']) ? trim((string) $a['country_name']) : '');
+                $match = false;
+                if ($key !== '') {
+                    if ($id !== '' && $key === $id) {
+                        $match = true;
+                    } elseif ($name !== '' && strcasecmp($name, $key) === 0) {
+                        $match = true;
+                    }
+                }
+                if (!$match) {
+                    continue;
+                }
+                $dial = webshop_country_row_dial_code($c);
+                if ($dial !== '') {
+                    return $dial;
+                }
+            }
+        }
+
+        if ($CI && isset($CI->Settings) && is_object($CI->Settings) && !empty($CI->Settings->timezone)) {
+            $tz = strtolower((string) $CI->Settings->timezone);
+            if (strpos($tz, 'kolkata') !== false || strpos($tz, 'calcutta') !== false) {
+                return '91';
+            }
+        }
+
+        return '91';
+    }
+}
+
+if (!function_exists('webshop_settings_local_phone_length')) {
+    /**
+     * Expected local mobile length (without country code) for auto-prefix on forgot password.
+     *
+     * @param mixed $countries_list
+     * @return int
+     */
+    function webshop_settings_local_phone_length($countries_list = null) {
+        $dial = webshop_settings_phone_dial_code($countries_list);
+        $defaults = array('91' => 10, '968' => 8, '971' => 9, '966' => 9);
+        if (isset($defaults[$dial])) {
+            return (int) $defaults[$dial];
+        }
+
+        $key = webshop_settings_default_country_key();
+        if ($countries_list === null && function_exists('get_instance')) {
+            $CI = get_instance();
+            if ($CI && isset($CI->webshop_model) && method_exists($CI->webshop_model, 'getCountry')) {
+                try {
+                    $countries_list = $CI->webshop_model->getCountry();
+                } catch (Exception $e) {
+                    $countries_list = array();
+                }
+            }
+        }
+        if (is_array($countries_list)) {
+            foreach ($countries_list as $c) {
+                $a = is_object($c) ? (array) $c : (is_array($c) ? $c : array());
+                $row_dial = webshop_country_row_dial_code($c);
+                if ($row_dial !== $dial) {
+                    continue;
+                }
+                if (!empty($a['phone_digits']) && is_numeric($a['phone_digits'])) {
+                    return max(6, min(15, (int) $a['phone_digits']));
+                }
+            }
+        }
+        return 10;
+    }
+}
+
 /**
  * Fallback when thumbs/uploads have no product or category photo (tries standard paths, then SVG data URI).
  *

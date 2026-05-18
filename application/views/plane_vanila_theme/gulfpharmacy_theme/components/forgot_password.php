@@ -6,7 +6,13 @@ $flash_err = $this->session->flashdata('error');
 $forgot_mobile = $this->session->flashdata('forgot_mobile');
 $otp_sent = (bool) $this->session->flashdata('otp_sent');
 $error_field = (string) $this->session->flashdata('error_field');
-$phone_code = isset($phone_code) ? preg_replace('/\D/', '', (string) $phone_code) : '968';
+$phone_code = isset($phone_code) ? preg_replace('/\D/', '', (string) $phone_code) : '';
+if ($phone_code === '' && function_exists('webshop_settings_phone_dial_code')) {
+    $phone_code = webshop_settings_phone_dial_code();
+}
+if ($phone_code === '') {
+    $phone_code = '91';
+}
 $fp_field_err = function ($field) use ($error_field) {
     return $error_field === $field ? ' fp-input-error' : '';
 };

@@ -6279,37 +6279,29 @@ XSL;
             redirect('webshop/index');
         }
 
-        // Fetch country phone code via API (DB-less compliant)
-        $default_country = isset($this->Settings->country) ? $this->Settings->country : 'Oman';
-        $phone_code = '968'; // Global default for Gulf Pharmacy (Oman)
-        
+        $countries_list = array();
         try {
-            $countries_res = $this->webshop_api_model->get_api_client()->get_countries();
-            if ($countries_res && isset($countries_res->status) && strtoupper((string)$countries_res->status) === 'SUCCESS' && isset($countries_res->countries)) {
-                $countries = is_array($countries_res->countries) ? $countries_res->countries : (array)$countries_res->countries;
-                foreach ($countries as $c) {
-                    $c_arr = is_object($c) ? (array)$c : (is_array($c) ? $c : array());
-                    $c_name = isset($c_arr['country_name']) ? (string)$c_arr['country_name'] : (isset($c_arr['name']) ? (string)$c_arr['name'] : '');
-                    if (strcasecmp($c_name, $default_country) === 0) {
-                        $p_code = isset($c_arr['phone_code']) ? (string)$c_arr['phone_code'] : '';
-                        if ($p_code !== '') {
-                            $phone_code = str_replace('+', '', $p_code);
-                        }
-                        break;
-                    }
-                }
+            $countries_list = $this->webshop_model->getCountry();
+            if (!is_array($countries_list)) {
+                $countries_list = array();
             }
         } catch (Exception $e) {
-            log_message('error', 'forgot_password: get_countries API failed: ' . $e->getMessage());
+            log_message('error', 'forgot_password: getCountry failed: ' . $e->getMessage());
         }
+        $phone_code = function_exists('webshop_settings_phone_dial_code')
+            ? webshop_settings_phone_dial_code($countries_list)
+            : '91';
         $this->data['phone_code'] = $phone_code;
+        $this->data['phone_local_digits'] = function_exists('webshop_settings_local_phone_length')
+            ? webshop_settings_local_phone_length($countries_list)
+            : 10;
 
         // ── Step 1: deliver OTP ────────────────────────────────────────
         if ($this->input->post('send_otp') !== false && $this->input->post('send_otp') !== null) {
             $mobile = $this->_normalize_mobile($this->input->post('mobile'));
             
-            // Auto-prefix phone code if user entered local 8-digit number (Oman context)
-            if (strlen($mobile) === 8 && substr($mobile, 0, strlen($phone_code)) !== $phone_code) {
+            $local_digits = isset($this->data['phone_local_digits']) ? (int) $this->data['phone_local_digits'] : 10;
+            if ($local_digits > 0 && strlen($mobile) === $local_digits && strpos($mobile, $phone_code) !== 0) {
                 $mobile = $phone_code . $mobile;
             }
 
@@ -6520,33 +6512,13 @@ XSL;
     }
 
     private function _get_cached_phone_code() {
-        if (isset($this->_memo_phone_code)) return $this->_memo_phone_code;
-        
-        $default_country = isset($this->Settings->country) ? (string)$this->Settings->country : 'Oman';
-        $phone_code = '968'; // Default fallback
-        
-        try {
-            $countries_res = $this->webshop_api_model->get_api_client()->get_countries();
-            if ($countries_res && isset($countries_res->status) && strtoupper((string)$countries_res->status) === 'SUCCESS' && isset($countries_res->countries)) {
-                $countries = is_array($countries_res->countries) ? $countries_res->countries : (array)$countries_res->countries;
-                foreach ($countries as $c) {
-                    $c_arr = is_object($c) ? (array)$c : (is_array($c) ? $c : array());
-                    $c_name = isset($c_arr['country_name']) ? (string)$c_arr['country_name'] : (isset($c_arr['name']) ? (string)$c_arr['name'] : '');
-                    if (strcasecmp($c_name, $default_country) === 0) {
-                        $p_code = isset($c_arr['phone_code']) ? (string)$c_arr['phone_code'] : '';
-                        if ($p_code !== '') {
-                            $phone_code = str_replace('+', '', $p_code);
-                        }
-                        break;
-                    }
-                }
-            }
-        } catch (Exception $e) {
-            log_message('error', 'Webshop::_get_cached_phone_code: ' . $e->getMessage());
+        if (isset($this->_memo_phone_code)) {
+            return $this->_memo_phone_code;
         }
-        
-        $this->_memo_phone_code = $phone_code;
-        return $phone_code;
+        $this->_memo_phone_code = function_exists('webshop_settings_phone_dial_code')
+            ? webshop_settings_phone_dial_code()
+            : '91';
+        return $this->_memo_phone_code;
     }
 
     /**
