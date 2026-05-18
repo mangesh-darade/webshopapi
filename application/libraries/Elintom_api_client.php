@@ -400,15 +400,19 @@ class Elintom_api_client {
         ));
     }
 
-    public function get_order($order_id, $reference_no = null, $order_hash = null) {
+    public function get_order($order_id, $reference_no = null) {
         $extra = array('order_id' => (int) $order_id);
         if ($reference_no !== null && (string) $reference_no !== '') {
             $extra['reference_no'] = (string) $reference_no;
         }
-        if ($order_hash !== null && (string) $order_hash !== '') {
-            $extra['order_hash'] = strtolower(trim((string) $order_hash));
-        }
         return $this->post('getorder', $extra);
+    }
+
+    /** Guest tracking URL token (md5 of order id) from WhatsApp / email links. */
+    public function get_order_by_track_hash($track_hash) {
+        return $this->post('getorderbytrackhash', array(
+            'track_hash' => strtolower(trim((string) $track_hash)),
+        ));
     }
 
     /**

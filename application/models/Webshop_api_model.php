@@ -2841,56 +2841,66 @@ class Webshop_api_model extends CI_Model {
     }
 
     /**
-     * Whether the tracking token is a public md5(orders.id) link (guest-safe).
+     * Public tracking without login: MD5(id) from WhatsApp or reference_no (ES-…).
+     * Logged-in users should use get_order_for_tracking() so they cannot view others' numeric ids.
      */
-    public function is_order_tracking_hash($identifier) {
-        return function_exists('webshop_is_order_tracking_hash')
-            && webshop_is_order_tracking_hash($identifier);
-    }
-
-    /**
-     * Guest track: load order by md5(id) only (from WhatsApp/email). No customer session required.
-     *
-     * @param string $order_hash 32-char hex, lowercase
-     * @return array|null ['order' => array, 'items' => array]
-     */
-    public function get_order_for_tracking_by_hash($order_hash) {
-        $hash = strtolower(trim((string) $order_hash));
-        if (!function_exists('webshop_is_order_tracking_hash') || !webshop_is_order_tracking_hash($hash)) {
+    public function get_order_for_tracking_public($identifier) {
+        $needle = trim((string) $identifier);
+        if ($needle === '') {
             return null;
         }
 
-        if ($this->api_mode || !$this->has_local_db()) {
-            $res = $this->api->get_order(0, null, $hash);
-            if ($res && isset($res->status) && strtoupper((string) $res->status) === 'SUCCESS' && isset($res->order)) {
-                $order_arr = (array) $res->order;
-                $items_arr = isset($res->items) ? array_map(function ($i) {
-                    return (array) $i;
-                }, (array) $res->items) : array();
-                if (function_exists('webshop_normalize_order_payload')) {
-                    $normalized = webshop_normalize_order_payload($order_arr, $items_arr);
-                    $order_arr = $normalized['order'];
-                    $items_arr = $normalized['items'];
-                }
-                return array('order' => $order_arr, 'items' => $items_arr);
+        if (preg_match('/^ES-/i', $needle)) {
+            return $this->_tracking_payload_from_api_order($this->api->get_order(0, $needle));
+        }
+
+        if (preg_match('/^[a-f0-9]{32}$/i', $needle)) {
+            $hash = strtolower($needle);
+            if ($this->uses_elintom_api_for_orders()) {
+                return $this->_tracking_payload_from_api_order($this->api->get_order_by_track_hash($hash));
             }
-            return null;
+            if ($this->has_local_db()) {
+                $order = $this->db->query(
+                    'SELECT * FROM sma_orders WHERE eshop_sale = 1 AND MD5(id) = ? LIMIT 1',
+                    array($hash)
+                )->row_array();
+                if ($order && !empty($order['id'])) {
+                    $oid = (int) $order['id'];
+                    return array(
+                        'order' => $this->get_order_by_id($oid),
+                        'items' => $this->get_order_items_by_order_id($oid),
+                    );
+                }
+            }
         }
 
-        $order = $this->db->query(
-            'SELECT * FROM sma_orders WHERE eshop_sale = 1 AND MD5(id) = ? LIMIT 1',
-            array($hash)
-        )->row_array();
-        if (!$order || empty($order['id'])) {
-            return null;
-        }
-        $oid = (int) $order['id'];
-        $items = $this->db->where('sale_id', $oid)->get('sma_order_items')->result_array();
-        return array('order' => $order, 'items' => $items ? $items : array());
+        return null;
     }
 
     /**
-     * Logged-in track: match id, reference_no, or md5(id) within the customer's own orders only.
+     * @param object|null $res ElintOm getorder / getorderbytrackhash response
+     * @return array|null
+     */
+    protected function _tracking_payload_from_api_order($res) {
+        if (!$res || !isset($res->status) || strtoupper((string) $res->status) !== 'SUCCESS' || empty($res->order)) {
+            return null;
+        }
+        $order_arr = (array) $res->order;
+        $items_arr = isset($res->items) ? array_map(function ($i) {
+            return (array) $i;
+        }, (array) $res->items) : array();
+        if (function_exists('webshop_normalize_order_payload')) {
+            $normalized = webshop_normalize_order_payload($order_arr, $items_arr);
+            $order_arr = $normalized['order'];
+            $items_arr = $normalized['items'];
+        }
+        return array('order' => $order_arr, 'items' => $items_arr);
+    }
+
+    /**
+     * Resolve a tracking identifier (numeric id, reference_no, or md5(id)) to an order +
+     * its line items for the /webshop/track_order page. Constrained to the logged-in
+     * customer so users can only track their own orders.
      *
      * @param string $identifier  Raw URL segment: order id, reference_no, or MD5(id).
      * @param int    $customer_id companies.id from the webshop session.

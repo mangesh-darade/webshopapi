@@ -7827,42 +7827,43 @@ XSL;
 
     public function track_order($order_id)
     {
-        // URL: /webshop/track_order/{token}
-        // token = md5(orders.id) on WhatsApp/email links (guest OK), or id/ref when logged in.
+        // URL: /webshop/track_order/{md5(id)} from WhatsApp, or reference_no, or numeric id when logged in.
         $identifier = trim((string) $order_id);
         $this->data['order_id']   = $identifier;
         $this->data['identifier'] = $identifier;
 
         $session_user_id = $this->_get_webshop_session_user_id();
-        $this->data['is_logged_in']   = (bool) $session_user_id;
-        $this->data['tracking_order'] = array();
-        $this->data['tracking_items'] = array();
-        $this->data['tracking_error'] = '';
-        $this->data['tracking_guest'] = false;
+        $this->data['is_logged_in']       = (bool) $session_user_id;
+        $this->data['tracking_order']    = array();
+        $this->data['tracking_items']    = array();
+        $this->data['tracking_error']    = '';
+        $this->data['tracking_is_guest'] = false;
+
+        $this->load->model('webshop_api_model');
 
         if ($identifier === '') {
             $this->data['tracking_error'] = 'Missing tracking reference.';
-        } else {
-            $this->load->model('webshop_api_model');
-            $tracking = null;
-
-            if ($session_user_id) {
-                $tracking = $this->webshop_api_model->get_order_for_tracking($identifier, $session_user_id);
-            }
-            // Guest: only the md5 link from order confirmation (not guessable numeric ids).
-            if ((!is_array($tracking) || empty($tracking['order']))
-                && $this->webshop_api_model->is_order_tracking_hash($identifier)) {
-                $tracking = $this->webshop_api_model->get_order_for_tracking_by_hash($identifier);
+        } elseif (!$session_user_id) {
+            // Guest: only opaque MD5 token or public reference — not raw numeric order id.
+            $is_public_token = (bool) preg_match('/^[a-f0-9]{32}$/i', $identifier)
+                || (bool) preg_match('/^ES-/i', $identifier);
+            if ($is_public_token) {
+                $this->data['tracking_is_guest'] = true;
+                $tracking = $this->webshop_api_model->get_order_for_tracking_public($identifier);
                 if (is_array($tracking) && !empty($tracking['order'])) {
-                    $this->data['tracking_guest'] = true;
+                    $this->data['tracking_order'] = $tracking['order'];
+                    $this->data['tracking_items'] = isset($tracking['items']) && is_array($tracking['items']) ? $tracking['items'] : array();
+                } else {
+                    $this->data['tracking_error'] = 'This tracking link is invalid or has expired.';
                 }
+            } else {
+                $this->data['tracking_error'] = 'Sign in to track this order, or open the link from your order confirmation message.';
             }
-
+        } else {
+            $tracking = $this->webshop_api_model->get_order_for_tracking($identifier, $session_user_id);
             if (is_array($tracking) && !empty($tracking['order'])) {
                 $this->data['tracking_order'] = $tracking['order'];
                 $this->data['tracking_items'] = isset($tracking['items']) && is_array($tracking['items']) ? $tracking['items'] : array();
-            } elseif (!$session_user_id && !$this->webshop_api_model->is_order_tracking_hash($identifier)) {
-                $this->data['tracking_error'] = 'Please sign in to track this order, or use the link from your order confirmation message.';
             } else {
                 $this->data['tracking_error'] = 'We could not find an order matching this reference.';
             }
@@ -7998,6 +7999,12 @@ XSL;
      */
     public function track_order_status()
     {
+        $session_user_id = $this->_get_webshop_session_user_id();
+        if (!$session_user_id) {
+            $this->json_response(array('status' => 'FAIL', 'error' => 'Unauthorized'));
+            return;
+        }
+
         $identifier = trim((string) $this->input->post('identifier'));
         if ($identifier === '') {
             $identifier = trim((string) $this->input->post('order_id'));
@@ -8007,21 +8014,8 @@ XSL;
             return;
         }
 
-        $session_user_id = $this->_get_webshop_session_user_id();
         $this->load->model('webshop_api_model');
-        $tracking = null;
-
-        if ($session_user_id) {
-            $tracking = $this->webshop_api_model->get_order_for_tracking($identifier, $session_user_id);
-        }
-        if ((!is_array($tracking) || empty($tracking['order']))
-            && $this->webshop_api_model->is_order_tracking_hash($identifier)) {
-            $tracking = $this->webshop_api_model->get_order_for_tracking_by_hash($identifier);
-        }
-        if (!$session_user_id && !$this->webshop_api_model->is_order_tracking_hash($identifier)) {
-            $this->json_response(array('status' => 'FAIL', 'error' => 'Unauthorized'));
-            return;
-        }
+        $tracking = $this->webshop_api_model->get_order_for_tracking($identifier, $session_user_id);
         if (!is_array($tracking) || empty($tracking['order'])) {
             $this->json_response(array('status' => 'FAIL', 'error' => 'Order not found'));
             return;
