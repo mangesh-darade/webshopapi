@@ -473,6 +473,13 @@ function webshop_normalize_order_payload(array $order, array $items) {
     return array('order' => $order, 'items' => $items);
 }
 
+/**
+ * True when URL segment is md5(orders.id) from WhatsApp/email track links (32 hex chars).
+ */
+function webshop_is_order_tracking_hash($token) {
+    return (bool) preg_match('/^[a-f0-9]{32}$/i', trim((string) $token));
+}
+
 function webshop_order_grand_total_amount(array $order, array $items = array()) {
     if (isset($order['grand_total']) && (float) $order['grand_total'] > 0) {
         return (float) $order['grand_total'];

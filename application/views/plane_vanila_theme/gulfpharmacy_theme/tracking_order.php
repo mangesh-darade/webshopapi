@@ -4,10 +4,8 @@
  * Gulf Pharmacy order tracking page.
  *
  * Renders a status timeline + order summary for one order so logged-in customers can
- * see where their order is. The lookup itself happens server-side in
- * Webshop::track_order() (via Webshop_api_model::get_order_for_tracking) and is
- * constrained to the session user — viewers cannot read someone else's order by
- * guessing reference_no.
+ * see where their order is. Lookup in Webshop::track_order():
+ * logged-in → own orders only; guest → md5(id) token from WhatsApp/email link only.
  *
  * Data expected from the controller:
  *   $identifier      : raw URL segment (numeric id, reference_no, or MD5(id))
@@ -23,6 +21,7 @@ $is_logged_in    = !empty($is_logged_in);
 $tracking_order  = isset($tracking_order) && is_array($tracking_order) ? $tracking_order : array();
 $tracking_items  = isset($tracking_items) && is_array($tracking_items) ? $tracking_items : array();
 $tracking_error  = isset($tracking_error) ? (string) $tracking_error : '';
+$tracking_guest  = !empty($tracking_guest);
 
 $currency = (isset($Settings) && is_object($Settings) && !empty($Settings->symbol)) ? (string) $Settings->symbol : '$';
 
@@ -101,10 +100,17 @@ if ($order_date !== '' && $order_date !== '0000-00-00 00:00:00') {
                     <p class="to-sub">Reference <span class="to-ref"><?= htmlspecialchars($identifier, ENT_QUOTES, 'UTF-8') ?></span></p>
                 <?php endif; ?>
             </div>
+            <?php if ($is_logged_in && !$tracking_guest): ?>
             <a class="to-back" href="<?= htmlspecialchars(base_url('webshop/your_orders'), ENT_QUOTES, 'UTF-8') ?>">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
                 Back to orders
             </a>
+            <?php else: ?>
+            <a class="to-back" href="<?= htmlspecialchars(base_url('webshop'), ENT_QUOTES, 'UTF-8') ?>">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+                Back to shop
+            </a>
+            <?php endif; ?>
         </header>
 
         <?php if ($tracking_error !== '' || empty($tracking_order)): ?>
