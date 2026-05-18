@@ -1207,6 +1207,25 @@ if (!function_exists('webshop_theme_assets_directory_name')) {
     }
 }
 
+if (!function_exists('webshop_theme_assets_url')) {
+    /**
+     * URL to a file under assets/webshop/{active theme folder}/.
+     *
+     * @param string $relative e.g. css/forgot-password.css
+     * @return string
+     */
+    function webshop_theme_assets_url($relative = '') {
+        $base = function_exists('webshop_theme_assets_base_url')
+            ? webshop_theme_assets_base_url()
+            : rtrim(base_url('assets/webshop/'), '/') . '/';
+        $dir = function_exists('webshop_theme_assets_directory_name')
+            ? webshop_theme_assets_directory_name()
+            : 'gulfpharmacy_theme';
+        $rel = ltrim(str_replace('\\', '/', (string) $relative), '/');
+        return $rel !== '' ? $base . $dir . '/' . $rel : $base . $dir . '/';
+    }
+}
+
 if (!function_exists('webshop_theme_assets_base_url')) {
     /**
      * Base URL for theme CSS/JS (assets/webshop/{folder}/).

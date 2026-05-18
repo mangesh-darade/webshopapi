@@ -3464,27 +3464,7 @@ XSL;
                             'method'       => $payment_method,
                         ));
 
-                        try {
-                            if ($this->webshop_api_model->uses_elintom_api_for_orders()) {
-                                $this->webshop_api_model->notify_order_placed_whatsapp_remote((int) $order_id, 'true');
-                            } elseif (isset($this->db) && isset($order['billing_address_id']) && $order['billing_address_id']) {
-                                $wa_customer = $this->getShippingAddress($order['billing_address_id']);
-                                if (is_object($wa_customer) && !empty($wa_customer->phone)) {
-                                    $country_code = $this->getcountryCode($wa_customer->country);
-                                    $this->call_whatsapp_cheerio($country_code . $wa_customer->phone, $order_id, 'true');
-                                }
-                            }
-                        } catch (\Throwable $e) {
-                            log_message('error', 'WhatsApp notify failed for order ' . $order_id . ': ' . $e->getMessage());
-                        }
-
-                        try {
-                            if ($this->webshop_api_model->uses_elintom_api_for_orders()) {
-                                $this->webshop_api_model->notify_order_placed_email_remote((int) $order_id);
-                            }
-                        } catch (\Throwable $e) {
-                            log_message('error', 'Email notify failed for order ' . $order_id . ': ' . $e->getMessage());
-                        }
+                        $this->_notify_order_placed_customer((int) $order_id, $order);
 
                         redirect("webshop/order_success?order=$order_id&customer=$customer_id");
 
@@ -3998,16 +3978,7 @@ XSL;
             }
             $oid_for_wa = isset($responseMap['order_id']) ? trim((string) $responseMap['order_id']) : '';
             if ($oid_for_wa !== '' && ctype_digit($oid_for_wa)) {
-                try {
-                    $this->webshop_api_model->notify_order_placed_whatsapp_remote((int) $oid_for_wa, 'true');
-                } catch (\Throwable $e) {
-                    log_message('error', 'WhatsApp notify after CCAvenue failed for order ' . $oid_for_wa . ': ' . $e->getMessage());
-                }
-                try {
-                    $this->webshop_api_model->notify_order_placed_email_remote((int) $oid_for_wa);
-                } catch (\Throwable $e) {
-                    log_message('error', 'Order confirmation email after CCAvenue failed for order ' . $oid_for_wa . ': ' . $e->getMessage());
-                }
+                $this->_notify_order_placed_customer((int) $oid_for_wa);
             }
             $success_payload = array('payment_gateway_response' => $responseMap);
             $oid_ok = isset($responseMap['order_id']) ? trim((string) $responseMap['order_id']) : '';
@@ -4534,12 +4505,65 @@ XSL;
         }
     }
 
+    /**
+     * Post-checkout WhatsApp (ElintOm / Cheerio) + confirmation email. Sets flash for order_success view.
+     *
+     * @param int         $order_id
+     * @param array|object|null $order_row Optional order row with billing_address_id for legacy Cheerio
+     */
+    private function _notify_order_placed_customer($order_id, $order_row = null)
+    {
+        $order_id = (int) $order_id;
+        if ($order_id <= 0) {
+            return;
+        }
+        $attempted = false;
+        try {
+            if ($this->webshop_api_model->uses_elintom_api_for_orders()) {
+                $this->webshop_api_model->notify_order_placed_whatsapp_remote($order_id, 'true');
+                $attempted = true;
+            } elseif (isset($this->db) && $order_row !== null) {
+                $billing_id = null;
+                if (is_array($order_row) && isset($order_row['billing_address_id'])) {
+                    $billing_id = $order_row['billing_address_id'];
+                } elseif (is_object($order_row) && isset($order_row->billing_address_id)) {
+                    $billing_id = $order_row->billing_address_id;
+                }
+                if ($billing_id) {
+                    $wa_customer = $this->getShippingAddress($billing_id);
+                    if (is_object($wa_customer) && !empty($wa_customer->phone)) {
+                        $country_code = $this->getcountryCode($wa_customer->country);
+                        $this->call_whatsapp_cheerio($country_code . $wa_customer->phone, $order_id, 'true');
+                        $attempted = true;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            log_message('error', 'WhatsApp notify failed for order ' . $order_id . ': ' . $e->getMessage());
+        }
+        try {
+            if ($this->webshop_api_model->uses_elintom_api_for_orders()) {
+                $this->webshop_api_model->notify_order_placed_email_remote($order_id);
+                $attempted = true;
+            }
+        } catch (\Throwable $e) {
+            log_message('error', 'Email notify failed for order ' . $order_id . ': ' . $e->getMessage());
+        }
+        if ($attempted) {
+            $this->session->set_flashdata(
+                'order_notify_hint',
+                'Order confirmation and updates will be sent via WhatsApp, SMS, and/or email when available on your account.'
+            );
+        }
+    }
+
     public function order_success()
     {
         $order_id = $this->input->get('order');
 
         $this->data['order'] = $this->webshop_model->get_order_by_id($order_id);
         $this->data['items'] = $this->webshop_model->get_order_items_by_order_id($order_id);
+        $this->data['order_notify_hint'] = $this->session->flashdata('order_notify_hint');
         if (empty($this->data['order']) || !is_array($this->data['order'])) {
             // API-only fallback so success page does not break when local DB rows are absent.
             $this->data['order'] = array(
@@ -6864,16 +6888,7 @@ XSL;
                     $res = $this->webshop_model->instomojoEshopAfterSale($paymentDetail, $order_id);
                     if ($res):
                         if ($this->webshop_api_model->uses_elintom_api_for_orders() && ctype_digit((string) $order_id)) {
-                            try {
-                                $this->webshop_api_model->notify_order_placed_whatsapp_remote((int) $order_id, 'true');
-                            } catch (\Throwable $e) {
-                                log_message('error', 'WhatsApp notify after Instamojo failed: ' . $e->getMessage());
-                            }
-                            try {
-                                $this->webshop_api_model->notify_order_placed_email_remote((int) $order_id);
-                            } catch (\Throwable $e) {
-                                log_message('error', 'Order confirmation email after Instamojo failed: ' . $e->getMessage());
-                            }
+                            $this->_notify_order_placed_customer((int) $order_id);
                         }
                         $this->data['sale'] = $this->webshop_model->get_order_by_id($order_id);
                         $this->data['success'] = 'Payment done successfully';
@@ -7078,16 +7093,7 @@ XSL;
                 $res = $this->webshop_model->PaytmAfterSale($responseParamList, $sid);
                 if ($res):
                     if ($this->webshop_api_model->uses_elintom_api_for_orders() && ctype_digit((string) $sid)) {
-                        try {
-                            $this->webshop_api_model->notify_order_placed_whatsapp_remote((int) $sid, 'true');
-                        } catch (\Throwable $e) {
-                            log_message('error', 'WhatsApp notify after Paytm failed: ' . $e->getMessage());
-                        }
-                        try {
-                            $this->webshop_api_model->notify_order_placed_email_remote((int) $sid);
-                        } catch (\Throwable $e) {
-                            log_message('error', 'Order confirmation email after Paytm failed: ' . $e->getMessage());
-                        }
+                        $this->_notify_order_placed_customer((int) $sid);
                     }
                     $this->session->set_flashdata('message', lang('payment_done'));
                     unset($_SESSION['cart']);
@@ -7295,16 +7301,7 @@ XSL;
 
             if ($res):
                 if ($this->webshop_api_model->uses_elintom_api_for_orders() && ctype_digit((string) $sid)) {
-                    try {
-                        $this->webshop_api_model->notify_order_placed_whatsapp_remote((int) $sid, 'true');
-                    } catch (\Throwable $e) {
-                        log_message('error', 'WhatsApp notify after Razorpay failed: ' . $e->getMessage());
-                    }
-                    try {
-                        $this->webshop_api_model->notify_order_placed_email_remote((int) $sid);
-                    } catch (\Throwable $e) {
-                        log_message('error', 'Order confirmation email after Razorpay failed: ' . $e->getMessage());
-                    }
+                    $this->_notify_order_placed_customer((int) $sid);
                 }
                 $this->session->set_flashdata('message', lang('payment_done'));
                 unset($_SESSION['cart']);

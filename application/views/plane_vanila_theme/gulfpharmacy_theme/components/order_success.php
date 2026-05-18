@@ -1,14 +1,14 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 <?php
-$theme = (isset($webshop_settings) && is_object($webshop_settings) && isset($webshop_settings->webshop_theme))
-    ? (string) $webshop_settings->webshop_theme : 'gulfpharmacy';
-
 $order     = isset($order) && is_array($order) ? $order : array();
 $items     = isset($items) && is_array($items)  ? $items  : array();
 $symbol    = isset($Settings->symbol) ? $Settings->symbol : '';
 $shopName  = isset($Settings->site_name) ? $Settings->site_name : 'Shop';
 $refNo     = isset($order['reference_no']) ? $order['reference_no'] : (isset($order['id']) ? $order['id'] : '—');
 $grandTotal = isset($order['grand_total']) ? (float) $order['grand_total'] : 0;
+$order_notify_hint = isset($order_notify_hint) && (string) $order_notify_hint !== ''
+    ? (string) $order_notify_hint
+    : (string) $this->session->flashdata('order_notify_hint');
 
 $os_uploads_base = isset($uploads) ? (string) $uploads : '';
 $os_preload_logo = function_exists('webshop_resolve_header_logo_url')
@@ -29,25 +29,31 @@ $os_preload_logo = function_exists('webshop_resolve_header_logo_url')
     <?php if ($os_preload_logo !== ''): ?>
     <link rel="preload" as="image" href="<?= htmlspecialchars($os_preload_logo, ENT_QUOTES, 'UTF-8') ?>" fetchpriority="high">
     <?php endif; ?>
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/common.css">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/order-success.css">
+    <link rel="stylesheet" href="<?= htmlspecialchars(webshop_theme_assets_url('css/common.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(webshop_theme_assets_url('css/header.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(webshop_theme_assets_url('css/order-success.css'), ENT_QUOTES, 'UTF-8') ?>">
 </head>
 <body>
 <div class="os-shell">
     <?php
-    if ($theme === 'nw' || $theme === 'gulfpharmacy') {
+    if (function_exists('webshop_plane_vanila_view_file') && is_file(webshop_plane_vanila_view_file('header'))) {
         $gp_header_logo_fetchpriority = ($os_preload_logo !== '');
-        require_once(VIEWPATH . 'plane_vanila_theme/' . $theme . '_theme/header.php');
+        require_once webshop_plane_vanila_view_file('header');
         unset($gp_header_logo_fetchpriority);
     }
     ?>
 
     <main class="os-main">
         <div class="os-card">
-            <div class="os-icon">✅</div>
+            <div class="os-icon" aria-hidden="true">✅</div>
             <h1 class="os-title">Order Placed Successfully!</h1>
             <p class="os-sub">Thank you for your purchase. We've received your order.</p>
+
+            <?php if ($order_notify_hint !== ''): ?>
+            <p class="os-notify" role="status"><?= htmlspecialchars($order_notify_hint, ENT_QUOTES, 'UTF-8') ?></p>
+            <?php else: ?>
+            <p class="os-notify" role="status">Order confirmation and updates will be sent via WhatsApp, SMS, and/or email when available on your account.</p>
+            <?php endif; ?>
 
             <?php if ($refNo !== '—'): ?>
                 <div class="os-ref">Order #<?= htmlspecialchars((string) $refNo, ENT_QUOTES, 'UTF-8') ?></div>
@@ -87,8 +93,8 @@ $os_preload_logo = function_exists('webshop_resolve_header_logo_url')
     </main>
 
     <?php
-    if ($theme === 'nw' || $theme === 'gulfpharmacy') {
-        require_once(VIEWPATH . 'plane_vanila_theme/' . $theme . '_theme/footer.php');
+    if (function_exists('webshop_plane_vanila_view_file') && is_file(webshop_plane_vanila_view_file('footer'))) {
+        require_once webshop_plane_vanila_view_file('footer');
     }
     ?>
 </div>

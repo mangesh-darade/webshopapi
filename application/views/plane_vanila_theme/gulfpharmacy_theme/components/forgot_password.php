@@ -1,13 +1,12 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 <?php
-$theme    = (isset($webshop_settings) && is_object($webshop_settings) && isset($webshop_settings->webshop_theme))
-            ? (string) $webshop_settings->webshop_theme : 'gulfpharmacy';
 $shopName = isset($Settings->site_name) ? $Settings->site_name : 'Webshop';
 $flash_msg = $this->session->flashdata('message');
 $flash_err = $this->session->flashdata('error');
 $forgot_mobile = $this->session->flashdata('forgot_mobile');
 $otp_sent = (bool) $this->session->flashdata('otp_sent');
 $error_field = (string) $this->session->flashdata('error_field');
+$phone_code = isset($phone_code) ? preg_replace('/\D/', '', (string) $phone_code) : '968';
 $fp_field_err = function ($field) use ($error_field) {
     return $error_field === $field ? ' fp-input-error' : '';
 };
@@ -20,24 +19,24 @@ $fp_field_err = function ($field) use ($error_field) {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Forgot Password | <?= html_escape($shopName) ?></title>
     <?= isset($meta_tags) ? $meta_tags : '' ?>
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/common.css">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/forgot-password.css">
+    <link rel="stylesheet" href="<?= htmlspecialchars(webshop_theme_assets_url('css/common.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(webshop_theme_assets_url('css/header.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(webshop_theme_assets_url('css/forgot-password.css'), ENT_QUOTES, 'UTF-8') ?>">
 </head>
 <body>
 <div class="gp-site-wrapper">
     <?php
-    if ($theme === 'nw' || $theme === 'gulfpharmacy') {
-        require_once(VIEWPATH . 'plane_vanila_theme/' . $theme . '_theme/header.php');
+    if (function_exists('webshop_plane_vanila_view_file') && is_file(webshop_plane_vanila_view_file('header'))) {
+        require_once webshop_plane_vanila_view_file('header');
     } elseif (is_file(VIEWPATH . 'webshop/header.php')) {
-        require_once(VIEWPATH . 'webshop/header.php');
+        require_once VIEWPATH . 'webshop/header.php';
     }
     ?>
 
     <main class="fp-main">
         <div class="fp-card">
             <h1 class="fp-title">Reset Password</h1>
-            <p class="fp-sub">Request OTP on your registered mobile number, then reset your password securely.</p>
+            <p class="fp-sub">Request a one-time code on your registered mobile. Delivery uses WhatsApp, SMS, or email (configured in ElintOm).</p>
 
             <?php if ($flash_msg): ?>
                 <div class="fp-alert fp-alert-success" role="status">
@@ -52,39 +51,39 @@ $fp_field_err = function ($field) use ($error_field) {
                 </div>
             <?php endif; ?>
 
-            <?php // Step 1: request the OTP. Standalone form so browser-required fields from step 2 cannot block this submit. ?>
             <form action="<?= base_url('webshop/forgot_password') ?>" method="post" id="fp-step1" autocomplete="off" novalidate>
                 <div class="fp-group">
                     <label class="fp-label" for="fp_mobile">Mobile Number</label>
-                    <input class="fp-input<?= $fp_field_err('mobile') ?>" type="tel" id="fp_mobile" name="mobile"
-                           placeholder="Enter registered mobile number"
-                           inputmode="numeric" pattern="[0-9+\s\-()]{10,18}"
-                           maxlength="18" required
-                           aria-describedby="fp_mobile_help"
-                           value="<?= html_escape($forgot_mobile ? $forgot_mobile : '') ?>">
-                    <small id="fp_mobile_help" class="fp-help">Enter 10-15 digits. Country code with leading + is allowed.</small>
+                    <div class="fp-input-row">
+                        <span class="fp-input-prefix" id="fp_phone_prefix">+<?= html_escape($phone_code) ?></span>
+                        <input class="fp-input fp-input--prefixed<?= $fp_field_err('mobile') ?>" type="tel" id="fp_mobile" name="mobile"
+                               placeholder="Registered mobile number"
+                               inputmode="numeric" pattern="[0-9+\s\-()]{8,18}"
+                               maxlength="18" required
+                               aria-describedby="fp_mobile_help fp_phone_prefix"
+                               value="<?= html_escape($forgot_mobile ? $forgot_mobile : '') ?>">
+                    </div>
+                    <small id="fp_mobile_help" class="fp-help">We will send a 6-digit OTP via WhatsApp, SMS, or email. Valid for 10 minutes.</small>
                 </div>
                 <button type="submit" name="send_otp" value="1" class="fp-btn fp-btn-step1" id="fp-send-otp-btn">
                     <?= $otp_sent ? 'Resend OTP' : 'Send OTP' ?>
                 </button>
             </form>
 
-            <?php // Step 2: verify OTP and reset password. Visible only after an OTP has been delivered. ?>
             <div id="fp-step2" class="fp-step2" <?= $otp_sent ? '' : 'hidden' ?>>
                 <form action="<?= base_url('webshop/forgot_password') ?>" method="post" id="fp-reset-form" autocomplete="off" novalidate>
                     <input type="hidden" name="mobile" value="<?= html_escape($forgot_mobile ? $forgot_mobile : '') ?>">
                     <div class="fp-group">
                         <label class="fp-label" for="fp_otp">OTP</label>
                         <input class="fp-input<?= $fp_field_err('otp') ?>" type="text" id="fp_otp" name="otp"
-                               placeholder="Enter 6-digit OTP"
+                               placeholder="6-digit code"
                                inputmode="numeric" pattern="\d{6}" maxlength="6"
                                autocomplete="one-time-code" required>
-                        <small class="fp-help">Sent via WhatsApp / SMS / Email. Valid for 10 minutes.</small>
                     </div>
                     <div class="fp-group">
                         <label class="fp-label" for="fp_password">New Password</label>
                         <input class="fp-input<?= $fp_field_err('new_password') ?>" type="password" id="fp_password" name="new_password"
-                               placeholder="Enter new password (min 6 characters)" required minlength="6">
+                               placeholder="Minimum 6 characters" required minlength="6">
                     </div>
                     <div class="fp-group">
                         <label class="fp-label" for="fp_confirm_password">Confirm Password</label>
@@ -102,13 +101,13 @@ $fp_field_err = function ($field) use ($error_field) {
     </main>
 
     <?php
-    if ($theme === 'nw' || $theme === 'gulfpharmacy') {
-        require_once(VIEWPATH . 'plane_vanila_theme/' . $theme . '_theme/footer.php');
+    if (function_exists('webshop_plane_vanila_view_file') && is_file(webshop_plane_vanila_view_file('footer'))) {
+        require_once webshop_plane_vanila_view_file('footer');
     } elseif (is_file(VIEWPATH . 'webshop/footer.php')) {
-        require_once(VIEWPATH . 'webshop/footer.php');
+        require_once VIEWPATH . 'webshop/footer.php';
     }
     ?>
 </div>
-<script defer src="<?= $assets ?>gulfpharmacy_theme/js/forgot-password.js"></script>
+<script defer src="<?= htmlspecialchars(webshop_theme_assets_url('js/forgot-password.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 </body>
 </html>

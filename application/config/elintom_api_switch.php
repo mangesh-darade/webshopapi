@@ -44,9 +44,8 @@ switch ($detected_host_for_api) {
         $selected_api_private_key = '3e8676ed23c627117437c7e6a1bbd6e9';
         $selected_media_uploads_base_url = '';
         $selected_webshop_theme = 'gulfpharmacy';
-        $selected_theme_view_folder = 'gulfpharmacy_theme_3';
-        $selected_theme_assets_directory = 'gulfpharmacy_theme_2';
-
+        $selected_theme_view_folder = 'gulfpharmacy_theme';
+        $selected_theme_assets_directory = 'gulfpharmacy_theme';
         break;
 
     // Add customer domains here, for example:
