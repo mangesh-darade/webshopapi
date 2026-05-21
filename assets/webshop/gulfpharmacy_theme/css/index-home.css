@@ -42,3 +42,9 @@ body{margin:0;font-family:Inter,system-ui,sans-serif;background:#fff;color:var(-
 .section .gp-cat-card:hover,.section .gp-pc-card:hover,.section .gp-grid-card:hover{transform:translateY(-4px);box-shadow:0 16px 24px rgba(15,118,110,.14)}
 @media(max-width:992px){.trust-strip{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:700px){.home-container{padding:0 12px}.hero-inner{padding:10px 12px 0}.hero-inner img{border-radius:12px}.hero-content{padding:20px}.trust-strip{grid-template-columns:1fr}}
+
+/* CMS static pages (about-us, test, etc.) when body is empty or API failed */
+.gp-cms-page-head{max-width:720px;margin:0 auto;padding:8px 0 24px;text-align:center}
+.gp-cms-page-title{margin:0 0 12px;font-size:clamp(1.5rem,3vw,2rem);font-weight:800;color:#214548}
+.gp-cms-empty-notice{margin:0;font-size:0.95rem;line-height:1.65;color:var(--gp-muted)}
+.gp-cms-empty-notice code{font-size:0.88em;background:#f1f5f9;padding:2px 6px;border-radius:4px}

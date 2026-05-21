@@ -127,11 +127,11 @@ class CI_Session {
 			return;
 		}
 
-		// Sanitize the cookie, because apparently PHP doesn't do that for userspace handlers
+		// Sanitize the cookie (PHP 8.x uses session.sid_length, often 32 — not legacy 40-char IDs).
 		if (isset($_COOKIE[$this->_config['cookie_name']])
 			&& (
 				! is_string($_COOKIE[$this->_config['cookie_name']])
-				OR ! preg_match('/^[0-9a-f]{40}$/', $_COOKIE[$this->_config['cookie_name']])
+				OR ! preg_match($this->_sid_regexp(), $_COOKIE[$this->_config['cookie_name']])
 			)
 		)
 		{
@@ -626,6 +626,30 @@ class CI_Session {
 	public function sess_destroy()
 	{
 		session_destroy();
+	}
+
+	// ------------------------------------------------------------------------
+
+	/**
+	 * Build a regex that matches the active PHP session ID format (PHP 8.4+ safe).
+	 *
+	 * @return string
+	 */
+	protected function _sid_regexp()
+	{
+		$sid_length = (int) ini_get('session.sid_length');
+		if ($sid_length < 22) {
+			$sid_length = 40;
+		}
+
+		switch ((int) ini_get('session.sid_bits_per_character')) {
+			case 6:
+				return '/^[0-9a-zA-Z,-]{' . $sid_length . '}$/';
+			case 5:
+				return '/^[0-9a-v]{' . $sid_length . '}$/i';
+			default:
+				return '/^[0-9a-f]{' . $sid_length . '}$/i';
+		}
 	}
 
 	// ------------------------------------------------------------------------

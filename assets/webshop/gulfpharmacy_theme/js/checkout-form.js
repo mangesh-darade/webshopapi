@@ -249,6 +249,9 @@
             }
             var body = 'action=apply_coupon&coupon_code=' + encodeURIComponent(code)
                 + '&cart_amount=' + encodeURIComponent(String(cartAmount));
+            if (typeof window.webshopAppendCsrfParams === 'function') {
+                body = window.webshopAppendCsrfParams(body);
+            }
             var xhr = new XMLHttpRequest();
             xhr.open('POST', actionUrl, true);
             xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
@@ -257,7 +260,13 @@
                 if (xhr.readyState !== 4) {
                     return;
                 }
-                done(xhr.status, xhr.responseText || '');
+                var resp = xhr.responseText || '';
+                if (xhr.status === 200 && typeof window.webshopUpdateCsrfFromJson === 'function') {
+                    try {
+                        window.webshopUpdateCsrfFromJson(JSON.parse(resp));
+                    } catch (ignore) {}
+                }
+                done(xhr.status, resp);
             };
             xhr.send(body);
         }

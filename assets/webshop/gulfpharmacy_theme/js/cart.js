@@ -28,6 +28,9 @@
         fd.append('action', 'remove_cart_item');
         fd.append('cart_item_key', hash);
         fd.append('action_source', 'cart_page');
+        if (typeof window.webshopAppendCsrf === 'function') {
+            window.webshopAppendCsrf(fd);
+        }
 
         postCartAction(fd)
             .then(function () { location.reload(); })
@@ -56,10 +59,19 @@
         fd.append('action', 'update_cart');
         fd.append('itemKey', hash);
         fd.append('itemQty', String(qty));
+        if (typeof window.webshopAppendCsrf === 'function') {
+            window.webshopAppendCsrf(fd);
+        }
 
         postCartAction(fd)
             .then(function (response) { return response.text(); })
             .then(function (text) {
+                if (typeof window.webshopUpdateCsrfFromJson === 'function') {
+                    try {
+                        var parsed = JSON.parse(text);
+                        window.webshopUpdateCsrfFromJson(parsed);
+                    } catch (ignore) {}
+                }
                 if (String(text).trim() === 'SUCCESS') {
                     location.reload();
                     return;

@@ -2,7 +2,9 @@
     'use strict';
     var ctx = window.GP_PD_CTX || {};
     var pdNoImageSrc = typeof ctx.no_image_src === 'string' ? ctx.no_image_src : '';
-    var endpoint = (typeof window.baseUrl === 'string' ? window.baseUrl : (ctx.base_url || '')) + 'webshop_request';
+    var endpoint = (typeof ctx.webshop_request_url === 'string' && ctx.webshop_request_url !== '')
+        ? ctx.webshop_request_url
+        : ((typeof window.baseUrl === 'string' ? window.baseUrl : (ctx.base_url || '')) + 'webshop_request');
     var isLoggedIn = !!ctx.is_logged_in;
     var loginUrl = typeof ctx.login_url === 'string' ? ctx.login_url : '';
     var checkoutUrl = typeof ctx.checkout_url === 'string' ? ctx.checkout_url : '';
@@ -87,10 +89,14 @@
     }
 
     function postAction(payload) {
+        var body = new URLSearchParams(payload).toString();
+        if (typeof window.webshopAppendCsrfParams === 'function') {
+            body = window.webshopAppendCsrfParams(body);
+        }
         return fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-            body: new URLSearchParams(payload).toString(),
+            body: body,
             credentials: 'same-origin'
         }).then(function (res) { return res.text(); });
     }
@@ -105,6 +111,19 @@
         wish.classList.toggle('active', inWishlist);
         wish.setAttribute('data-in-wishlist', inWishlist ? '1' : '0');
         wish.textContent = inWishlist ? '♥' : '♡';
+    }
+
+    function updateWishlistBadge(count) {
+        if (typeof window.webshopUpdateWishlistBadge === 'function') {
+            window.webshopUpdateWishlistBadge(count);
+            return;
+        }
+        var badge = document.querySelector('.gp-wishlist-count');
+        if (!badge) { return; }
+        var n = parseInt(count, 10);
+        if (isNaN(n) || n < 0) { n = 0; }
+        badge.textContent = String(n);
+        badge.style.display = n > 0 ? '' : 'none';
     }
 
     var addBtn = document.querySelector('.add-to-cart');
@@ -200,9 +219,16 @@
                     var data = parseResponse(resText);
                     if (data && data.status === 'SUCCESS') {
                         toggleWishUi(!inWishlist);
+                        if (data.count !== undefined) {
+                            updateWishlistBadge(data.count);
+                        }
                         return;
                     }
-                    alert('Unable to update favourites.');
+                    if (data && data.code === 'NOT_LOGGED_IN' && loginUrl) {
+                        window.location.href = loginUrl + '?return_page=' + encodeURIComponent(window.location.href);
+                        return;
+                    }
+                    alert(failMessage(data, 'Unable to update favourites.'));
                 })
                 .catch(function () {
                     alert('Unable to update favourites.');
