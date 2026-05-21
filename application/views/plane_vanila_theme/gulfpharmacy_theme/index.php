@@ -19,8 +19,6 @@ if ($metaTagsHtml !== '') {
         $metaTagsHtml = webshop_rewrite_root_relative_asset_urls($metaTagsHtml);
     }
 }
-$flashMsg = $this->session->flashdata('message');
-
 $banner_image = '';
 $storeBanner = '';
 $_banner_items = array();
@@ -61,6 +59,13 @@ if (function_exists('webshop_resolve_header_logo_url') && isset($uploads)) {
     $_gp_logo_url = webshop_resolve_header_logo_url((string) $uploads, $_gpS, $_gpWs, '');
 }
 $hasHeroBanner = trim((string) $banner_image) !== '';
+$_gp_hero_preload_src = '';
+if ($hasHeroBanner) {
+    $_gp_hero_preload_src = (strpos($banner_image, 'http') === 0)
+        ? $banner_image
+        : webshop_media_src(isset($uploads) ? (string) $uploads : '', $banner_image);
+}
+$_gp_lcp_preconnect_url = $_gp_hero_preload_src !== '' ? $_gp_hero_preload_src : $_gp_logo_url;
 
 $legacySections = isset($this->data['custom_pages']['header_strip']) && is_array($this->data['custom_pages']['header_strip'])
     ? $this->data['custom_pages']['header_strip'] : array();
@@ -96,7 +101,13 @@ if ($bodyHtml !== '') {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8') ?></title>
     <?= $metaTagsHtml ?>
-    <?php if ($_gp_logo_url !== '' && !$hasHeroBanner): ?>
+    <?php if ($_gp_lcp_preconnect_url !== '' && function_exists('webshop_external_origin_preconnect_tag')): ?>
+    <?= webshop_external_origin_preconnect_tag($_gp_lcp_preconnect_url) ?>
+
+    <?php endif; ?>
+    <?php if ($_gp_hero_preload_src !== ''): ?>
+    <link rel="preload" as="image" href="<?= htmlspecialchars($_gp_hero_preload_src, ENT_QUOTES, 'UTF-8') ?>" fetchpriority="high">
+    <?php elseif ($_gp_logo_url !== ''): ?>
     <link rel="preload" as="image" href="<?= htmlspecialchars($_gp_logo_url, ENT_QUOTES, 'UTF-8') ?>" fetchpriority="high">
     <?php endif; ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -106,6 +117,11 @@ if ($bodyHtml !== '') {
     <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css">
     <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/cms-blocks.css">
     <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/index-home.css">
+    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/components.css">
+    <?php if (function_exists('webshop_async_stylesheet_tag')): ?>
+    <?= webshop_async_stylesheet_tag($assets . 'css/techmarket-font-awesome.css') ?>
+
+    <?php endif; ?>
     <?php if (!empty($cmsBodyEmbeddedAssets)): ?>
     <?= $cmsBodyEmbeddedAssets ?>
 
@@ -129,8 +145,6 @@ if ($bodyHtml !== '') {
     <?php endif; ?>
 
     <main class="home-container">
-        <?php if ($flashMsg): ?><div class="home-flash"><?= htmlspecialchars($flashMsg, ENT_QUOTES, 'UTF-8') ?></div><?php endif; ?>
-
         <?php
         $cmsSlug = isset($dynamic_cms_slug) ? trim((string) $dynamic_cms_slug) : '';
         $showHomeIdentityBand = !$isDynamic || $cmsSlug === '/' || $cmsSlug === '/home-page' || $cmsSlug === '/home';
@@ -150,6 +164,19 @@ if ($bodyHtml !== '') {
         <?php if ($bodyHtml !== ''): ?>
             <section class="section section--body">
                 <div class="panel panel--body gp-body-content"><?= $bodyHtml ?></div>
+            </section>
+        <?php elseif ($isDynamic): ?>
+            <section class="section section--body">
+                <div class="panel panel--body gp-cms-page-head">
+                    <?php if (!empty($page_title)): ?>
+                    <h1 class="gp-cms-page-title"><?= htmlspecialchars((string) $page_title, ENT_QUOTES, 'UTF-8') ?></h1>
+                    <?php endif; ?>
+                    <?php if (!empty($cms_page_load_error)): ?>
+                    <p class="gp-cms-empty-notice">CMS content is missing. On WAMP: open <a href="http://localhost/ElintOm/install_cms_schema.php">install_cms_schema.php</a> once, then add or edit the page in ElintOm → CMS Pages. Ensure <code>application/config/elintom_api.local.php</code> uses <code>http://localhost/ElintOm/</code> and your ElintOm API private key.</p>
+                    <?php else: ?>
+                    <p class="gp-cms-empty-notice">No content has been published for this page yet. Add HTML blocks or sections in ElintOm → CMS Pages.</p>
+                    <?php endif; ?>
+                </div>
             </section>
         <?php endif; ?>
 
@@ -200,7 +227,7 @@ if ($bodyHtml !== '') {
         <?php endif; ?>
     </main>
 
-    <?php require_once(VIEWPATH . 'plane_vanila_theme/gulfpharmacy_theme/footer.php'); ?>
+    <?php $gp_footer_styles_in_head = true; require_once(VIEWPATH . 'plane_vanila_theme/gulfpharmacy_theme/footer.php'); ?>
 </div>
 <script defer src="<?= $assets ?>gulfpharmacy_theme/js/main.js?ver=200406"></script>
 <script defer src="<?= $assets ?>gulfpharmacy_theme/js/index.js"></script>

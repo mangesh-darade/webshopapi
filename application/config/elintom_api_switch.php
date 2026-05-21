@@ -21,14 +21,17 @@ $selected_theme_view_folder = '';
 $selected_customer_assets_folder = '';
 $selected_mdata_include_http_host_segment = null;
 $selected_media_use_http_host = null;
+$selected_api_ssl_verify = true;
+$selected_api_ssl_ca_bundle = '';
 
 $elintom_switch_profiles = array(
-    'gulfpharmacy_local' => array(
-        // API can stay on local ElintOm; images use remote testingpos mdata (same as production).
-        'api_base_url'                    => 'http://localhost/ElintOm/',
+    'vanila_testing' => array(
+        'api_base_url'                    => 'https://testingpos.elintpos.in/',
         'api_private_key'                 => '3e8676ed23c627117437c7e6a1bbd6e9',
+        'ssl_verify'                      => false,
+        'ssl_ca_bundle'                   => '',
         'media_uploads_base_url'          => 'https://testingpos.elintpos.in/assets/mdata/testingpos/uploads/',
-        'customer_assets_folder'          => 'testingpos',
+        'customer_assets_folder'          => 'localhost',
         'mdata_include_http_host_segment' => false,
         'media_use_http_host'             => false,
         'webshop_theme'                   => 'gulfpharmacy',
@@ -53,7 +56,7 @@ $elintom_active_profile = 'gulfpharmacy_testing';
 switch ($detected_host_for_api) {
     case '127.0.0.1':
     case 'localhost':
-        $elintom_active_profile = 'gulfpharmacy_local';
+        $elintom_active_profile = 'vanila_testing';
         break;
 
     case 'webshop':
@@ -82,6 +85,12 @@ if (isset($elintom_switch_profiles[$elintom_active_profile])) {
     }
     if (array_key_exists('media_use_http_host', $p)) {
         $selected_media_use_http_host = $p['media_use_http_host'];
+    }
+    if (array_key_exists('ssl_verify', $p)) {
+        $selected_api_ssl_verify = (bool) $p['ssl_verify'];
+    }
+    if (!empty($p['ssl_ca_bundle'])) {
+        $selected_api_ssl_ca_bundle = (string) $p['ssl_ca_bundle'];
     }
 }
 

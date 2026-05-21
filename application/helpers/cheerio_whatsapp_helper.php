@@ -370,11 +370,11 @@ if (!function_exists('cheerio_whatsapp_delivery_ok')) {
         if (isset($res['status']) && $res['status'] === 'success') {
             return true;
         }
-        if (isset($res['http_code']) && (int) $res['http_code'] >= 200 && (int) $res['http_code'] < 300) {
-            return !cheerio_whatsapp_response_is_error(isset($res['response']) ? $res['response'] : null);
-        }
         $body = isset($res['response']) ? $res['response'] : null;
         if (!is_array($body) || cheerio_whatsapp_response_is_error($body)) {
+            if (isset($res['http_code']) && (int) $res['http_code'] >= 200 && (int) $res['http_code'] < 300) {
+                return false;
+            }
             return false;
         }
         return !empty($body['success']) || !empty($body['flag'])

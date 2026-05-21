@@ -56,7 +56,7 @@ $pd_assets = isset($assets) ? $assets : base_url('assets/webshop/');
           <div class="pd-thumb <?= $i === 0 ? 'active' : ''; ?>" data-full="<?= htmlspecialchars($img['full'], ENT_QUOTES, 'UTF-8'); ?>"><img loading="lazy" src="<?= htmlspecialchars($img['thumb'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?= htmlspecialchars($productName, ENT_QUOTES, 'UTF-8'); ?>" onerror="this.onerror=null;this.src='<?= $noImgSrcAttr ?>';"></div>
         <?php } ?>
       </div>
-      <div class="pd-mainimg" id="pdMain"><img id="pdMainImg" src="<?= htmlspecialchars($gallery[0]['full'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?= htmlspecialchars($productName, ENT_QUOTES, 'UTF-8'); ?>" onerror="this.onerror=null;this.src='<?= $noImgSrcAttr ?>';"></div>
+      <div class="pd-mainimg" id="pdMain"><img id="pdMainImg" src="<?= htmlspecialchars($gallery[0]['full'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?= htmlspecialchars($productName, ENT_QUOTES, 'UTF-8'); ?>" width="600" height="600" fetchpriority="high" decoding="sync" onerror="this.onerror=null;this.src='<?= $noImgSrcAttr ?>';"></div>
     </div>
     <div class="pd-card pd-summary">
       <h1 class="pd-title"><?= htmlspecialchars($productName, ENT_QUOTES, 'UTF-8'); ?></h1>
@@ -147,12 +147,13 @@ $pd_assets = isset($assets) ? $assets : base_url('assets/webshop/');
 
 </div>
 <script>window.GP_PD_CTX=<?= json_encode(array(
-    'no_image_src'  => $noImgSrc,
-    'base_url'      => base_url('webshop/'),
-    'checkout_url'  => base_url('webshop/checkout'),
-    'login_url'     => base_url('webshop/login'),
-    'is_logged_in'  => (bool) $isLoggedIn,
-    'product_id'    => (int) $productId,
-    'in_stock'      => (bool) $pdInStock,
+    'no_image_src'        => $noImgSrc,
+    'base_url'            => base_url('webshop/'),
+    'webshop_request_url' => base_url('webshop/webshop_request'),
+    'checkout_url'        => base_url('webshop/checkout'),
+    'login_url'           => base_url('webshop/login'),
+    'is_logged_in'        => (bool) $isLoggedIn,
+    'product_id'          => (int) $productId,
+    'in_stock'            => (bool) $pdInStock,
 ), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
-<script defer src="<?= $pd_assets ?>gulfpharmacy_theme/js/theme-product-details.js"></script>
+<script defer src="<?= $pd_assets ?>gulfpharmacy_theme/js/theme-product-details.js?ver=20260520b"></script>

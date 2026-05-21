@@ -1,8 +1,8 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 <?php
 $shopName = isset($Settings->site_name) ? $Settings->site_name : 'Webshop';
-$flash_msg = $this->session->flashdata('message');
-$flash_err = $this->session->flashdata('error');
+$flash_msg = $this->session->flashdata('fp_message');
+$flash_err = $this->session->flashdata('fp_error');
 $forgot_mobile = $this->session->flashdata('forgot_mobile');
 $otp_sent = (bool) $this->session->flashdata('otp_sent');
 $error_field = (string) $this->session->flashdata('error_field');
@@ -65,6 +65,8 @@ $fp_field_err = function ($field) use ($error_field) {
             <?php endif; ?>
 
             <form action="<?= base_url('webshop/forgot_password') ?>" method="post" id="fp-step1" autocomplete="off" novalidate>
+                <?= function_exists('webshop_csrf_hidden_input') ? webshop_csrf_hidden_input() : '' ?>
+
                 <input type="hidden" name="send_otp" value="1">
                 <div class="fp-group">
                     <label class="fp-label" for="fp_mobile">Mobile Number</label>
@@ -87,6 +89,8 @@ $fp_field_err = function ($field) use ($error_field) {
 
             <div id="fp-step2" class="fp-step2" <?= $otp_sent ? '' : 'hidden' ?>>
                 <form action="<?= base_url('webshop/forgot_password') ?>" method="post" id="fp-reset-form" autocomplete="off" novalidate>
+                    <?= function_exists('webshop_csrf_hidden_input') ? webshop_csrf_hidden_input() : '' ?>
+
                     <input type="hidden" name="reset_password" value="1">
                     <input type="hidden" name="mobile" value="<?= html_escape($forgot_mobile ? $forgot_mobile : '') ?>">
                     <div class="fp-group">

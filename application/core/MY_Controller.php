@@ -1,5 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
 
+#[\AllowDynamicProperties]
 class MY_Controller extends CI_Controller {
 
     /** @var string|null Absolute uploads base (…/assets/mdata/{host}/uploads/ or …/mdata/{tenant}/uploads/) from getsettings or NULL; public for Webshop_api_model::get_media_uploads_base() */
@@ -49,6 +50,7 @@ class MY_Controller extends CI_Controller {
             $this->api_media_uploads_base = $this->_resolve_media_uploads_base_from_api($api_data);
             $this->_sync_customer_assets_from_api_settings();
             $this->_apply_domain_theme_override();
+            $this->_apply_switch_storefront_theme();
         } else {
             $client = $this->webshop_api_model->get_api_client();
             $this->_render_elintom_api_connection_error($api_data, $client);
@@ -76,7 +78,26 @@ class MY_Controller extends CI_Controller {
             $this->Settings->user_rtl = $this->Settings->rtl;
         }
         $this->theme = $this->Settings->theme.'/views/';
-        if(is_dir(VIEWPATH.$this->Settings->theme.DIRECTORY_SEPARATOR.'assets'.DIRECTORY_SEPARATOR)) {
+        $this->config->load('elintom_api', true);
+        $storefrontAssetsDir = trim((string) $this->config->item('elintom_theme_assets_directory', 'elintom_api'));
+        $webshopTheme = (isset($this->webshop_settings) && is_object($this->webshop_settings) && isset($this->webshop_settings->webshop_theme))
+            ? trim((string) $this->webshop_settings->webshop_theme)
+            : '';
+        if ($storefrontAssetsDir !== '') {
+            $safeAssets = preg_replace('/[^a-zA-Z0-9_.-]/', '', $storefrontAssetsDir);
+            if ($safeAssets !== '') {
+                $this->data['Assets_directory_name'] = $safeAssets;
+            }
+        } elseif (in_array($webshopTheme, array('gulfpharmacy', 'nw'), true)) {
+            $folder = ($webshopTheme === 'gulfpharmacy') ? 'gulfpharmacy_theme' : 'nw_theme';
+            $this->data['Assets_directory_name'] = $folder;
+        }
+        if (!empty($this->data['Assets_directory_name'])
+            || in_array($webshopTheme, array('gulfpharmacy', 'nw'), true)
+            || $storefrontAssetsDir !== '') {
+            // Views append {theme_folder}/css/... — base is assets/webshop/ only.
+            $this->data['assets'] = rtrim(base_url('assets/webshop/'), '/') . '/';
+        } elseif (is_dir(VIEWPATH . $this->Settings->theme . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR)) {
             $this->data['assets'] = base_url() . 'themes/' . $this->Settings->theme . '/assets/';
         } else {
             $this->data['assets'] = base_url() . 'themes/default/assets/';
@@ -374,6 +395,60 @@ class MY_Controller extends CI_Controller {
         $this->Settings->webshop_theme = $theme;
     }
 
+    /**
+     * Per-host storefront theme from elintom_api_switch.php (plane_vanila CMS), not POS default theme.
+     */
+    protected function _apply_switch_storefront_theme() {
+        $this->config->load('elintom_api', true);
+
+        $theme = trim((string) $this->config->item('elintom_storefront_theme', 'elintom_api'));
+        if ($theme === '') {
+            $theme = trim((string) $this->config->item('elintom_theme_view_folder', 'elintom_api'));
+            if ($theme !== '' && preg_match('/^([a-z0-9]+)_theme$/i', $theme, $m)) {
+                $theme = $m[1];
+            }
+        }
+        if ($theme === '') {
+            return;
+        }
+
+        if (!isset($this->webshop_settings) || !is_object($this->webshop_settings)) {
+            $this->webshop_settings = new stdClass();
+        }
+        if (!isset($this->Settings) || !is_object($this->Settings)) {
+            $this->Settings = new stdClass();
+        }
+
+        $this->webshop_settings->webshop_theme = $theme;
+        $this->Settings->webshop_theme = $theme;
+
+        $viewFolder = trim((string) $this->config->item('elintom_theme_view_folder', 'elintom_api'));
+        if ($viewFolder === '') {
+            if ($theme === 'gulfpharmacy') {
+                $viewFolder = 'gulfpharmacy_theme';
+            } elseif ($theme === 'nw') {
+                $viewFolder = 'nw_theme';
+            } elseif ($theme === 'restaurant') {
+                $viewFolder = 'restaurant';
+            }
+        }
+        if ($viewFolder !== '') {
+            $safe = preg_replace('/[^a-zA-Z0-9_.-]/', '', $viewFolder);
+            if ($safe !== '') {
+                $this->data['plane_vanila_theme_folder'] = $safe;
+                $this->data['plane_vanila_view_prefix'] = 'plane_vanila_theme/' . $safe . '/';
+            }
+        }
+
+        $assetsDir = trim((string) $this->config->item('elintom_theme_assets_directory', 'elintom_api'));
+        if ($assetsDir !== '') {
+            $safeAssets = preg_replace('/[^a-zA-Z0-9_.-]/', '', $assetsDir);
+            if ($safeAssets !== '') {
+                $this->data['Assets_directory_name'] = $safeAssets;
+            }
+        }
+    }
+
     public function checkusers(){
         if (!isset($this->db)) {
             return null;
@@ -516,6 +591,12 @@ class MY_Controller extends CI_Controller {
             }
             $help_steps[] = 'Fix the database on the <strong>ElintOm server</strong> (create missing tables or run migrations).';
             $help_steps[] = 'This is not fixed in the webshopapi codebase alone.';
+        } elseif ($client_error !== null && stripos((string) $client_error, 'SSL certificate') !== false) {
+            $title = 'Cannot connect to ElintOm (SSL)';
+            $detail_lines[] = 'PHP cURL could not verify the HTTPS certificate for the ElintOm server.';
+            $help_steps[] = 'This app ships <code>application/libraries/cacert.pem</code> and uses it automatically — reload this page after updating webshopapi.';
+            $help_steps[] = 'Or set <code>curl.cainfo</code> in <code>php.ini</code> to that file (WAMP: PHP → php.ini → search <code>curl.cainfo</code>).';
+            $help_steps[] = 'Last resort (local dev only): in <code>elintom_api.local.php</code> add <code>$config[\'elintom_api_ssl_verify\'] = false;</code> — do not use on production.';
         } elseif (!$is_json_error) {
             $title = 'Cannot connect to ElintOm';
             $help_steps[] = 'Confirm <code>elintom_api_base_url</code> in <code>elintom_api_switch.php</code> matches your POS URL.';

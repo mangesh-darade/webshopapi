@@ -38,19 +38,14 @@ if (!empty($customer['name'])) {
 $cust_email = isset($customer['email']) ? (string) $customer['email'] : '';
 $cust_phone = isset($customer['phone']) ? (string) $customer['phone'] : '';
 $cust_dob   = isset($customer['dob']) && $customer['dob'] !== '0000-00-00' ? (string) $customer['dob'] : '';
-$cust_image = '';
-if (!empty($customer['image'])) {
-    $cust_image = (isset($images) ? $images : base_url('assets/images/customers/')) . $customer['image'];
-}
-// Inline SVG placeholder so the avatar fallback never triggers a network request — the previous
-// base_url('assets/images/male.png') 404'd, and combined with onerror it created an infinite
-// retry loop that hammered CodeIgniter's 404 handler and kept the browser tab spinner spinning.
-$placeholder_avatar = 'data:image/svg+xml;utf8,'
-    . rawurlencode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">'
-    . '<rect width="64" height="64" rx="32" fill="#E5E7EB"/>'
-    . '<circle cx="32" cy="26" r="10" fill="#94A3B8"/>'
-    . '<path d="M12 56c2-10 11-16 20-16s18 6 20 16" fill="#94A3B8"/>'
-    . '</svg>');
+$_ma_local_images = isset($images) ? (string) $images : base_url('assets/images/customers/');
+$_ma_uploads_base  = isset($uploads) ? (string) $uploads : '';
+$cust_image = function_exists('webshop_customer_avatar_src')
+    ? webshop_customer_avatar_src($customer, $_ma_local_images, $_ma_uploads_base)
+    : '';
+$avatar_initials = function_exists('webshop_avatar_initials_from_name')
+    ? webshop_avatar_initials_from_name(isset($customer['name']) ? (string) $customer['name'] : '')
+    : '?';
 
 $webshop_url = base_url('webshop');
 $currency = (isset($Settings) && is_object($Settings) && !empty($Settings->symbol)) ? (string) $Settings->symbol : '$';
@@ -68,12 +63,19 @@ $pw_status    = isset($password_status) ? (string) $password_status : '';
     <meta name="robots" content="noindex">
     <title>My Account</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/common.css">
+    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css">
+    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header-drawers.css">
+    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/components.css">
     <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/my-account.css">
-    <link rel="icon" type="image/x-icon" href="<?= $uploads ?>webshop/herbinn_favicon.ico">
+    <?php if (function_exists('webshop_csrf_pair')): ?>
+    <script>window.GP_CSRF=<?= json_encode(webshop_csrf_pair(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+    <?php endif; ?>
 </head>
 <body>
+<div class="gp-site-wrapper">
 
 <?php include_once('header.php'); ?>
 
@@ -134,7 +136,12 @@ $pw_status    = isset($password_status) ? (string) $password_status : '';
                     <div class="ma-banner ma-banner-inline" hidden></div>
 
                     <div class="ma-avatar">
-                        <img class="ma-avatar-img" src="<?= htmlspecialchars($cust_image !== '' ? $cust_image : $placeholder_avatar, ENT_QUOTES, 'UTF-8') ?>" alt="Profile avatar" onerror="this.onerror=null;this.src='<?= htmlspecialchars($placeholder_avatar, ENT_QUOTES, 'UTF-8') ?>'">
+                        <div class="ma-avatar-visual" aria-hidden="true">
+                            <span class="ma-avatar-fallback" id="ma-avatar-fallback"<?= $cust_image !== '' ? ' hidden' : '' ?>><?= htmlspecialchars($avatar_initials, ENT_QUOTES, 'UTF-8') ?></span>
+                            <?php if ($cust_image !== ''): ?>
+                            <img class="ma-avatar-img" id="ma-avatar-img" src="<?= htmlspecialchars($cust_image, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars('Profile photo of ' . (isset($customer['name']) ? (string) $customer['name'] : 'account holder'), ENT_QUOTES, 'UTF-8') ?>" decoding="async" onerror="this.hidden=true;var f=document.getElementById('ma-avatar-fallback');if(f){f.hidden=false;}">
+                            <?php endif; ?>
+                        </div>
                         <div class="ma-avatar-meta">
                             <p class="ma-avatar-name"><?= htmlspecialchars(isset($customer['name']) ? (string) $customer['name'] : 'Account holder', ENT_QUOTES, 'UTF-8') ?></p>
                             <p class="ma-avatar-sub"><?= htmlspecialchars($cust_email !== '' ? $cust_email : 'Add your email below', ENT_QUOTES, 'UTF-8') ?></p>
@@ -386,6 +393,8 @@ $pw_status    = isset($password_status) ? (string) $password_status : '';
                 <?php endif; ?>
 
                 <form class="ma-form" id="ma-password-form" method="post" action="<?= $webshop_url ?>/change_password" autocomplete="off" novalidate>
+                    <?= function_exists('webshop_csrf_hidden_input') ? webshop_csrf_hidden_input() : '' ?>
+
                     <div class="ma-banner ma-banner-inline" hidden></div>
 
                     <div class="ma-form-row">
@@ -527,8 +536,9 @@ $pw_status    = isset($password_status) ? (string) $password_status : '';
     </form>
 </div>
 
-<?php include_once('footer.php'); ?>
+<?php $gp_footer_styles_in_head = true; include_once('footer.php'); ?>
 
+</div><!-- /.gp-site-wrapper -->
 <script>window.GP_MA_CTX=<?= json_encode(array(
     'webshop_url' => $webshop_url,
     'customer_id' => isset($customer_id) ? (int) $customer_id : 0,
@@ -536,15 +546,16 @@ $pw_status    = isset($password_status) ? (string) $password_status : '';
     'currency'    => $currency,
     'lazy_panel'  => ($ma_orders_lazy || $ma_addresses_lazy || $ma_geo_lazy),
     'endpoints'   => array(
-        'profile_update'  => $webshop_url . '/profile_update_webshop',
-        'address_manage'  => $webshop_url . '/manage_address_webshop',
+        'ajax'            => $webshop_url . '/webshop_request',
         'change_password' => $webshop_url . '/change_password',
         'address_delete'  => $webshop_url . '/address_delete',
         'set_default'     => $webshop_url . '/address_set_default/' . (isset($customer_id) ? (int) $customer_id : 0),
-        'account_panel'   => $webshop_url . '/webshop_request',
     ),
 ), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
-<script defer src="<?= $assets ?>gulfpharmacy_theme/js/my-account.js"></script>
+<?php $_ma_js_ver = '20260520a'; ?>
+<script src="<?= $assets ?>gulfpharmacy_theme/js/webshop-csrf.js?ver=<?= $_ma_js_ver ?>"></script>
+<script src="<?= $assets ?>gulfpharmacy_theme/js/header-drawers.js?ver=<?= $_ma_js_ver ?>"></script>
+<script src="<?= $assets ?>gulfpharmacy_theme/js/my-account.js?ver=<?= $_ma_js_ver ?>"></script>
 
 </body>
 </html>

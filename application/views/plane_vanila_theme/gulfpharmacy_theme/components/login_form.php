@@ -26,6 +26,8 @@ $toast_err = $CI->session->flashdata('toast_error');
         <?php endif; ?>
 
         <form action="<?= base_url('webshop/login') ?>" method="post" class="login-form">
+            <?= function_exists('webshop_csrf_hidden_input') ? webshop_csrf_hidden_input() : '' ?>
+
             <div class="form-group">
                 <label for="identity">Email or Phone</label>
                 <div class="input-wrapper">

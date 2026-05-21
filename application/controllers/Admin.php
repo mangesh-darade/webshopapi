@@ -1,5 +1,6 @@
 <?php defined('BASEPATH') or exit('No direct script access allowed');
 
+#[\AllowDynamicProperties]
 class Admin extends MY_Controller
 {
     private $themePageSeoStore = APPPATH . 'cache/theme_page_seo.json';

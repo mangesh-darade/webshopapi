@@ -199,6 +199,8 @@ if (count($tax_rates_used) === 1) {
                     endif; ?>
                     <input type="hidden" id="cart_subtotal_amt" name="cart_subtotal_amt" value="<?= $subtotal ?>">
                     <input type="hidden" id="cart_total" name="cart_total" value="<?= $subtotal ?>">
+                    <?= function_exists('webshop_csrf_hidden_input') ? webshop_csrf_hidden_input() : '' ?>
+
                     <input type="hidden" name="submit_order" value="<?= md5(date('Y-m-d H')) ?>">
                     <input type="hidden" id="coupon_code_id" name="coupon_code_id" value="">
                     <input type="hidden" id="coupon_code_value" name="coupon_code_value" value="">

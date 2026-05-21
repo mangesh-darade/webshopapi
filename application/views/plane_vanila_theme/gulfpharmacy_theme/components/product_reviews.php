@@ -54,6 +54,8 @@ $err_class = function ($field) use ($error_field) {
             <?php endif; ?>
 
             <form class="pr-form" id="pr-form" method="post" action="<?= base_url('webshop/submit_product_review') ?>" novalidate>
+                <?= function_exists('webshop_csrf_hidden_input') ? webshop_csrf_hidden_input() : '' ?>
+
                 <input type="hidden" name="product_hash" value="<?= html_escape($product_hash) ?>">
 
                 <label class="form-label" id="pr-rating-label">Overall Rating <span aria-hidden="true" class="pr-required">*</span></label>

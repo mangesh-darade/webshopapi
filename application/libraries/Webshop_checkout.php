@@ -12,8 +12,9 @@ class Webshop_checkout {
      * @param object $c Webshop controller ($this)
      */
     public function present($c) {
-        if (!isset($_SESSION['cart'])) {
-            redirect('webshop/index');
+        if (!isset($_SESSION['cart']) || !is_array($_SESSION['cart']) || $_SESSION['cart'] === array()) {
+            $c->session->set_flashdata('error', 'Your cart is empty. Please add a product before checkout.');
+            redirect('webshop/cart');
             return;
         }
 

@@ -87,6 +87,52 @@ function webshop_media_src($uploads_base, $path) {
     return $base . ltrim($path_part, '/') . $query;
 }
 
+if (!function_exists('webshop_external_origin_preconnect_tag')) {
+    /**
+     * Preconnect to an external image/asset host (speeds remote logo/product media).
+     *
+     * @param string $url
+     * @return string Safe HTML fragment or empty string
+     */
+    function webshop_external_origin_preconnect_tag($url)
+    {
+        if (!preg_match('#^https?://#i', (string) $url)) {
+            return '';
+        }
+        $host = (string) parse_url($url, PHP_URL_HOST);
+        if ($host === '') {
+            return '';
+        }
+        $scheme = (string) parse_url($url, PHP_URL_SCHEME);
+        if ($scheme === '') {
+            $scheme = 'https';
+        }
+        $origin = $scheme . '://' . $host;
+
+        return '<link rel="preconnect" href="' . htmlspecialchars($origin, ENT_QUOTES, 'UTF-8') . '" crossorigin>';
+    }
+}
+
+if (!function_exists('webshop_async_stylesheet_tag')) {
+    /**
+     * Non-render-blocking stylesheet (footer icons, component polish).
+     *
+     * @param string $href Absolute or root-relative URL
+     * @return string
+     */
+    function webshop_async_stylesheet_tag($href)
+    {
+        $href = trim((string) $href);
+        if ($href === '') {
+            return '';
+        }
+        $safe = htmlspecialchars($href, ENT_QUOTES, 'UTF-8');
+
+        return '<link rel="stylesheet" href="' . $safe . '" media="print" onload="this.media=\'all\'">'
+            . '<noscript><link rel="stylesheet" href="' . $safe . '"></noscript>';
+    }
+}
+
 /**
  * Map HTML attribute URLs that start with /assets/... to the app base_url (fixes 404 when the storefront
  * runs under a subfolder like /ElintOm/ and CMS meta/body uses root-relative paths).
@@ -371,13 +417,71 @@ function webshop_checkout_resolve_product_price(array $product, $cart_unit_price
     if ($price <= 0) {
         $price = (float) $cart_unit_price;
     }
-    if ($price <= 0 && !empty($product['mrp'])) {
-        $price = (float) $product['mrp'];
+    if ($price <= 0) {
+        foreach (array('eshop_price', 'unit_price', 'sale_price', 'mrp', 'regular_price') as $k) {
+            if (!empty($product[$k]) && (float) $product[$k] > 0) {
+                $price = (float) $product[$k];
+                break;
+            }
+        }
     }
-    if ($price <= 0 && !empty($product['promo_price'])) {
+    if ($price > 0 && !empty($product['promo_price']) && (float) $product['promo_price'] > 0
+        && (float) $product['promo_price'] < $price) {
+        $price = (float) $product['promo_price'];
+    } elseif ($price <= 0 && !empty($product['promo_price']) && (float) $product['promo_price'] > 0) {
         $price = (float) $product['promo_price'];
     }
     return $price;
+}
+
+/**
+ * Normalize CMS page tag rows (page_tag_mapping) for Webshop_meta_engine.
+ *
+ * @param mixed $rows
+ * @return array<int,array{property_name:string,value:string}>
+ */
+function webshop_normalize_cms_meta_rows($rows) {
+    if (!is_array($rows) || $rows === array()) {
+        return array();
+    }
+    $out = array();
+    foreach ($rows as $tag) {
+        $a = is_object($tag) ? (array) $tag : (is_array($tag) ? $tag : array());
+        $value = isset($a['value']) ? trim((string) $a['value']) : '';
+        if ($value === '') {
+            continue;
+        }
+        $property = isset($a['property_name']) ? trim((string) $a['property_name']) : '';
+        if ($property === '' && isset($a['tag_name'])) {
+            $property = trim((string) $a['tag_name']);
+        }
+        $property = strtolower(str_replace(array(' ', '-'), '_', $property));
+        if ($property === '') {
+            continue;
+        }
+        $out[] = array(
+            'property_name' => $property,
+            'value' => $value,
+        );
+    }
+    return $out;
+}
+
+/**
+ * Build <head> meta HTML from CMS "Tag Values by Category" rows (meta_tags_raw).
+ *
+ * @param mixed $rows
+ * @param array $context page_title, base_url, site_name, current_url
+ * @return string
+ */
+function webshop_meta_tags_html_from_cms_rows($rows, array $context = array()) {
+    $normalized = webshop_normalize_cms_meta_rows($rows);
+    if ($normalized === array()) {
+        return '';
+    }
+    $CI =& get_instance();
+    $CI->load->library('webshop_meta_engine');
+    return (string) $CI->webshop_meta_engine->render_meta_html($normalized, $context);
 }
 
 /**
@@ -1560,9 +1664,138 @@ if (!function_exists('webshop_theme_assets_base_url')) {
     function webshop_theme_assets_base_url() {
         $CI =& get_instance();
         if (isset($CI->data['assets']) && (string) $CI->data['assets'] !== '') {
-            return rtrim((string) $CI->data['assets'], '/') . '/';
+            $url = (string) $CI->data['assets'];
+            if (strpos($url, 'assets/webshop/') !== false) {
+                return rtrim($url, '/') . '/';
+            }
+            if (strpos($url, 'themes/') !== false) {
+                return rtrim($url, '/') . '/';
+            }
+        }
+        $dir = function_exists('webshop_theme_assets_directory_name')
+            ? trim((string) webshop_theme_assets_directory_name())
+            : '';
+        if ($dir !== '') {
+            return rtrim(base_url('assets/webshop/'), '/') . '/';
         }
         return rtrim(base_url('assets/webshop/'), '/') . '/';
+    }
+}
+
+if (!function_exists('webshop_csrf_pair')) {
+    /**
+     * CSRF token for storefront AJAX (webshop/webshop_request).
+     *
+     * @return array{name:string,hash:string}
+     */
+    function webshop_csrf_pair() {
+        $CI =& get_instance();
+        return array(
+            'name' => $CI->security->get_csrf_token_name(),
+            'hash' => $CI->security->get_csrf_hash(),
+        );
+    }
+}
+
+if (!function_exists('webshop_avatar_initials_from_name')) {
+    /**
+     * @param string $name
+     * @return string 1–2 uppercase initials
+     */
+    function webshop_avatar_initials_from_name($name) {
+        $name = trim((string) $name);
+        if ($name === '') {
+            return '?';
+        }
+        $parts = preg_split('/\s+/', $name, 3);
+        if (!$parts || !isset($parts[0])) {
+            return '?';
+        }
+        $first = strtoupper(substr($parts[0], 0, 1));
+        $second = isset($parts[1]) && $parts[1] !== '' ? strtoupper(substr($parts[1], 0, 1)) : '';
+
+        return $second !== '' ? $first . $second : $first;
+    }
+}
+
+if (!function_exists('webshop_customer_avatar_src')) {
+    /**
+     * Resolve profile photo URL for My Account (companies.logo → image).
+     *
+     * @param array  $customer         Customer row from get_customer()
+     * @param string $local_images_base e.g. base_url('assets/images/customers/')
+     * @param string $uploads_base     ElintOm mdata uploads root from $uploads
+     * @return string Absolute URL or empty when no photo
+     */
+    function webshop_customer_avatar_src(array $customer, $local_images_base = '', $uploads_base = '') {
+        $path = '';
+        foreach (array('image', 'logo', 'profile_image', 'avatar') as $key) {
+            if (!empty($customer[$key])) {
+                $candidate = trim((string) $customer[$key]);
+                if ($candidate !== '' && strtolower($candidate) !== 'null') {
+                    $path = $candidate;
+                    break;
+                }
+            }
+        }
+        if ($path === '') {
+            return '';
+        }
+        if (preg_match('#^https?://#i', $path) || preg_match('#^data:image/#i', $path)) {
+            return $path;
+        }
+        if (function_exists('webshop_media_src') && (string) $uploads_base !== '') {
+            $from_uploads = webshop_media_src((string) $uploads_base, $path);
+            if ($from_uploads !== '') {
+                return $from_uploads;
+            }
+        }
+        $base = rtrim((string) $local_images_base, '/');
+        if ($base === '') {
+            $base = rtrim(base_url('assets/images/customers'), '/');
+        }
+
+        return $base . '/' . ltrim(str_replace('\\', '/', $path), '/');
+    }
+}
+
+if (!function_exists('webshop_read_json_request_body')) {
+    /**
+     * Read JSON request body once (MY_Security may have cached it for CSRF + controllers).
+     *
+     * @return array<string,mixed>
+     */
+    function webshop_read_json_request_body() {
+        static $parsed = null;
+        if ($parsed !== null) {
+            return $parsed;
+        }
+        $raw = defined('WEBSHOP_RAW_JSON_BODY') ? WEBSHOP_RAW_JSON_BODY : file_get_contents('php://input');
+        if ($raw === false || $raw === '') {
+            $parsed = array();
+            return $parsed;
+        }
+        $decoded = json_decode($raw, true);
+        $parsed = is_array($decoded) ? $decoded : array();
+        return $parsed;
+    }
+}
+
+if (!function_exists('webshop_csrf_hidden_input')) {
+    /**
+     * Hidden input for native POST forms (checkout submit_order, login, etc.).
+     *
+     * @return string Safe HTML fragment
+     */
+    function webshop_csrf_hidden_input() {
+        $pair = webshop_csrf_pair();
+        if (empty($pair['name']) || $pair['hash'] === '') {
+            return '';
+        }
+        $name = htmlspecialchars((string) $pair['name'], ENT_QUOTES, 'UTF-8');
+        $hash = htmlspecialchars((string) $pair['hash'], ENT_QUOTES, 'UTF-8');
+
+        return '<input type="hidden" name="' . $name . '" value="' . $hash . '">';
     }
 }
 

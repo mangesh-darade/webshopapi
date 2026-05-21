@@ -138,6 +138,8 @@ if (isset($this->session) && is_object($this->session)) {
           data-action-url="<?= base_url('webshop/webshop_request') ?>">
 
         <!-- Required controller fields -->
+        <?= function_exists('webshop_csrf_hidden_input') ? webshop_csrf_hidden_input() : '' ?>
+
         <input type="hidden" name="submit_order" value="<?= md5(date('Y-m-d H')) ?>">
         <input type="hidden" name="cart_subtotal_amt" id="cart_subtotal_amt" value="<?= number_format($subtotal, 4, '.', '') ?>">
         <input type="hidden" name="cart_total" id="cart_total" value="<?= number_format($subtotal + $shipping_effective, 4, '.', '') ?>">

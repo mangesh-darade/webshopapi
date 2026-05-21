@@ -53,7 +53,9 @@ class Webshop_action_engine
         // and payment screens stay consistent.
         $api_product = $this->resolve_product_pricing($product_id, $variant_id);
         if (is_array($api_product) && !empty($api_product)) {
-            $api_price = isset($api_product['price']) ? (float) $api_product['price'] : 0.0;
+            $api_price = function_exists('webshop_checkout_resolve_product_price')
+                ? (float) webshop_checkout_resolve_product_price($api_product, $product_unit_price, $price)
+                : (isset($api_product['price']) ? (float) $api_product['price'] : 0.0);
             $api_tax_rate = isset($api_product['tax_rate']) ? (float) $api_product['tax_rate'] : 0.0;
             $api_tax_method = isset($api_product['tax_method']) ? (int) $api_product['tax_method'] : 0;
             $api_promo = isset($api_product['promo_price']) ? (float) $api_product['promo_price'] : 0.0;
@@ -151,6 +153,19 @@ class Webshop_action_engine
             'cart_items' => $totals['count'],
             'cart_total' => $totals['total'],
         );
+    }
+
+    /**
+     * Buy now: replace cart with a single line, then checkout.
+     *
+     * @param array $postData
+     * @return array
+     */
+    public function buy_now($postData)
+    {
+        $this->ensure_cart_session();
+        $_SESSION['cart'] = array();
+        return $this->add_to_cart($postData);
     }
 
     /**

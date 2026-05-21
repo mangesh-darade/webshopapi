@@ -15,6 +15,9 @@ $theme = (isset($webshop_settings) && is_object($webshop_settings) && isset($web
     <title>Checkout | <?= isset($Settings->site_name) ? html_escape($Settings->site_name) : 'Webshop' ?></title>
     <?= isset($meta_tags) ? $meta_tags : '' ?>
     <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/common.css">
+    <?php if (function_exists('webshop_csrf_pair')): ?>
+    <script>window.GP_CSRF=<?= json_encode(webshop_csrf_pair(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+    <?php endif; ?>
 </head>
 <body>
 <div class="gp-site-wrapper">

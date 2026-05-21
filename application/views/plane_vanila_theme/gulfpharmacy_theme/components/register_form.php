@@ -36,6 +36,8 @@ $reg_phone    = $CI->session->flashdata('reg_phone');
         <?php endif; ?>
 
         <form action="<?= base_url('webshop/register') ?>" method="post" class="register-form" id="registerForm" novalidate>
+            <?= function_exists('webshop_csrf_hidden_input') ? webshop_csrf_hidden_input() : '' ?>
+
             <input type="hidden" name="submit_register" value="1">
 
             <div class="form-row">

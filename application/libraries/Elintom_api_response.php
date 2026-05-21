@@ -480,17 +480,20 @@ class Elintom_api_response {
         if (!isset($a['product_details'])) {
             $a['product_details'] = '';
         }
-        if (!isset($a['price'])) {
+        $resolved_price = isset($a['price']) ? (float) $a['price'] : 0.0;
+        if ($resolved_price <= 0) {
             foreach (array('eshop_price', 'unit_price', 'sale_price', 'mrp', 'regular_price') as $k) {
-                if (isset($a[$k]) && $a[$k] !== '' && $a[$k] !== null) {
-                    $a['price'] = $a[$k];
+                if (isset($a[$k]) && $a[$k] !== '' && $a[$k] !== null && (float) $a[$k] > 0) {
+                    $resolved_price = (float) $a[$k];
                     break;
                 }
             }
         }
-        if (!isset($a['price'])) {
-            $a['price'] = 0;
+        if ($resolved_price > 0 && isset($a['promo_price']) && (float) $a['promo_price'] > 0
+            && (float) $a['promo_price'] < $resolved_price) {
+            $resolved_price = (float) $a['promo_price'];
         }
+        $a['price'] = $resolved_price;
         if (!isset($a['tax_rate'])) {
             $a['tax_rate'] = isset($a['tax']) ? $a['tax'] : 0;
         }

@@ -15,6 +15,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  *
  * Do not add ElintOm HTTP calls here — keep API logic in `Webshop_api_model` / `Elintom_api_client`.
  */
+#[\AllowDynamicProperties]
 class Webshop_model extends CI_Model {
 
     public function __construct() {
@@ -243,14 +244,26 @@ class Webshop_model extends CI_Model {
         $warehouse_id = $this->webshop_settings->warehouse_id;
 
         if ($by == 'category' && $byid) {
-            $categories = $byid;
-            $where .= $useHash ? " AND ( MD5(p.category_id) = '$categories' OR MD5(p.subcategory_id) = '$categories' ) " : " AND ( p.category_id = '$categories' OR p.subcategory_id = '$categories' ) ";
+            $categories = $this->db->escape($byid);
+            $where .= $useHash ? " AND ( MD5(p.category_id) = $categories OR MD5(p.subcategory_id) = $categories ) " : " AND ( p.category_id = $categories OR p.subcategory_id = $categories ) ";
         } elseif ($by == 'brand' && $byid) {
-            $brand = $byid;
-            $where .= $useHash ? " AND ( MD5(p.brand) = '$brand' ) " : " AND ( p.brand = '$brand' ) ";
+            $brand = $this->db->escape($byid);
+            $where .= $useHash ? " AND ( MD5(p.brand) = $brand ) " : " AND ( p.brand = $brand ) ";
         } elseif ($by == 'products' && $byid) {
-
-            $product_ids = is_array($byid) ? join(',', $byid) : $byid;
+            if (is_array($byid)) {
+                $escaped_ids = array();
+                foreach ($byid as $id) {
+                    $escaped_ids[] = (int) $id;
+                }
+                $product_ids = join(',', $escaped_ids);
+            } else {
+                $parts = explode(',', $byid);
+                $escaped_ids = array();
+                foreach ($parts as $part) {
+                    $escaped_ids[] = (int) trim($part);
+                }
+                $product_ids = join(',', $escaped_ids);
+            }
             $where .= " AND p.id IN ( $product_ids ) ";
         }
 
@@ -286,7 +299,8 @@ class Webshop_model extends CI_Model {
 
             $qNum = $this->db->query($query);
             $total_items = $qNum->num_rows();
-            $offset = ( $page - 1 ) * $limit;
+            $limit = (int) $limit;
+            $offset = (int) (( $page - 1 ) * $limit);
             $query .= " LIMIT $limit OFFSET $offset ";
         }
 

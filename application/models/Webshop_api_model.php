@@ -14,6 +14,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  * The model reads the catalog_source config to decide whether to call
  * the API or fall through to the standard Webshop_model (DB mode).
  */
+#[\AllowDynamicProperties]
 class Webshop_api_model extends CI_Model {
 
     /** @var Elintom_api_client */
@@ -292,8 +293,7 @@ class Webshop_api_model extends CI_Model {
      */
     public function about_usdata($page_key = 'aboutus') {
         $apiPage = $this->get_cms_page_content('/about-us');
-     
-        if ($apiPage !== null) {
+        if ($apiPage !== null && $this->cms_page_url_matches_requested($apiPage, '/about-us')) {
             return $apiPage;
         }
         if ($this->has_local_db()) {
@@ -321,7 +321,7 @@ class Webshop_api_model extends CI_Model {
         $candidates = array('/home-page', '/home', '/');
         foreach ($candidates as $path) {
             $apiPage = $this->get_cms_page_content($path);
-            if ($apiPage !== null) {
+            if ($apiPage !== null && $this->cms_page_url_matches_requested($apiPage, $path)) {
                 $this->_home_page_data_memo = $apiPage;
                 $this->_home_page_data_memo_set = true;
                 return $this->_home_page_data_memo;
@@ -383,7 +383,8 @@ class Webshop_api_model extends CI_Model {
     }
 
     /**
-     * Map CMS URLs to existing webshop routes.
+     * Map CMS admin URL (sma_pages.url) to storefront href.
+     * CMS defines e.g. /about-us → webshop/about-us (same slug as in admin panel).
      *
      * @param string $cms_url
      * @return string
@@ -396,22 +397,190 @@ class Webshop_api_model extends CI_Model {
         if ($url === '/') {
             return base_url('webshop');
         }
-        $slug = ltrim($url, '/');
-        $reserved = array(
-            'index', 'login', 'register', 'cart', 'checkout', 'cms_page',
-            'about_us', 'terms_and_conditions', 'privacy_policy', 'contact_us',
-            'product_details', 'category_products', 'search_products'
-        );
-        if (in_array($slug, $reserved, true)) {
-            return base_url('webshop/cms_page/' . $slug);
+        return base_url('webshop/' . ltrim($url, '/'));
+    }
+
+    /**
+     * Build CMS API URL candidates from a storefront URI segment (webshop/{segment}).
+     * Matches ElintOm cms_admin published pages by url field first.
+     *
+     * @param string $storefrontSlug e.g. about-us, about_us, privacy-policy
+     * @return array<int,string> Paths like /about-us
+     */
+    /**
+     * Published CMS nav row for a storefront segment (about_us, about-us, etc.).
+     *
+     * @param string $storefrontSlug
+     * @return array{title:string,url:string,href:string}|null
+     */
+    public function find_cms_nav_page_by_storefront_slug($storefrontSlug) {
+        $storefrontSlug = trim((string) $storefrontSlug, '/');
+        if ($storefrontSlug === '') {
+            return null;
         }
-        return base_url('webshop/' . $slug);
+        $dashSlug = str_replace('_', '-', $storefrontSlug);
+        $underSlug = str_replace('-', '_', $storefrontSlug);
+        foreach ($this->get_cms_nav_pages() as $nav) {
+            if (!isset($nav['url'])) {
+                continue;
+            }
+            $cmsSlug = ltrim((string) $nav['url'], '/');
+            if ($cmsSlug === $storefrontSlug || $cmsSlug === $dashSlug || $cmsSlug === $underSlug) {
+                return $nav;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * @param stdClass $page
+     * @param string   $requestedPath e.g. /privacy-policy
+     * @return bool
+     */
+    public function cms_page_url_matches_requested($page, $requestedPath) {
+        if (!is_object($page)) {
+            return false;
+        }
+        $requested = '/' . ltrim((string) $requestedPath, '/');
+        if ($requested === '//') {
+            $requested = '/';
+        }
+        $pageUrl = isset($page->url) ? trim((string) $page->url) : '';
+        if ($pageUrl === '') {
+            return false;
+        }
+        $pageUrl = '/' . ltrim($pageUrl, '/');
+        if ($pageUrl === $requested) {
+            return true;
+        }
+        $norm = function ($path) {
+            return strtolower(str_replace('_', '-', ltrim((string) $path, '/')));
+        };
+        return $norm($pageUrl) === $norm($requested);
+    }
+
+    public function cms_url_candidates_from_storefront_slug($storefrontSlug) {
+        $storefrontSlug = trim((string) $storefrontSlug, '/');
+        $paths = array();
+        if ($storefrontSlug === '') {
+            return array('/');
+        }
+
+        $dashSlug = str_replace('_', '-', $storefrontSlug);
+        $underSlug = str_replace('-', '_', $storefrontSlug);
+
+        // Published pages from CMS admin (source of truth for URL field) — try exact admin URL first.
+        foreach ($this->get_cms_nav_pages() as $nav) {
+            if (!isset($nav['url'])) {
+                continue;
+            }
+            $cmsUrl = '/' . ltrim((string) $nav['url'], '/');
+            $cmsSlug = ltrim($cmsUrl, '/');
+            if ($cmsSlug === $storefrontSlug || $cmsSlug === $dashSlug || $cmsSlug === $underSlug) {
+                $paths[] = $cmsUrl;
+            }
+        }
+
+        // Legacy CI method names (about_us) → typical CMS admin paths.
+        $legacyMethodMap = array(
+            'about_us'             => array('/about-us'),
+            'terms_and_conditions' => array('/terms', '/terms-and-conditions'),
+            'privacy_policy'       => array('/privacy-policy'),
+            'contact_us'           => array('/contact-us'),
+        );
+        if (isset($legacyMethodMap[$storefrontSlug])) {
+            $paths = array_merge($paths, $legacyMethodMap[$storefrontSlug]);
+        }
+
+        $paths[] = '/' . $dashSlug;
+        if ($underSlug !== $dashSlug) {
+            $paths[] = '/' . $underSlug;
+        }
+        $paths[] = '/' . $storefrontSlug;
+
+        $unique = array();
+        foreach ($paths as $p) {
+            $norm = '/' . ltrim((string) $p, '/');
+            if ($norm === '//') {
+                $norm = '/';
+            }
+            $unique[$norm] = $norm;
+        }
+        return array_values($unique);
+    }
+
+    /**
+     * @param string $urlPath CMS path or slug fragment
+     * @return array<int,string>
+     */
+    public function cms_url_candidates_from_path($urlPath) {
+        $primary = '/' . ltrim((string) $urlPath, '/');
+        if ($primary === '//') {
+            $primary = '/';
+        }
+        if ($primary === '/') {
+            return array('/');
+        }
+        $slug = ltrim($primary, '/');
+        return $this->cms_url_candidates_from_storefront_slug($slug);
+    }
+
+    /**
+     * Resolve a published CMS page via getcmspage (tries each admin URL candidate).
+     *
+     * @param array<int,string> $urlCandidates
+     * @return stdClass|null
+     */
+    public function find_published_cms_page(array $urlCandidates) {
+        foreach ($urlCandidates as $path) {
+            $norm = '/' . ltrim((string) $path, '/');
+            if ($norm === '//') {
+                $norm = '/';
+            }
+            $page = $this->get_cms_page_content($norm);
+            if ($page === null) {
+                continue;
+            }
+            if (!$this->cms_page_url_matches_requested($page, $norm)) {
+                continue;
+            }
+            $status = isset($page->status) ? strtolower(trim((string) $page->status)) : '';
+            if ($status !== '' && $status !== 'published') {
+                continue;
+            }
+            if (isset($page->url) && trim((string) $page->url) !== '') {
+                $page->url = '/' . ltrim((string) $page->url, '/');
+            } else {
+                $page->url = $norm;
+            }
+            return $page;
+        }
+        return null;
+    }
+
+    /**
+     * Canonical storefront slug for cms_page() from loaded CMS row.
+     *
+     * @param stdClass $cmsPage
+     * @return string
+     */
+    public function cms_storefront_slug_from_page($cmsPage) {
+        if (!is_object($cmsPage)) {
+            return '';
+        }
+        $url = isset($cmsPage->url) ? trim((string) $cmsPage->url) : '';
+        if ($url === '') {
+            return isset($cmsPage->page_key) ? trim((string) $cmsPage->page_key) : '';
+        }
+        return ltrim($url, '/');
     }
 
     public function terms_conditions($page_key = 'terms_conditions') {
-        $apiPage = $this->get_cms_page_content('/terms');
-        if ($apiPage !== null) {
-            return $apiPage;
+        foreach (array('/terms', '/terms-and-conditions') as $termsPath) {
+            $apiPage = $this->get_cms_page_content($termsPath);
+            if ($apiPage !== null && $this->cms_page_url_matches_requested($apiPage, $termsPath)) {
+                return $apiPage;
+            }
         }
         if ($this->has_local_db()) {
             return $this->_fallback_webshop_model()->terms_conditions($page_key);
@@ -426,11 +595,36 @@ class Webshop_api_model extends CI_Model {
 
     public function privacy_policy($page_key = 'policy') {
         $apiPage = $this->get_cms_page_content('/privacy-policy');
-        if ($apiPage !== null) {
+        if ($apiPage !== null && $this->cms_page_url_matches_requested($apiPage, '/privacy-policy')) {
             return $apiPage;
         }
         if ($this->has_local_db()) {
             return $this->_fallback_webshop_model()->privacy_policy($page_key);
+        }
+        $o = new stdClass();
+        $o->page_key = $page_key;
+        $o->page_title = '';
+        $o->page_text = '';
+        $o->meta_tags = '';
+        return $o;
+    }
+
+    /**
+     * Contact page row from CMS admin (/contact-us).
+     *
+     * @param string $page_key
+     * @return stdClass|null
+     */
+    public function contact_usdata($page_key = 'contact') {
+        $apiPage = $this->get_cms_page_content('/contact-us');
+        if ($apiPage !== null && $this->cms_page_url_matches_requested($apiPage, '/contact-us')) {
+            return $apiPage;
+        }
+        if ($this->has_local_db()) {
+            $fallback = $this->_fallback_webshop_model();
+            if (method_exists($fallback, 'contact_usdata')) {
+                return $fallback->contact_usdata($page_key);
+            }
         }
         $o = new stdClass();
         $o->page_key = $page_key;
@@ -451,10 +645,22 @@ class Webshop_api_model extends CI_Model {
         if (!$res || !isset($res->status) || strtoupper((string) $res->status) !== 'SUCCESS') {
             $statusText = ($res && isset($res->status)) ? (string) $res->status : 'NULL';
             $msgText = ($res && isset($res->msg)) ? (string) $res->msg : '';
+            if ($msgText === '' && method_exists($this->api, 'get_last_error')) {
+                $transportErr = (string) $this->api->get_last_error();
+                if ($transportErr !== '') {
+                    $msgText = $transportErr;
+                }
+            }
             $logLine = 'Webshop_api_model:get_cms_page_content failed url=' . (string) $url_path
                 . ' status=' . $statusText . ' msg=' . $msgText;
             $benignMiss = stripos($msgText, 'not found') !== false;
             log_message($benignMiss ? 'debug' : 'error', $logLine);
+
+            $direct = $this->get_cms_page_content_direct_db($url_path);
+            if ($direct !== null) {
+                log_message('info', 'Webshop_api_model:get_cms_page_content direct_db ok url=' . (string) $url_path);
+                return $direct;
+            }
             return null;
         }
         $pick_first_string = function ($sources, $keys) {
@@ -560,6 +766,7 @@ class Webshop_api_model extends CI_Model {
         $o->show_footer = true;
         $o->page_banner_image_url = '';
         $o->page_logo_image_url = '';
+        $o->id = isset($pageArr['id']) ? (int) $pageArr['id'] : (isset($resArr['id']) ? (int) $resArr['id'] : 0);
         $o->page_title = $pick_first_string(array($pageArr, $resArr), array('page_name', 'page_title', 'title', 'name'));
         $resolvedUrl = $pick_first_string(array($pageArr, $resArr), array('url', 'page_url', 'slug'));
         if ($resolvedUrl !== '') {
@@ -581,7 +788,8 @@ class Webshop_api_model extends CI_Model {
         if (isset($res->meta_tags_raw) && is_array($res->meta_tags_raw)) {
             $o->meta_tags_raw = $res->meta_tags_raw;
         }
-        $o->meta_tags = $pick_first_string(array($resArr, $pageArr), array('meta_tags_html', 'meta_tags', 'meta'));
+        $apiMetaHtml = $pick_first_string(array($resArr, $pageArr), array('meta_tags_html', 'meta_tags', 'meta'));
+        $o->meta_tags = $this->resolve_cms_meta_tags_html($o->meta_tags_raw, $apiMetaHtml, $o->page_title);
         // Prefer SEO title from meta payload when provided.
         $seoTitle = $extract_title_from_meta_html($o->meta_tags);
         if ($seoTitle === '' && !empty($o->meta_tags_raw)) {
@@ -679,6 +887,45 @@ class Webshop_api_model extends CI_Model {
         }
         $o->cms_loaded_from_api = true;
         return $o;
+    }
+
+    /**
+     * Prefer storefront-built meta from page_tag_mapping rows; fall back to API HTML.
+     *
+     * @param mixed  $meta_tags_raw
+     * @param string $api_meta_html
+     * @param string $page_title
+     * @return string
+     */
+    protected function resolve_cms_meta_tags_html($meta_tags_raw, $api_meta_html, $page_title = '') {
+        if (function_exists('webshop_meta_tags_html_from_cms_rows') && is_array($meta_tags_raw) && !empty($meta_tags_raw)) {
+            $built = webshop_meta_tags_html_from_cms_rows($meta_tags_raw, array(
+                'page_title' => (string) $page_title,
+            ));
+            if (trim($built) !== '') {
+                return $built;
+            }
+        }
+        return trim((string) $api_meta_html);
+    }
+
+    /**
+     * Fallback when getcmspage HTTP fails (remote 500, wrong API host, etc.).
+     *
+     * @param string $url_path
+     * @return stdClass|null
+     */
+    protected function get_cms_page_content_direct_db($url_path) {
+        $this->config->load('elintom_api', true);
+        if (!(bool) $this->config->item('elintom_cms_direct_db', 'elintom_api')) {
+            return null;
+        }
+        $CI =& get_instance();
+        $CI->load->library('cms_direct_db');
+        if (!isset($CI->cms_direct_db) || !$CI->cms_direct_db->is_ready()) {
+            return null;
+        }
+        return $CI->cms_direct_db->get_page_by_url($url_path);
     }
 
     /**
@@ -3080,7 +3327,7 @@ class Webshop_api_model extends CI_Model {
 
     public function get_wishlist($user_id) {
         $res = $this->api->get_wishlist($user_id);
-        if ($res && isset($res->status) && $res->status === 'SUCCESS' && isset($res->wishlist)) {
+        if ($res && isset($res->status) && strtoupper((string) $res->status) === 'SUCCESS' && isset($res->wishlist)) {
             $list = is_array($res->wishlist) ? $res->wishlist : (array) $res->wishlist;
             $out = [];
             foreach ($list as $item) {
@@ -3097,9 +3344,20 @@ class Webshop_api_model extends CI_Model {
 
     public function get_wishlist_count($user_id) {
         if ($this->api_mode || !$this->has_local_db()) {
-            if (!$user_id) return 0;
-            $res = $this->get_wishlist($user_id);
-            return count($res);
+            if (!$user_id) {
+                return 0;
+            }
+            $res = $this->api->get_wishlist($user_id);
+            if ($res && isset($res->status) && strtoupper((string) $res->status) === 'SUCCESS') {
+                if (isset($res->count)) {
+                    return (int) $res->count;
+                }
+                if (isset($res->wishlist)) {
+                    $list = is_array($res->wishlist) ? $res->wishlist : (array) $res->wishlist;
+                    return count($list);
+                }
+            }
+            return count($this->get_wishlist($user_id));
         }
         return $this->_fallback_webshop_model()->get_wishlist_count($user_id);
     }

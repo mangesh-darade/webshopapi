@@ -40,8 +40,14 @@ $getImg = function($item) use ($uploadsBase, $thumbsBase) {
 };
 $getPrice = function($item) {
     $row = is_array($item) ? $item : (array) $item;
+    if (function_exists('webshop_checkout_resolve_product_price')) {
+        return (float) webshop_checkout_resolve_product_price($row, 0, 0);
+    }
     $p = isset($row['price']) ? (float) $row['price'] : 0;
-    if (isset($row['promo_price']) && (float) $row['promo_price'] > 0 && (float) $row['promo_price'] < $p) {
+    if ($p <= 0 && isset($row['eshop_price']) && (float) $row['eshop_price'] > 0) {
+        $p = (float) $row['eshop_price'];
+    }
+    if (isset($row['promo_price']) && (float) $row['promo_price'] > 0 && ((float) $row['promo_price'] < $p || $p <= 0)) {
         $p = (float) $row['promo_price'];
     }
     return $p;
@@ -74,6 +80,13 @@ if (isset($webshop_settings) && is_object($webshop_settings)) {
         }
     }
 }
+$_cp_lcp_img = '';
+if (!empty($products)) {
+    $_cp_first = reset($products);
+    if ($_cp_first !== false) {
+        $_cp_lcp_img = $getImg($_cp_first);
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -83,6 +96,13 @@ if (isset($webshop_settings) && is_object($webshop_settings)) {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= htmlspecialchars($categoryName, ENT_QUOTES, 'UTF-8') ?> | <?= htmlspecialchars($shopName, ENT_QUOTES, 'UTF-8') ?></title>
     <?= isset($meta_tags) ? $meta_tags : '' ?>
+    <?php if ($_cp_lcp_img !== '' && function_exists('webshop_external_origin_preconnect_tag')): ?>
+    <?= webshop_external_origin_preconnect_tag($_cp_lcp_img) ?>
+
+    <?php endif; ?>
+    <?php if ($_cp_lcp_img !== ''): ?>
+    <link rel="preload" as="image" href="<?= htmlspecialchars($_cp_lcp_img, ENT_QUOTES, 'UTF-8') ?>" fetchpriority="high">
+    <?php endif; ?>
     <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/common.css">
     <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css">
     <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/category-products.css">
@@ -161,7 +181,7 @@ if (isset($webshop_settings) && is_object($webshop_settings)) {
                 </div>
             <?php else: ?>
                 <div class="cp-grid">
-                <?php foreach ($products as $item):
+                <?php foreach ($products as $_cp_idx => $item):
                     $row       = is_array($item) ? $item : (array) $item;
                     $itemId    = isset($row['id']) ? $row['id'] : 0;
                     $hash      = $getHash($row);
@@ -230,8 +250,7 @@ if (isset($webshop_settings) && is_object($webshop_settings)) {
                                 <img src="<?= htmlspecialchars($imgFinal, ENT_QUOTES, 'UTF-8') ?>"
                                      alt="<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>"
                                      class="pc-product-img"
-                                     loading="lazy"
-                                     decoding="async"
+                                     <?= $_cp_idx === 0 ? 'fetchpriority="high" decoding="sync"' : 'loading="lazy" decoding="async"' ?>
                                      onload="var f=this.closest('.pc-img-frame');if(f)f.classList.remove('is-loading');"
                                      onerror="this.onerror=null;this.src='<?= $noImgSrcAttr ?>';var f=this.closest('.pc-img-frame');if(f)f.classList.remove('is-loading');">
                             </div>
@@ -275,6 +294,7 @@ if (isset($webshop_settings) && is_object($webshop_settings)) {
                                     <button type="button" class="pc-btn pc-btn-cart"
                                             onclick="wsAddToCart('<?= (int) $itemId ?>', '<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>', this)"
                                             data-item-id="<?= (int) $itemId ?>" data-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>"
+                                            data-product-price="<?= htmlspecialchars((string) $price, ENT_QUOTES, 'UTF-8') ?>"
                                             data-label-default="Add to cart">
                                         Add to cart
                                     </button>
@@ -335,13 +355,25 @@ function wsAddToCart(itemId, hash, btn) {
     btn.disabled = true;
     btn.textContent = 'Adding…';
     requestAnimationFrame(function () {
+    var listPrice = btn && btn.getAttribute('data-product-price') ? btn.getAttribute('data-product-price') : '';
+    var addBody = 'action=add_to_cart&product_id=' + encodeURIComponent(itemId) + '&quantity=1&variant_id=0';
+    if (listPrice !== '' && parseFloat(listPrice) > 0) {
+        addBody += '&product_price=' + encodeURIComponent(listPrice) + '&price=' + encodeURIComponent(listPrice);
+    }
+    if (typeof window.webshopAppendCsrfParams === 'function') {
+        addBody = window.webshopAppendCsrfParams(addBody);
+    }
     fetch('<?= base_url('webshop/webshop_request') ?>', {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: 'action=add_to_cart&product_id=' + encodeURIComponent(itemId) + '&quantity=1&variant_id=0'
+        body: addBody,
+        credentials: 'same-origin'
     })
     .then(function(r){ return r.json(); })
     .then(function(d) {
+        if (typeof window.webshopUpdateCsrfFromJson === 'function') {
+            window.webshopUpdateCsrfFromJson(d);
+        }
         if (d && (d.status === 'SUCCESS' || d.success)) {
             btn.textContent = 'Added';
             btn.style.background = '#059669';

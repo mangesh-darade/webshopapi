@@ -59,6 +59,8 @@ $payCurrencyIso = isset($payment_currency_iso) ? trim((string) $payment_currency
             <?php endif; ?>
 
             <form action="<?= base_url('webshop/payments') ?>?order=<?= urlencode((string) $orderId) ?>&customer=<?= urlencode((string) $customerId) ?>" method="post">
+                <?= function_exists('webshop_csrf_hidden_input') ? webshop_csrf_hidden_input() : '' ?>
+
                 <input type="hidden" name="submit" value="1">
                 <input type="hidden" name="order_id" value="<?= htmlspecialchars((string) $orderId, ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="reference_no" value="<?= htmlspecialchars((string) $refNo, ENT_QUOTES, 'UTF-8') ?>">

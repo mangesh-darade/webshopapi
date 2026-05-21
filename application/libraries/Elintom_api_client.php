@@ -548,13 +548,14 @@ class Elintom_api_client {
 
         if (function_exists('curl_init')) {
             $ch = curl_init($url);
-            curl_setopt_array($ch, array(
+            $this->_curl_apply_options($ch, array(
                 CURLOPT_POST           => true,
                 CURLOPT_POSTFIELDS     => $post_data,
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_TIMEOUT        => 90,
                 CURLOPT_HTTPHEADER     => array('Content-Type: application/x-www-form-urlencoded'),
             ));
+            $this->_curl_apply_options($ch, $this->_curl_ssl_options($url));
             $body  = curl_exec($ch);
             $errno = curl_errno($ch);
             $err   = curl_error($ch);
@@ -641,6 +642,85 @@ class Elintom_api_client {
         }
 
         return $decoded;
+    }
+
+    /**
+     * Apply cURL options one-by-one (PHP 8+ curl_setopt_array rejects unsupported SSL keys on some builds).
+     *
+     * @param resource $ch
+     * @param array    $options
+     */
+    protected function _curl_apply_options($ch, array $options) {
+        foreach ($options as $option => $value) {
+            if (!is_int($option)) {
+                continue;
+            }
+            @curl_setopt($ch, $option, $value);
+        }
+    }
+
+    /**
+     * cURL TLS options for HTTPS ElintOm endpoints.
+     * WAMP/Windows often has no curl.cainfo in php.ini — use bundled application/libraries/cacert.pem.
+     *
+     * Config (elintom_api): elintom_api_ssl_verify (bool), elintom_api_ssl_ca_bundle (path).
+     *
+     * @param string $url Request URL (SSL options are skipped for http://)
+     * @return array<int, mixed>
+     */
+    protected function _curl_ssl_options($url) {
+        $parts = is_string($url) ? parse_url($url) : false;
+        $scheme = (is_array($parts) && isset($parts['scheme'])) ? strtolower((string) $parts['scheme']) : '';
+        if ($scheme !== 'https') {
+            return array();
+        }
+
+        if (!defined('CURLOPT_SSL_VERIFYPEER')) {
+            return array();
+        }
+
+        $this->CI->config->load('elintom_api', true);
+
+        $verify = $this->CI->config->item('elintom_api_ssl_verify', 'elintom_api');
+        if ($verify === null) {
+            $verify = true;
+        } elseif (!is_bool($verify)) {
+            $filtered = filter_var($verify, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            $verify = ($filtered !== null) ? $filtered : !empty($verify);
+        }
+
+        if (!$verify) {
+            return array(
+                CURLOPT_SSL_VERIFYPEER => false,
+            );
+        }
+
+        $opts = array(
+            CURLOPT_SSL_VERIFYPEER => true,
+        );
+        if (defined('CURLOPT_SSL_VERIFYHOST')) {
+            $opts[CURLOPT_SSL_VERIFYHOST] = 2;
+        }
+
+        $bundle = (string) $this->CI->config->item('elintom_api_ssl_ca_bundle', 'elintom_api');
+        if ($bundle === '') {
+            $bundle = APPPATH . 'libraries' . DIRECTORY_SEPARATOR . 'cacert.pem';
+        }
+        $bundle = str_replace('\\', '/', $bundle);
+        if ($bundle !== '' && is_readable($bundle) && defined('CURLOPT_CAINFO')) {
+            $opts[CURLOPT_CAINFO] = $bundle;
+            return $opts;
+        }
+
+        foreach (array('curl.cainfo', 'openssl.cafile') as $ini_key) {
+            $ini_path = ini_get($ini_key);
+            if (is_string($ini_path) && $ini_path !== '' && is_readable($ini_path) && defined('CURLOPT_CAINFO')) {
+                $opts[CURLOPT_CAINFO] = str_replace('\\', '/', $ini_path);
+                return $opts;
+            }
+        }
+
+        return $opts;
     }
 
     /**

@@ -29,31 +29,33 @@ class Paytm {
 
     function encrypt_e($input, $ky) {
 	$key = $ky;
-	$size = mcrypt_get_block_size(MCRYPT_RIJNDAEL_128, 'cbc');
-	$input = $this->pkcs5_pad_e($input, $size);
-	$td = mcrypt_module_open(MCRYPT_RIJNDAEL_128, '', 'cbc', '');
 	$iv = "@@@@&&&&####$$$$";
-	mcrypt_generic_init($td, $key, $iv);
-	$data = mcrypt_generic($td, $input);
-	mcrypt_generic_deinit($td);
-	mcrypt_module_close($td);
+	$key_len = strlen($key);
+	$cipher = 'AES-128-CBC';
+	if ($key_len === 24) {
+	    $cipher = 'AES-192-CBC';
+	} elseif ($key_len === 32) {
+	    $cipher = 'AES-256-CBC';
+	}
+	$data = openssl_encrypt($input, $cipher, $key, OPENSSL_RAW_DATA, $iv);
 	$data = base64_encode($data);
 	return $data;
     }
 
     function decrypt_e($crypt, $ky) {
-
-            $crypt = base64_decode($crypt);
-            $key = $ky;
-            $td = mcrypt_module_open(MCRYPT_RIJNDAEL_128, '', 'cbc', '');
-            $iv = "@@@@&&&&####$$$$";
-            mcrypt_generic_init($td, $key, $iv);
-            $decrypted_data = mdecrypt_generic($td, $crypt);
-            mcrypt_generic_deinit($td);
-            mcrypt_module_close($td);
-            $decrypted_data = $this->pkcs5_unpad_e($decrypted_data);
-            $decrypted_data = rtrim($decrypted_data);
-            return $decrypted_data;
+	$crypt = base64_decode($crypt);
+	$key = $ky;
+	$iv = "@@@@&&&&####$$$$";
+	$key_len = strlen($key);
+	$cipher = 'AES-128-CBC';
+	if ($key_len === 24) {
+	    $cipher = 'AES-192-CBC';
+	} elseif ($key_len === 32) {
+	    $cipher = 'AES-256-CBC';
+	}
+	$decrypted_data = openssl_decrypt($crypt, $cipher, $key, OPENSSL_RAW_DATA, $iv);
+	$decrypted_data = rtrim($decrypted_data);
+	return $decrypted_data;
     }
 
     function pkcs5_pad_e($text, $blocksize) {
@@ -62,7 +64,7 @@ class Paytm {
     }
 
     function pkcs5_unpad_e($text) {
-            $pad = ord($text{strlen($text) - 1});
+            $pad = ord($text[strlen($text) - 1]);
             if ($pad > strlen($text))
                     return false;
             return substr($text, 0, -1 * $pad);

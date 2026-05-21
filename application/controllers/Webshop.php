@@ -5,6 +5,7 @@ require_once(APPPATH . "libraries/razorpay/razorpay-php/Razorpay.php");
 use Razorpay\Api\Api;
 use Razorpay\Api\Errors\SignatureVerificationError;
 
+#[\AllowDynamicProperties]
 class Webshop extends MY_Controller
 {
 
@@ -55,7 +56,22 @@ class Webshop extends MY_Controller
         $this->data['thumbs'] = $mediaBase . 'thumbs/';
         $this->data['images'] = $mediaBase . 'images/';
 
-        $this->data['assets'] = base_url('assets/webshop/');
+        $this->config->load('elintom_api', true);
+        $storefrontAssetsDir = trim((string) $this->config->item('elintom_theme_assets_directory', 'elintom_api'));
+        $webshopThemeKey = (isset($this->webshop_settings) && is_object($this->webshop_settings) && isset($this->webshop_settings->webshop_theme))
+            ? trim((string) $this->webshop_settings->webshop_theme)
+            : '';
+        if ($storefrontAssetsDir !== '' || in_array($webshopThemeKey, array('gulfpharmacy', 'nw'), true)) {
+            $this->data['assets'] = rtrim(base_url('assets/webshop/'), '/') . '/';
+        } elseif (function_exists('webshop_theme_assets_base_url')) {
+            $this->data['assets'] = webshop_theme_assets_base_url();
+        } elseif (!isset($this->data['assets']) || (string) $this->data['assets'] === '') {
+            $this->data['assets'] = base_url('assets/webshop/');
+        }
+        $this->assets = $this->data['assets'];
+        if (function_exists('webshop_theme_assets_directory_name')) {
+            $this->data['Assets_directory_name'] = webshop_theme_assets_directory_name();
+        }
 
         $this->data['is_admin_login'] = $this->is_admin_login = ($this->loggedIn && ($this->Owner || $this->Admin)) ? true : false;
 
@@ -131,9 +147,6 @@ class Webshop extends MY_Controller
             }
             $this->data['setting_map'] = $setting_map;
 
-            if ($this->webshop_settings->webshop_theme == 'nw' || $this->webshop_settings->webshop_theme == 'gulfpharmacy') {
-                $this->data['about_us'] = $this->webshop_model->about_usdata($page_key = 'aboutus');
-            }
         } else {
             $this->data['categories'] = ['main' => []];
             $this->data['main_categories'] = [];
@@ -395,8 +408,13 @@ XSL;
             return $planeVanilaPath;
         }
 
-        // 2. Try theme-specific path
-        if ($theme !== '' && isset($theme_folders[$theme])) {
+        $this->config->load('elintom_api', true);
+        $switchViewFolder = trim((string) $this->config->item('elintom_theme_view_folder', 'elintom_api'));
+        $preferPlaneVanila = ($switchViewFolder !== '')
+            || in_array($theme, array('gulfpharmacy', 'nw'), true);
+
+        // 2. Legacy webshop/{theme}_theme/*.php — skip when host profile uses plane_vanila_theme (CMS storefront).
+        if (!$preferPlaneVanila && $theme !== '' && isset($theme_folders[$theme])) {
             $folder = $theme_folders[$theme];
             $candidate = $folder . '/' . $method . '.php';
             if (is_file(VIEWPATH . $candidate)) {
@@ -589,12 +607,22 @@ XSL;
             && (stripos($head, 'as="image"') !== false || stripos($head, "as='image'") !== false)) {
             return $html;
         }
-        $logo = $this->resolve_storefront_header_logo_url_for_preload($data);
-        if ($logo === '') {
+        $preloadUrl = '';
+        if (!empty($data['page_banner_image_url']) && is_string($data['page_banner_image_url'])) {
+            $preloadUrl = trim($data['page_banner_image_url']);
+        }
+        if ($preloadUrl === '') {
+            $preloadUrl = $this->resolve_storefront_header_logo_url_for_preload($data);
+        }
+        if ($preloadUrl === '') {
             return $html;
         }
-        $href = htmlspecialchars($logo, ENT_QUOTES, 'UTF-8');
-        $snippet = "\n<link rel=\"preload\" as=\"image\" href=\"" . $href . "\" fetchpriority=\"high\">\n";
+        $href = htmlspecialchars($preloadUrl, ENT_QUOTES, 'UTF-8');
+        $preconnect = '';
+        if (function_exists('webshop_external_origin_preconnect_tag')) {
+            $preconnect = webshop_external_origin_preconnect_tag($preloadUrl);
+        }
+        $snippet = $preconnect . "\n<link rel=\"preload\" as=\"image\" href=\"" . $href . "\" fetchpriority=\"high\">\n";
         if (preg_match('#<head\b[^>]*>#i', $html, $m, PREG_OFFSET_CAPTURE)) {
             $tag = $m[0][0];
             $pos = $m[0][1] + strlen($tag);
@@ -749,10 +777,11 @@ XSL;
             return call_user_func_array([$this, $method], $params);
         }
 
-        if (empty($params) && $this->render_theme_slug_page($method)) {
+        // CMS slugs from ElintOm (often hyphenated) before static theme PHP files.
+        if (empty($params) && $this->render_dynamic_cms_slug_page($method)) {
             return;
         }
-        if (empty($params) && $this->render_dynamic_cms_slug_page($method)) {
+        if (empty($params) && $this->render_theme_slug_page($method)) {
             return;
         }
 
@@ -761,7 +790,7 @@ XSL;
 
     private function render_dynamic_cms_slug_page($method)
     {
-        $slug = trim((string)$method);
+        $slug = trim((string) $method);
         if ($slug === '') {
             return false;
         }
@@ -770,36 +799,44 @@ XSL;
             return false;
         }
 
-        $urlPath = '/' . ltrim($slug, '/');
-        $cmsPage = $this->webshop_model->get_cms_page_by_url($urlPath);
-        if (!is_object($cmsPage)) {
-            return false;
-        }
-
-        $this->cms_page($slug);
-        return true;
+        return $this->_render_cms_storefront_page($slug);
     }
 
     private function render_theme_slug_page($method)
     {
-        $slug = preg_replace('/[^a-z0-9_]/i', '', (string)$method);
-        if ($slug === '' || in_array($slug, ['index', 'login', 'register', 'cart', 'checkout'], true)) {
+        $raw = trim((string) $method, '/');
+        if ($raw === '' || in_array($raw, ['index', 'login', 'register', 'cart', 'checkout'], true)) {
             return false;
+        }
+
+        $slugCandidates = array($raw);
+        $underscored = str_replace('-', '_', $raw);
+        if ($underscored !== $raw) {
+            $slugCandidates[] = $underscored;
+        }
+        $alnumOnly = preg_replace('/[^a-z0-9_]/i', '', $raw);
+        if ($alnumOnly !== '' && $alnumOnly !== $raw && $alnumOnly !== $underscored) {
+            $slugCandidates[] = $alnumOnly;
         }
 
         $themeFolder = $this->resolve_theme_folder();
-        $candidate = ($themeFolder ? $themeFolder . '/' : '') . $slug;
-        $flatPath = VIEWPATH . 'webshop/' . $candidate . '.php';
-        if (is_file($flatPath)) {
-            $fullPath = $flatPath;
-        } else {
-            $fullPath = null;
+        $fullPath = null;
+        $candidate = '';
+        foreach ($slugCandidates as $slug) {
+            if ($slug === '' || !preg_match('/^[a-z0-9_]+$/i', $slug)) {
+                continue;
+            }
+            $candidate = ($themeFolder ? $themeFolder . '/' : '') . $slug;
+            $flatPath = VIEWPATH . 'webshop/' . $candidate . '.php';
+            if (is_file($flatPath)) {
+                $fullPath = $flatPath;
+                break;
+            }
         }
-        $seoData = $this->get_theme_page_seo($candidate . '.php');
-
-        if ($fullPath === null || !is_file($fullPath)) {
+        if ($fullPath === null || $candidate === '') {
             return false;
         }
+        $seoData = $this->get_theme_page_seo($candidate . '.php');
         if (isset($seoData['is_active']) && (int)$seoData['is_active'] === 0) {
             return false;
         }
@@ -1581,6 +1618,16 @@ XSL;
                 $this->account_panel_data();
                 break;
 
+            case "manage_address_webshop":
+
+                $this->manage_address_webshop($postData);
+                break;
+
+            case "profile_update_webshop":
+
+                $this->profile_update_webshop($postData);
+                break;
+
             case "apply_coupon":
 
                 $this->apply_coupon($postData);
@@ -1631,7 +1678,7 @@ XSL;
             $cmsSections = array();
             if (is_object($this->data['home_page_cms'])) {
                 $this->data['page_title'] = isset($this->data['home_page_cms']->page_title) ? $this->data['home_page_cms']->page_title : '';
-                $this->data['meta_tags'] = isset($this->data['home_page_cms']->meta_tags) ? $this->data['home_page_cms']->meta_tags : '';
+                $this->data['meta_tags'] = $this->resolve_cms_page_head_meta($this->data['home_page_cms']);
                 $this->data['home_has_header_section'] = isset($this->data['home_page_cms']->show_header) ? (bool) $this->data['home_page_cms']->show_header : true;
                 $this->data['home_has_footer_section'] = isset($this->data['home_page_cms']->show_footer) ? (bool) $this->data['home_page_cms']->show_footer : true;
                 // CMS-managed home should be section-driven: no category/product blocks unless mapped by CMS sections.
@@ -1935,27 +1982,27 @@ XSL;
             $urlPath = '/';
         }
 
-        $cmsPage = $this->webshop_model->get_cms_page_by_url($urlPath);
+        $candidates = $this->webshop_model->cms_url_candidates_from_path($urlPath);
+        $cmsPage = $this->webshop_model->find_published_cms_page($candidates);
         if (!is_object($cmsPage)) {
             show_404();
             return;
         }
-        if (isset($cmsPage->status) && strtolower((string) $cmsPage->status) !== '' && strtolower((string) $cmsPage->status) !== 'published') {
-            show_404();
-            return;
+        if (isset($cmsPage->url) && trim((string) $cmsPage->url) !== '') {
+            $urlPath = '/' . ltrim((string) $cmsPage->url, '/');
         }
 
         $this->data['page_title'] = isset($cmsPage->page_title) ? $cmsPage->page_title : '';
-        $this->data['meta_tags'] = isset($cmsPage->meta_tags) ? $cmsPage->meta_tags : '';
+        $this->data['meta_tags'] = $this->resolve_cms_page_head_meta($cmsPage);
 
-        // Enrich meta with entity-level tags (AI / Schema / SEO / Technical / GEO / Social).
+        // Entity tag mapping (products/categories) — only when CMS page tags are empty.
         $pageEntityId = isset($cmsPage->id) ? (int) $cmsPage->id : 0;
-        if ($pageEntityId > 0 && method_exists($this->webshop_model, 'get_entity_tag_map')) {
+        if ($pageEntityId > 0 && trim((string) $this->data['meta_tags']) === ''
+            && method_exists($this->webshop_model, 'get_entity_tag_map')) {
             $pageTagMap = $this->webshop_model->get_entity_tag_map('page', $pageEntityId);
             if (is_array($pageTagMap) && !empty($pageTagMap)) {
                 $pageEntityMetaTags = $this->build_entity_meta_tags($pageTagMap);
                 if ($pageEntityMetaTags !== '') {
-                    // Entity tags override plain CMS meta string for head injection.
                     $this->data['meta_tags'] = $pageEntityMetaTags;
                 }
                 $entityMetaTitle = $this->resolve_entity_meta_title($pageTagMap);
@@ -1967,6 +2014,23 @@ XSL;
             $this->data['entity_tag_groups'] = $this->group_entity_tags_for_view(
                 is_array($pageTagRows) ? $pageTagRows : array()
             );
+        }
+        if (empty($this->data['entity_tag_groups']) && is_object($cmsPage)
+            && isset($cmsPage->meta_tags_raw) && is_array($cmsPage->meta_tags_raw) && !empty($cmsPage->meta_tags_raw)) {
+            $cmsTagRows = array();
+            foreach ($cmsPage->meta_tags_raw as $rawTag) {
+                $a = is_object($rawTag) ? (array) $rawTag : (is_array($rawTag) ? $rawTag : array());
+                if (!isset($a['value']) || trim((string) $a['value']) === '') {
+                    continue;
+                }
+                $cmsTagRows[] = array(
+                    'tag_name' => isset($a['tag_name']) ? (string) $a['tag_name'] : (isset($a['property_name']) ? (string) $a['property_name'] : ''),
+                    'property_name' => isset($a['property_name']) ? (string) $a['property_name'] : '',
+                    'value' => (string) $a['value'],
+                    'category' => isset($a['category']) ? (string) $a['category'] : 'SEO',
+                );
+            }
+            $this->data['entity_tag_groups'] = $this->group_entity_tags_for_view($cmsTagRows);
         }
 
         $this->data['is_dynamic_cms_page'] = true;
@@ -2026,30 +2090,29 @@ XSL;
         $this->data['cms_body_html'] = isset($this->data['home_section_html_block'])
             ? (string)$this->data['home_section_html_block'] : '';
         $this->data['cms_page'] = $cmsPage;
+        $this->data['cms_page_load_error'] = (trim((string) $this->data['cms_body_html']) === '');
 
         // Reuse already-rendered section HTML; avoid rendering each section again.
         $this->data['cms_page_sections'] = $localBodyHtml !== '' ? array($localBodyHtml) : array();
 
-        // Non-home CMS pages → dedicated cms_page.php view (full layout)
-        // Home-type pages → theme index (with dynamic sections)
-        $useThemeIndex = $isHomeType
-            || $this->webshop_settings->webshop_theme === 'restaurant'
-            || $this->webshop_settings->webshop_theme === 'nw'
-            || $this->webshop_settings->webshop_theme === 'gulfpharmacy';
+        $this->config->load('elintom_api', true);
+        $activeTheme = isset($this->webshop_settings->webshop_theme)
+            ? trim((string) $this->webshop_settings->webshop_theme)
+            : '';
 
-        if ($useThemeIndex) {
-            if ($this->webshop_settings->webshop_theme == 'restaurant') {
-                $this->load_view("restaurant/index", $this->data);
-            } else if ($this->webshop_settings->webshop_theme == 'nw') {
-                $this->load_view("nw_theme/index", $this->data);
-            } else if ($this->webshop_settings->webshop_theme == 'gulfpharmacy') {
-                $this->load_view("index", $this->data);
-            } else {
-                $this->load_view("index", $this->data);
-            }
+        // plane_vanila CMS: home + all dynamic CMS pages use theme index (header/footer + cms body).
+        // Legacy webshop/cms_page.php is only for old non-plane themes (e.g. default/orange).
+        $usePlaneVanilaIndex = in_array($activeTheme, array('gulfpharmacy', 'nw'), true)
+            || trim((string) $this->config->item('elintom_theme_view_folder', 'elintom_api')) !== '';
+
+        if ($activeTheme === 'restaurant') {
+            $this->load_view('restaurant/index', $this->data);
+        } elseif ($activeTheme === 'nw') {
+            $this->load_view('nw_theme/index', $this->data);
+        } elseif ($usePlaneVanilaIndex || $isHomeType) {
+            $this->load_view('index', $this->data);
         } else {
-            // Static / blog / category CMS pages → universal cms_page view
-            $this->load_view("cms_page", $this->data);
+            $this->load_view('cms_page', $this->data);
         }
     }
 
@@ -2067,8 +2130,9 @@ XSL;
         if (!empty($cmsPage->page_title)) {
             $this->data['page_title'] = (string) $cmsPage->page_title;
         }
-        if (!empty($cmsPage->meta_tags)) {
-            $this->data['meta_tags'] = (string) $cmsPage->meta_tags;
+        $hydratedMeta = $this->resolve_cms_page_head_meta($cmsPage);
+        if ($hydratedMeta !== '') {
+            $this->data['meta_tags'] = $hydratedMeta;
         }
         if (!isset($this->data['home_section_html_block'])) {
             $this->data['home_section_html_block'] = '';
@@ -2339,6 +2403,29 @@ XSL;
         redirect($back_url);
     }
 
+    /**
+     * Head meta for CMS pages from getcmspage meta_tags_raw (Tag Values by Category).
+     *
+     * @param object $cmsPage
+     * @return string
+     */
+    private function resolve_cms_page_head_meta($cmsPage)
+    {
+        if (!is_object($cmsPage)) {
+            return '';
+        }
+        $pageTitle = isset($cmsPage->page_title) ? trim((string) $cmsPage->page_title) : '';
+        $apiHtml = isset($cmsPage->meta_tags) ? trim((string) $cmsPage->meta_tags) : '';
+        $raw = isset($cmsPage->meta_tags_raw) && is_array($cmsPage->meta_tags_raw) ? $cmsPage->meta_tags_raw : array();
+        if (function_exists('webshop_meta_tags_html_from_cms_rows') && !empty($raw)) {
+            $built = webshop_meta_tags_html_from_cms_rows($raw, array('page_title' => $pageTitle));
+            if (trim($built) !== '') {
+                return $built;
+            }
+        }
+        return $apiHtml;
+    }
+
     private function build_entity_meta_tags($entity_tags)
     {
         if (empty($entity_tags) || !is_array($entity_tags)) {
@@ -2358,6 +2445,18 @@ XSL;
             }
             if ($normalized === 'meta_keywords' || $normalized === 'keywords') {
                 $meta_parts[] = '<meta name="keywords" content="' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '">';
+                continue;
+            }
+            if ($normalized === 'canonical' || $normalized === 'canonical_url') {
+                $meta_parts[] = '<link rel="canonical" href="' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '">';
+                continue;
+            }
+            if ($normalized === 'robots' || $normalized === 'meta_robots') {
+                $meta_parts[] = '<meta name="robots" content="' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '">';
+                continue;
+            }
+            if ($normalized === 'viewport') {
+                $meta_parts[] = '<meta name="viewport" content="' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '">';
                 continue;
             }
             $safe_name = preg_replace('/[^a-zA-Z0-9\-_:.]/', '-', strtolower($property_name));
@@ -2715,6 +2814,10 @@ XSL;
         }
 
         $this->data['wishlist'] = !empty($products) ? $this->webshop_model->get_products_list('products', $products, true) : ['items' => []];
+        $wl_items = isset($this->data['wishlist']['items']) && is_array($this->data['wishlist']['items'])
+            ? $this->data['wishlist']['items']
+            : [];
+        $this->data['wishlist_count'] = count($wl_items);
         $this->data['recent_viewed'] = $this->webshop_model->get_recent_viewed_product();
 
         $theme = isset($this->webshop_settings->webshop_theme) ? $this->webshop_settings->webshop_theme : 'default';
@@ -4714,6 +4817,10 @@ XSL;
         if (!is_array($payload) && !is_object($payload)) {
             $payload = array('status' => 'FAIL', 'error' => 'Invalid response payload');
         }
+        if (is_array($payload) && $this->config->item('csrf_protection')) {
+            $payload['csrf_name'] = $this->security->get_csrf_token_name();
+            $payload['csrf_hash'] = $this->security->get_csrf_hash();
+        }
         $code = (int) $http_code;
         if ($code !== 200) {
             $this->output->set_status_header($code);
@@ -4799,7 +4906,7 @@ XSL;
 
     public function buy_now($postData)
     {
-        $result = $this->webshop_action_engine->add_to_cart((array) $postData);
+        $result = $this->webshop_action_engine->buy_now((array) $postData);
         if (isset($result['status']) && $result['status'] === 'SUCCESS') {
             $result['checkout_url'] = base_url('webshop/checkout');
         }
@@ -4943,10 +5050,25 @@ XSL;
             $vid = (int) (isset($item['variant_id']) ? $item['variant_id'] : 0);
             $qty = (int) (isset($item['quantity']) ? $item['quantity'] : 0);
             $unit_price = (float) (isset($item['product_price']) ? $item['product_price'] : (isset($item['price']) ? $item['price'] : 0));
+            $prow = isset($products[$pid]) ? $products[$pid] : array();
+            if ($unit_price <= 0 && is_array($prow) && !empty($prow)) {
+                if (function_exists('webshop_checkout_resolve_product_price')) {
+                    $unit_price = (float) webshop_checkout_resolve_product_price($prow, 0, 0);
+                } else {
+                    foreach (array('eshop_price', 'price', 'sale_price', 'mrp', 'promo_price') as $pk) {
+                        if (isset($prow[$pk]) && (float) $prow[$pk] > 0) {
+                            $unit_price = (float) $prow[$pk];
+                            break;
+                        }
+                    }
+                }
+                if ($unit_price > 0 && isset($_SESSION['cart'][$key]) && is_array($_SESSION['cart'][$key])) {
+                    $_SESSION['cart'][$key]['product_price'] = $unit_price;
+                    $_SESSION['cart'][$key]['price'] = $unit_price;
+                }
+            }
             $line = $unit_price * $qty;
             $subtotal += $line;
-
-            $prow = isset($products[$pid]) ? $products[$pid] : array();
             $name = isset($prow['name']) ? (string) $prow['name'] : 'Product';
             $variant_name = '';
             if ($vid && isset($variants[$vid]['name'])) {
@@ -5890,22 +6012,29 @@ XSL;
                     }
 
                     $this->session->set_flashdata('message', "Address Added Successfully.");
-                    redirect("webshop/your_address");
+                    redirect("webshop/your_account#addresses");
                 }
             } else if ($addressAction == 'edit') {
                 $addressId = $this->input->post('addressModalActionId');
                 $this->webshop_model->update_customer_address($data, $addressId);
                 $this->session->set_flashdata('message', "Address Updated Successfully.");
-                redirect("webshop/your_address");
+                redirect("webshop/your_account#addresses");
             }
         }
     }
 
-    public function manage_address_webshop()
+    public function manage_address_webshop($postData = null)
     {
-
-        $inputJSON = file_get_contents('php://input');
-        $input = json_decode($inputJSON, true);
+        if (is_array($postData)) {
+            $input = $postData;
+        } else {
+            $input = function_exists('webshop_read_json_request_body')
+                ? webshop_read_json_request_body()
+                : json_decode((string) file_get_contents('php://input'), true);
+            if (!is_array($input)) {
+                $input = array();
+            }
+        }
         $userId = $this->_get_webshop_session_user_id();
         if (!$userId) {
             $this->json_response(['statusMessage' => "unauthorized"]);
@@ -5982,7 +6111,7 @@ XSL;
         if ($this->webshop_model->set_address_default($customer_id, $address_id)) {
 
             $this->session->set_flashdata('message', "Default Address Set Successfully.");
-            redirect("webshop/your_address");
+            redirect("webshop/your_account#addresses");
         }
     }
 
@@ -6006,7 +6135,7 @@ XSL;
         if ($this->webshop_model->delete_address((int) $address_id, $uid)) {
 
             $this->session->set_flashdata('message', "Address Deleted Successfully.");
-            redirect("webshop/your_address");
+            redirect("webshop/your_account#addresses");
         }
     }
 
@@ -6150,10 +6279,18 @@ XSL;
         }
     }
 
-    public function profile_update_webshop()
+    public function profile_update_webshop($postData = null)
     {
-        $inputJSON = file_get_contents('php://input');
-        $input = json_decode($inputJSON, true);
+        if (is_array($postData)) {
+            $input = $postData;
+        } else {
+            $input = function_exists('webshop_read_json_request_body')
+                ? webshop_read_json_request_body()
+                : json_decode((string) file_get_contents('php://input'), true);
+            if (!is_array($input)) {
+                $input = array();
+            }
+        }
         $fName = isset($input['fName']) ? $input['fName'] : '';
         $dob   = isset($input['dob']) ? $input['dob'] : '';
         $email = isset($input['email']) ? $input['email'] : '';
@@ -6379,7 +6516,7 @@ XSL;
                 if (function_exists('webshop_forgot_password_log')) {
                     webshop_forgot_password_log('controller.send_otp.invalid_mobile', array('mobile' => $mobile));
                 }
-                $this->session->set_flashdata('error', 'Please enter a valid mobile number (10-15 digits).');
+                $this->session->set_flashdata('fp_error', 'Please enter a valid mobile number (10-15 digits).');
                 $this->session->set_flashdata('error_field', 'mobile');
                 redirect('webshop/forgot_password');
                 return;
@@ -6407,7 +6544,7 @@ XSL;
                 } else {
                     log_message('error', 'forgot_password: get_customer failed: ' . $e->getMessage());
                 }
-                $this->session->set_flashdata('error', 'Service temporarily unavailable. Please try again in a moment.');
+                $this->session->set_flashdata('fp_error', 'Service temporarily unavailable. Please try again in a moment.');
                 $this->session->set_flashdata('forgot_mobile', $mobile);
                 redirect('webshop/forgot_password');
                 return;
@@ -6416,7 +6553,7 @@ XSL;
                 if (function_exists('webshop_forgot_password_log')) {
                     webshop_forgot_password_log('controller.send_otp.customer_not_found', array('mobile' => $mobile));
                 }
-                $this->session->set_flashdata('error', 'No account found for this mobile number.');
+                $this->session->set_flashdata('fp_error', 'No account found for this mobile number.');
                 $this->session->set_flashdata('error_field', 'mobile');
                 $this->session->set_flashdata('forgot_mobile', $mobile);
                 redirect('webshop/forgot_password');
@@ -6430,7 +6567,7 @@ XSL;
                 } else {
                     log_message('error', 'forgot_password: OTP generation returned empty (no entropy source available)');
                 }
-                $this->session->set_flashdata('error', 'Could not generate a secure OTP. Please try again.');
+                $this->session->set_flashdata('fp_error', 'Could not generate a secure OTP. Please try again.');
                 redirect('webshop/forgot_password');
                 return;
             }
@@ -6473,15 +6610,23 @@ XSL;
             if ($delivery && isset($delivery['status']) && $delivery['status'] === 'SUCCESS' && !empty($channels)) {
                 if (function_exists('webshop_forgot_password_log')) {
                     webshop_forgot_password_log('controller.send_otp.delivered', array(
-                        'mobile'   => $mobile,
-                        'channels' => implode(',', $channels),
+                        'mobile'    => $mobile,
+                        'channels'  => implode(',', $channels),
+                        'delivered' => $delivered,
                     ));
                 }
                 $successMsg = 'OTP sent via ' . implode(' & ', $channels) . '. Please check your messages.';
-                if (!empty($delivered['email']) && empty($delivered['whatsapp'])) {
-                    $successMsg = 'OTP sent to your email. WhatsApp was not delivered — set WhatsApp API key in ElintOm POS Settings.';
+                if (empty($delivered['whatsapp']) && !empty($delivered['sms'])) {
+                    $successMsg = 'OTP sent via SMS'
+                        . (!empty($delivered['email']) ? ' and Email' : '')
+                        . '. WhatsApp was not delivered — check SMS (and email), or configure WhatsApp API key in ElintOm Settings.';
+                } elseif (empty($delivered['whatsapp']) && !empty($delivered['email'])) {
+                    $successMsg = 'OTP sent to your email. WhatsApp was not delivered — configure WhatsApp API key in ElintOm Settings.';
+                } elseif (!empty($delivered['whatsapp'])) {
+                    $successMsg = 'OTP sent via ' . implode(' & ', $channels)
+                        . '. If WhatsApp does not arrive within a minute, check SMS and email (including spam).';
                 }
-                $this->session->set_flashdata('message', $successMsg);
+                $this->session->set_flashdata('fp_message', $successMsg);
                 $this->session->set_flashdata('otp_sent', true);
             } else {
                 // Wipe the OTP so the user can retry cleanly.
@@ -6498,7 +6643,7 @@ XSL;
                         . ' (' . (isset($delivery['msg']) ? $delivery['msg'] : 'no msg') . ')');
                 }
                 $errMsg = ($delivery && !empty($delivery['msg'])) ? (string) $delivery['msg'] : 'Unable to deliver OTP right now. Please try again.';
-                $this->session->set_flashdata('error', $errMsg);
+                $this->session->set_flashdata('fp_error', $errMsg);
             }
             $this->session->set_flashdata('forgot_mobile', $mobile);
             redirect('webshop/forgot_password');
@@ -6520,7 +6665,7 @@ XSL;
                 if (function_exists('webshop_forgot_password_log')) {
                     webshop_forgot_password_log('controller.reset_password.missing_fields', array('mobile' => $mobile));
                 }
-                $this->session->set_flashdata('error', 'All fields are required.');
+                $this->session->set_flashdata('fp_error', 'All fields are required.');
                 $this->session->set_flashdata('forgot_mobile', $mobile);
                 $this->session->set_flashdata('otp_sent', true);
                 redirect('webshop/forgot_password');
@@ -6530,7 +6675,7 @@ XSL;
                 if (function_exists('webshop_forgot_password_log')) {
                     webshop_forgot_password_log('controller.reset_password.invalid_mobile', array('mobile' => $mobile));
                 }
-                $this->session->set_flashdata('error', 'Invalid mobile number.');
+                $this->session->set_flashdata('fp_error', 'Invalid mobile number.');
                 $this->session->set_flashdata('error_field', 'mobile');
                 redirect('webshop/forgot_password');
                 return;
@@ -6539,7 +6684,7 @@ XSL;
                 if (function_exists('webshop_forgot_password_log')) {
                     webshop_forgot_password_log('controller.reset_password.bad_otp_length', array('mobile' => $mobile));
                 }
-                $this->session->set_flashdata('error', 'OTP must be exactly 6 digits.');
+                $this->session->set_flashdata('fp_error', 'OTP must be exactly 6 digits.');
                 $this->session->set_flashdata('error_field', 'otp');
                 $this->session->set_flashdata('forgot_mobile', $mobile);
                 $this->session->set_flashdata('otp_sent', true);
@@ -6550,7 +6695,7 @@ XSL;
                 if (function_exists('webshop_forgot_password_log')) {
                     webshop_forgot_password_log('controller.reset_password.password_mismatch', array('mobile' => $mobile));
                 }
-                $this->session->set_flashdata('error', 'Passwords do not match.');
+                $this->session->set_flashdata('fp_error', 'Passwords do not match.');
                 $this->session->set_flashdata('error_field', 'confirm_password');
                 $this->session->set_flashdata('forgot_mobile', $mobile);
                 $this->session->set_flashdata('otp_sent', true);
@@ -6561,7 +6706,7 @@ XSL;
                 if (function_exists('webshop_forgot_password_log')) {
                     webshop_forgot_password_log('controller.reset_password.password_too_short', array('mobile' => $mobile));
                 }
-                $this->session->set_flashdata('error', 'Password must be at least 6 characters.');
+                $this->session->set_flashdata('fp_error', 'Password must be at least 6 characters.');
                 $this->session->set_flashdata('error_field', 'new_password');
                 $this->session->set_flashdata('forgot_mobile', $mobile);
                 $this->session->set_flashdata('otp_sent', true);
@@ -6577,7 +6722,7 @@ XSL;
                         'has_session_data' => is_array($otpData),
                     ));
                 }
-                $this->session->set_flashdata('error', 'OTP session expired. Please request a new OTP.');
+                $this->session->set_flashdata('fp_error', 'OTP session expired. Please request a new OTP.');
                 redirect('webshop/forgot_password');
                 return;
             }
@@ -6588,7 +6733,7 @@ XSL;
                         'session_mobile' => $otpData['mobile'],
                     ));
                 }
-                $this->session->set_flashdata('error', 'OTP verification failed for this mobile number.');
+                $this->session->set_flashdata('fp_error', 'OTP verification failed for this mobile number.');
                 redirect('webshop/forgot_password');
                 return;
             }
@@ -6597,7 +6742,7 @@ XSL;
                 if (function_exists('webshop_forgot_password_log')) {
                     webshop_forgot_password_log('controller.reset_password.otp_expired', array('mobile' => $mobile));
                 }
-                $this->session->set_flashdata('error', 'OTP has expired. Please request a new OTP.');
+                $this->session->set_flashdata('fp_error', 'OTP has expired. Please request a new OTP.');
                 redirect('webshop/forgot_password');
                 return;
             }
@@ -6614,7 +6759,7 @@ XSL;
                             'attempts' => $attempts,
                         ));
                     }
-                    $this->session->set_flashdata('error', 'Too many invalid attempts. Please request a new OTP.');
+                    $this->session->set_flashdata('fp_error', 'Too many invalid attempts. Please request a new OTP.');
                 } else {
                     $this->session->set_userdata('forgot_password_otp_data', $otpData);
                     if (function_exists('webshop_forgot_password_log')) {
@@ -6623,7 +6768,7 @@ XSL;
                             'attempts' => $attempts,
                         ));
                     }
-                    $this->session->set_flashdata('error', 'Invalid OTP. ' . (5 - $attempts) . ' attempt(s) left.');
+                    $this->session->set_flashdata('fp_error', 'Invalid OTP. ' . (5 - $attempts) . ' attempt(s) left.');
                     $this->session->set_flashdata('error_field', 'otp');
                     $this->session->set_flashdata('forgot_mobile', $mobile);
                     $this->session->set_flashdata('otp_sent', true);
@@ -6672,7 +6817,7 @@ XSL;
                 log_message('error', 'forgot_password: reset returned ERROR for ' . $this->_mask_secret($mobile)
                     . ' msg=' . (isset($reset['msg']) ? $reset['msg'] : 'none'));
             }
-            $this->session->set_flashdata('error', ($reset && !empty($reset['msg'])) ? (string) $reset['msg'] : 'Failed to update password.');
+            $this->session->set_flashdata('fp_error', ($reset && !empty($reset['msg'])) ? (string) $reset['msg'] : 'Failed to update password.');
             $this->session->set_flashdata('forgot_mobile', $mobile);
             $this->session->set_flashdata('otp_sent', true);
             redirect('webshop/forgot_password');
@@ -7576,106 +7721,135 @@ XSL;
     }
     public function about_us()
     {
-        $cmsPage = $this->webshop_model->get_cms_page_by_url('/about-us');
-        if (is_object($cmsPage) && (!isset($cmsPage->status) || strtolower((string) $cmsPage->status) === '' || strtolower((string) $cmsPage->status) === 'published')) {
-            $this->cms_page('about-us');
-            return;
+        $this->_render_cms_storefront_page('about_us', 'about_us');
+    }
+
+    /**
+     * Render using ElintOm CMS admin (sma_pages.url + sections) → plane_vanila index.
+     *
+     * @param string $storefrontSlug  URI segment (about_us, privacy-policy, custom-slug)
+     * @param string $legacyDataKey   View data key when CMS row is missing
+     * @return bool
+     */
+    private function _render_cms_storefront_page($storefrontSlug, $legacyDataKey = '')
+    {
+        $storefrontSlug = trim((string) $storefrontSlug, '/');
+        if ($legacyDataKey === '') {
+            $legacyDataKey = str_replace('-', '_', $storefrontSlug);
         }
-        $this->data['about_us'] = $this->webshop_model->about_usdata($page_key = 'aboutus');
-        $this->hydrate_static_cms_payload('/about-us', 'about_us');
+
+        // Prefer exact URL from CMS admin nav list (getcmspages) for this page only.
+        $navRow = $this->webshop_model->find_cms_nav_page_by_storefront_slug($storefrontSlug);
+        $candidates = $this->webshop_model->cms_url_candidates_from_storefront_slug($storefrontSlug);
+        if (is_array($navRow) && !empty($navRow['url'])) {
+            $adminUrl = '/' . ltrim((string) $navRow['url'], '/');
+            array_unshift($candidates, $adminUrl);
+            $unique = array();
+            foreach ($candidates as $p) {
+                $norm = '/' . ltrim((string) $p, '/');
+                if ($norm === '//') {
+                    $norm = '/';
+                }
+                $unique[$norm] = $norm;
+            }
+            $candidates = array_values($unique);
+        }
+
+        $cmsPage = $this->webshop_model->find_published_cms_page($candidates);
+        if (is_object($cmsPage)) {
+            $canonicalSlug = $this->webshop_model->cms_storefront_slug_from_page($cmsPage);
+            if ($canonicalSlug === '') {
+                $canonicalSlug = $storefrontSlug;
+            }
+            $this->cms_page($canonicalSlug);
+            return true;
+        }
+
+        if (is_array($navRow) && !empty($navRow['title'])) {
+            $this->data['page_title'] = (string) $navRow['title'];
+            $this->data['cms_page_load_error'] = true;
+        }
+
+        return $this->_render_legacy_static_fallback($storefrontSlug, $legacyDataKey);
+    }
+
+    /**
+     * @return bool
+     */
+    private function _render_legacy_static_fallback($storefrontSlug, $legacyDataKey)
+    {
+        $theme = isset($this->webshop_settings->webshop_theme)
+            ? trim((string) $this->webshop_settings->webshop_theme)
+            : '';
+
+        $this->config->load('elintom_api', true);
+        $usePlaneVanila = in_array($theme, array('gulfpharmacy', 'nw'), true)
+            || trim((string) $this->config->item('elintom_theme_view_folder', 'elintom_api')) !== '';
+
+        $urlPath = '/' . str_replace('_', '-', $storefrontSlug);
+
+        if ($usePlaneVanila) {
+            $this->data['is_dynamic_cms_page'] = true;
+            $this->data['dynamic_cms_slug'] = $urlPath;
+            $this->data['home_has_category_grid'] = false;
+            $this->data['home_has_product_grid'] = false;
+            $this->_hydrate_legacy_static_model($legacyDataKey);
+            $this->hydrate_static_cms_payload($urlPath, $legacyDataKey);
+            $this->data['website_setting'] = $this->webshop_model->get_website_setting();
+            $this->load_view('index', $this->data);
+            return true;
+        }
+
+        $this->_hydrate_legacy_static_model($legacyDataKey);
+        $this->hydrate_static_cms_payload($urlPath, $legacyDataKey);
         $this->data['website_setting'] = $this->webshop_model->get_website_setting();
-        if ($this->webshop_settings->webshop_theme == 'restaurant') {
-            $this->load_view("webshop_restaurant_t1/about_us", $this->data);
+
+        $viewBase = ($legacyDataKey !== '') ? $legacyDataKey : $storefrontSlug;
+        if ($theme === 'restaurant') {
+            $this->load_view('webshop_restaurant_t1/' . $viewBase, $this->data);
+            return true;
         }
-       
-        if ($this->webshop_settings->webshop_theme == 'nw') {
-            $this->load_view("nw_theme/about_us", $this->data);
+        if ($theme === 'nw') {
+            $this->load_view('nw_theme/' . $viewBase, $this->data);
+            return true;
         }
-        if ($this->webshop_settings->webshop_theme == 'gulfpharmacy') {
-            $this->load_view("about_us", $this->data);
-        }
-        if (
-            $this->webshop_settings->webshop_theme != 'restaurant'
-            && $this->webshop_settings->webshop_theme != 'nw'
-            && $this->webshop_settings->webshop_theme != 'gulfpharmacy'
-        ) {
-            $this->load_view("about_us", $this->data);
+        $this->load_view($viewBase, $this->data);
+        return true;
+    }
+
+    private function _hydrate_legacy_static_model($legacyDataKey)
+    {
+        switch ((string) $legacyDataKey) {
+            case 'about_us':
+                $this->data['about_us'] = $this->webshop_model->about_usdata('aboutus');
+                break;
+            case 'terms_and_conditions':
+                $this->data['terms_and_conditions'] = $this->webshop_model->terms_conditions('terms_conditions');
+                break;
+            case 'privacy_policy':
+                $this->data['privacy_policy'] = $this->webshop_model->privacy_policy('policy');
+                break;
+            case 'contact_us':
+                $this->data['contact_us'] = $this->webshop_model->contact_usdata('contact');
+                break;
+            default:
+                break;
         }
     }
 
     public function terms_and_conditions()
     {
-        $cmsPage = $this->webshop_model->get_cms_page_by_url('/terms');
-        if (is_object($cmsPage) && (!isset($cmsPage->status) || strtolower((string) $cmsPage->status) === '' || strtolower((string) $cmsPage->status) === 'published')) {
-            $this->cms_page('terms');
-            return;
-        }
-        $theme = $this->webshop_settings->webshop_theme;
-        $this->data['terms_and_conditions'] = $this->webshop_model->terms_conditions($page_key = 'terms_conditions');
-        $this->hydrate_static_cms_payload('/terms', 'terms_and_conditions');
-        $this->data['website_setting'] = $this->webshop_model->get_website_setting();
-        if ($this->webshop_settings->webshop_theme == 'restaurant') {
-            // $this->data['terms_and_conditions'] = $this->webshop_model->terms_conditions($page_key = 'terms_conditions');
-            // $this->data['website_setting'] = $this->webshop_model->get_website_setting();
-            // $setting_map = [];
-            // foreach ($raw_settings as $row) {
-            //     $setting_map[$row->fields] = $row->value;
-            // }
-            $this->load_view("webshop_restaurant_t1/terms_and_conditions", $this->data);
-        } else if ($theme == "nw") {
-            $this->load_view("nw_theme/terms_and_conditions", $this->data);
-        } else if ($theme == "gulfpharmacy") {
-            $this->load_view("terms_and_conditions", $this->data);
-        } else {
-            $this->load_view("terms_and_conditions", $this->data);
-        }
+        $this->_render_cms_storefront_page('terms_and_conditions', 'terms_and_conditions');
     }
 
     public function privacy_policy()
     {
-        $cmsPage = $this->webshop_model->get_cms_page_by_url('/privacy-policy');
-        if (is_object($cmsPage) && (!isset($cmsPage->status) || strtolower((string) $cmsPage->status) === '' || strtolower((string) $cmsPage->status) === 'published')) {
-            $this->cms_page('privacy-policy');
-            return;
-        }
-        $theme = $this->webshop_settings->webshop_theme;
-        $this->data['privacy_policy'] = $this->webshop_model->privacy_policy($page_key = 'policy');
-        $this->hydrate_static_cms_payload('/privacy-policy', 'privacy_policy');
-        $this->data['website_setting'] = $this->webshop_model->get_website_setting();
-        if ($this->webshop_settings->webshop_theme == 'restaurant') {
-            // $this->data['privacy_policy'] = $this->webshop_model->privacy_policy($page_key = 'policy');
-            // $this->data['website_setting'] = $this->webshop_model->get_website_setting();
-            // $setting_map = [];
-            // foreach ($raw_settings as $row) {
-            //     $setting_map[$row->fields] = $row->value;
-            // }
-            $this->load_view("webshop_restaurant_t1/privacy_policy", $this->data);
-        } else if ($theme == "nw") {
-            $this->load_view("nw_theme/privacy_policy", $this->data);
-        } else if ($theme == "gulfpharmacy") {
-            $this->load_view("privacy_policy", $this->data);
-        } else {
-            $this->load_view("privacy_policy", $this->data);
-        }
+        $this->_render_cms_storefront_page('privacy_policy', 'privacy_policy');
     }
 
     public function contact_us()
     {
-        $cmsPage = $this->webshop_model->get_cms_page_by_url('/contact-us');
-        if (is_object($cmsPage) && (!isset($cmsPage->status) || strtolower((string) $cmsPage->status) === '' || strtolower((string) $cmsPage->status) === 'published')) {
-            $this->cms_page('contact-us');
-            return;
-        }
-        $theme = $this->webshop_settings->webshop_theme;
-        $this->data['contact_us'] = $this->hydrate_static_cms_payload('/contact-us', 'contact_us');
-        $this->data['website_setting'] = $this->webshop_model->get_website_setting();
-        if ($theme == 'restaurant') {
-            $this->load_view("webshop_restaurant_t1/contact_us", $this->data);
-        } else if ($theme == 'nw') {
-            $this->load_view("nw_theme/contact_us", $this->data);
-        } else if ($theme == 'gulfpharmacy') {
-            $this->load_view("contact_us", $this->data);
-        }
+        $this->_render_cms_storefront_page('contact_us', 'contact_us');
     }
 
     public function blogs()

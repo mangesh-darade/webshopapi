@@ -26,6 +26,18 @@ unset($path_to_switch_config);
 $config['elintom_api_base_url'] = $selected_api_base_url;
 $config['elintom_api_private_key'] = $selected_api_private_key;
 
+// HTTPS to ElintOm: verify TLS (recommended). Empty ca bundle = application/libraries/cacert.pem
+// (fixes "unable to get local issuer certificate" on WAMP when php.ini has no curl.cainfo).
+$config['elintom_api_ssl_verify'] = true;
+$config['elintom_api_ssl_ca_bundle'] = '';
+
+if (isset($selected_api_ssl_verify)) {
+    $config['elintom_api_ssl_verify'] = (bool) $selected_api_ssl_verify;
+}
+if (isset($selected_api_ssl_ca_bundle) && (string) $selected_api_ssl_ca_bundle !== '') {
+    $config['elintom_api_ssl_ca_bundle'] = (string) $selected_api_ssl_ca_bundle;
+}
+
 // Per-host theme assets folder (assets/webshop/{name}/). Empty = use HTTP_HOST in MY_Controller.
 $config['elintom_theme_assets_directory'] = isset($selected_theme_assets_directory)
     ? trim((string) $selected_theme_assets_directory)
@@ -34,6 +46,11 @@ $config['elintom_theme_assets_directory'] = isset($selected_theme_assets_directo
 // PHP views: plane_vanila_theme/{folder}/ — overrides {webshop_theme}_theme when set in switch.
 $config['elintom_theme_view_folder'] = isset($selected_theme_view_folder)
     ? trim((string) $selected_theme_view_folder)
+    : '';
+
+// Storefront theme key from elintom_api_switch.php (per HTTP_HOST). Overrides ElintOm API webshop_theme for views/CSS.
+$config['elintom_storefront_theme'] = !empty($selected_webshop_theme)
+    ? trim((string) $selected_webshop_theme)
     : '';
 
 // Relative to base URL above (no leading slash). Change only if your ElintOm needs index.php (common on WAMP without rewrite):

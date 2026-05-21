@@ -43,6 +43,15 @@ class Webshop_meta_engine
                 $lines[] = '<meta name="robots" content="' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '">';
                 continue;
             }
+            if ($property === 'viewport') {
+                $lines[] = '<meta name="viewport" content="' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '">';
+                continue;
+            }
+            if ($property === 'meta_title') {
+                $lines[] = '<title>' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '</title>';
+                $titleWritten = true;
+                continue;
+            }
 
             // OpenGraph/Twitter
             if (strpos($property, 'og:') === 0) {

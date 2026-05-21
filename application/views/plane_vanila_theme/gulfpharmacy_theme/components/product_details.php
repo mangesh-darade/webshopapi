@@ -11,6 +11,25 @@ if (isset($product) && is_array($product) && !empty($product['name'])) {
 if (isset($entity_meta_title) && trim((string) $entity_meta_title) !== '') {
     $pageTitle = trim((string) $entity_meta_title);
 }
+$_pd_lcp_img = '';
+$_pd_uploads = isset($uploads) ? (string) $uploads : '';
+$_pd_thumbs = isset($thumbs) ? (string) $thumbs : '';
+if (!empty($gallary_images) && is_array($gallary_images)) {
+    foreach ($gallary_images as $_pd_gi) {
+        $_pd_row = is_array($_pd_gi) ? $_pd_gi : (array) $_pd_gi;
+        $_pd_file = isset($_pd_row['photo']) ? trim((string) $_pd_row['photo']) : '';
+        if ($_pd_file === '' && isset($_pd_row['image'])) {
+            $_pd_file = trim((string) $_pd_row['image']);
+        }
+        if ($_pd_file !== '') {
+            $_pd_lcp_img = webshop_media_src($_pd_uploads, $_pd_file);
+            break;
+        }
+    }
+}
+if ($_pd_lcp_img === '' && !empty($product) && is_array($product)) {
+    $_pd_lcp_img = webshop_product_image_src($_pd_uploads, $_pd_thumbs, $product);
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -20,6 +39,13 @@ if (isset($entity_meta_title) && trim((string) $entity_meta_title) !== '') {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8') ?></title>
     <?= isset($meta_tags) ? $meta_tags : '' ?>
+    <?php if ($_pd_lcp_img !== '' && function_exists('webshop_external_origin_preconnect_tag')): ?>
+    <?= webshop_external_origin_preconnect_tag($_pd_lcp_img) ?>
+
+    <?php endif; ?>
+    <?php if ($_pd_lcp_img !== ''): ?>
+    <link rel="preload" as="image" href="<?= htmlspecialchars($_pd_lcp_img, ENT_QUOTES, 'UTF-8') ?>" fetchpriority="high">
+    <?php endif; ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">

@@ -2,6 +2,7 @@
 
 defined('BASEPATH') OR exit('No direct script access allowed');
 
+#[\AllowDynamicProperties]
 class Webshop_settings_model extends CI_Model {
 
     public function __construct() {
@@ -85,7 +86,7 @@ class Webshop_settings_model extends CI_Model {
         return FALSE;
     }
 
-    public function get_categories($eshop=null) {
+    public function get_categories($eshop=null, $parent_id=null) {
 
         $where['is_active'] = 1;
 

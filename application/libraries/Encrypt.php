@@ -24,6 +24,11 @@
  * @author		ExpressionEngine Dev Team
  * @link		http://codeigniter.com/user_guide/libraries/encryption.html
  */
+if ( ! defined('MCRYPT_MODE_ECB')) define('MCRYPT_MODE_ECB', 'ecb');
+if ( ! defined('MCRYPT_MODE_CBC')) define('MCRYPT_MODE_CBC', 'cbc');
+if ( ! defined('MCRYPT_RIJNDAEL_256')) define('MCRYPT_RIJNDAEL_256', 'rijndael-256');
+if ( ! defined('MCRYPT_RAND')) define('MCRYPT_RAND', 0);
+
 class CI_Encrypt {
 	var $CI;
 	var $encryption_key	= '';

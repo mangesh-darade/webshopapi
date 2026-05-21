@@ -2,6 +2,7 @@
 
 defined('BASEPATH') OR exit('No direct script access allowed');
 
+#[\AllowDynamicProperties]
 class Sitenew extends CI_Model {
 
     public function __construct() {
@@ -90,9 +91,11 @@ class Sitenew extends CI_Model {
     }
 
     public function getUserById($id = NULL) {
-
-        $sql = "SELECT `sma_users`.`id` as `id`, `first_name`, `last_name`, `email`, `company`, `sma_groups`.`name`, `active` FROM `sma_users` LEFT JOIN `sma_groups` ON `sma_users`.`group_id`=`sma_groups`.`id` WHERE `sma_users`.`id` ='$id' and `company_id` IS NULL GROUP BY `sma_users`.`id`";
-        $q = $this->db->query($sql);
+        if ($id === NULL) {
+            return FALSE;
+        }
+        $sql = "SELECT `sma_users`.`id` as `id`, `first_name`, `last_name`, `email`, `company`, `sma_groups`.`name`, `active` FROM `sma_users` LEFT JOIN `sma_groups` ON `sma_users`.`group_id`=`sma_groups`.`id` WHERE `sma_users`.`id` = ? and `company_id` IS NULL GROUP BY `sma_users`.`id`";
+        $q = $this->db->query($sql, array($id));
         if ($q->num_rows() > 0) {
             return $q->row();
         }

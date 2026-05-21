@@ -27,8 +27,19 @@ $_gp_footer_logo = function_exists('webshop_resolve_storefront_logo_image_url')
     : '';
 
 $_gp_assets = isset($assets) ? $assets : base_url('assets/webshop/');
+$_gp_footer_styles_in_head = !empty($gp_footer_styles_in_head);
 ?>
+<?php if (!$_gp_footer_styles_in_head): ?>
+<?php if (function_exists('webshop_async_stylesheet_tag')): ?>
+<?= webshop_async_stylesheet_tag($_gp_assets . 'css/techmarket-font-awesome.css') ?>
+
+<?= webshop_async_stylesheet_tag($_gp_assets . 'gulfpharmacy_theme/css/components.css') ?>
+
+<?php else: ?>
 <link rel="stylesheet" href="<?= htmlspecialchars($_gp_assets, ENT_QUOTES, 'UTF-8') ?>css/techmarket-font-awesome.css">
+<link rel="stylesheet" href="<?= htmlspecialchars($_gp_assets, ENT_QUOTES, 'UTF-8') ?>gulfpharmacy_theme/css/components.css">
+<?php endif; ?>
+<?php endif; ?>
 <footer class="gp-footer">
     <div class="gp-footer-wave" aria-hidden="true">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 80" preserveAspectRatio="none"><path fill="#214548" d="M0,40 C360,80 1080,0 1440,40 L1440,80 L0,80 Z"/></svg>
@@ -40,13 +51,9 @@ $_gp_assets = isset($assets) ? $assets : base_url('assets/webshop/');
                 <div class="gp-footer-grid">
                     <?php if ($_gp_footer_logo !== '' || !empty($_gp_footer_content)) : ?>
                     <div class="gp-footer-col gp-footer-col--brand">
-                        <?php if ($_gp_footer_logo !== '') : ?>
                         <a href="<?= base_url('webshop') ?>" class="gp-footer-brand-link">
-                            <img src="<?= htmlspecialchars($_gp_footer_logo, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($shop_name, ENT_QUOTES, 'UTF-8') ?>" class="gp-footer-brand-img" width="160" height="48" loading="lazy" decoding="async">
+                            <h3 class="gp-footer-heading gp-footer-brand-text"><?= htmlspecialchars($shop_name, ENT_QUOTES, 'UTF-8'); ?></h3>
                         </a>
-                        <?php else : ?>
-                        <h3 class="gp-footer-heading"><?= htmlspecialchars($shop_name, ENT_QUOTES, 'UTF-8'); ?></h3>
-                        <?php endif; ?>
                     </div>
                     <?php endif; ?>
 
@@ -126,4 +133,8 @@ $_gp_assets = isset($assets) ? $assets : base_url('assets/webshop/');
         </div>
     </div>
 </footer>
-<link rel="stylesheet" href="<?= htmlspecialchars($_gp_assets, ENT_QUOTES, 'UTF-8') ?>gulfpharmacy_theme/css/components.css">
+<?php
+$_gp_csrf = function_exists('webshop_csrf_pair') ? webshop_csrf_pair() : array('name' => '', 'hash' => '');
+?>
+<script>window.GP_CSRF=<?= json_encode($_gp_csrf, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+<script src="<?= htmlspecialchars($_gp_assets, ENT_QUOTES, 'UTF-8') ?>gulfpharmacy_theme/js/webshop-csrf.js?ver=20260520b"></script>

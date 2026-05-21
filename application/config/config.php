@@ -9,7 +9,8 @@ $config['base_url'] = $root;
 
 $config['webshop_ai_name'] = defined('WEBSHOP_AI_NAME') ? WEBSHOP_AI_NAME : 'Webshop AI';
 
-$config['index_page'] = 'index.php';
+// Empty when .htaccess rewrite is on (clean URLs). Use 'index.php' if mod_rewrite is disabled.
+$config['index_page'] = '';
 $config['uri_protocol'] = 'REQUEST_URI';
 $config['url_suffix'] = '';
 $config['language'] = 'english';
@@ -41,14 +42,34 @@ $config['sess_save_path'] = APPPATH . 'cache/sessions';
 $config['sess_match_ip'] = FALSE;
 $config['sess_time_to_update'] = 300;
 $config['sess_regenerate_destroy'] = FALSE;
+// PHP 8.4 default session ID length (32 hex). CI3 originally assumed 40; Session.php now matches ini.
+if ((int) ini_get('session.sid_length') < 32) {
+    ini_set('session.sid_length', '32');
+    ini_set('session.sid_bits_per_character', '4');
+}
 $config['cookie_prefix'] = '';
 $config['cookie_domain'] = '';
 $config['cookie_path'] = '/';
-$config['cookie_secure'] = FALSE;
-$config['cookie_httponly'] = FALSE;
+$config['cookie_secure'] = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+$config['cookie_httponly'] = TRUE;
 $config['standardize_newlines'] = TRUE;
 $config['global_xss_filtering'] = FALSE;
-$config['csrf_protection'] = FALSE;
+$config['csrf_protection'] = TRUE;
+$config['csrf_token_name'] = 'elintom_csrf_token';
+$config['csrf_cookie_name'] = 'elintom_csrf_cookie';
+$config['csrf_expire'] = 7200;
+$config['csrf_regenerate'] = TRUE;
+$config['csrf_exclude_uris'] = array(
+    'whatsapp/webhook',
+    // Payment gateways redirect/POST back without elintom_csrf_token (CCAvenue, Paytm, Razorpay, Instamojo).
+    'webshop/payment_cancel',
+    'webshop/payment_declined',
+    'webshop/payment_ccavResponseHandler',
+    'webshop/payment_ccavRequestHandler',
+    'webshop/payment_paytmResponseHandler',
+    'webshop/payment_instamojoResponseHandler',
+    'webshop/razorpay_verify',
+);
 $config['compress_output'] = FALSE;
 $config['time_reference'] = 'local';
 $config['rewrite_short_tags'] = TRUE;
