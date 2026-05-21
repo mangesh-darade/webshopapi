@@ -1,11 +1,22 @@
 /* Category grid (.gp-cg-*) — tokens from common.css :root */
-.gp-cg-grid{display:grid;gap:20px;margin-top:12px}
-.gp-cg-grid-3col{grid-template-columns:repeat(3,1fr)}
-.gp-cg-grid-4col{grid-template-columns:repeat(4,1fr)}
-.gp-cg-grid-5col{grid-template-columns:repeat(5,1fr)}
-.gp-cg-grid-6col{grid-template-columns:repeat(6,1fr)}
-@media(max-width:900px){.gp-cg-grid{grid-template-columns:repeat(3,1fr) !important}}
-@media(max-width:480px){.gp-cg-grid{grid-template-columns:repeat(2,1fr) !important}}
+.category-grid-section{padding:8px 0 28px}
+.section-title--ruled{display:flex;align-items:center;gap:clamp(12px,3vw,28px);margin:0 0 24px;font-size:clamp(1.35rem,2.5vw,1.75rem);font-weight:800;color:#214548;text-align:center}
+.section-title--ruled::before,.section-title--ruled::after{content:"";flex:1;height:2px;background:#214548;max-width:220px}
+.gp-cg-grid{display:grid;gap:20px;margin-top:0;grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+.gp-cg-grid-3col{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+.gp-cg-grid-4col{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+.gp-cg-grid-5col{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+.gp-cg-grid-6col{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
+.gp-cg-grid--sparse{
+  max-width:min(100%,920px);
+  margin-left:auto;
+  margin-right:auto;
+  justify-content:center;
+  justify-items:center;
+}
+.gp-cg-grid--sparse .gp-cg-card{max-width:240px;width:100%}
+@media(max-width:900px){.gp-cg-grid,.gp-cg-grid-3col,.gp-cg-grid-4col,.gp-cg-grid-5col,.gp-cg-grid-6col{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}}
+@media(max-width:480px){.gp-cg-grid,.gp-cg-grid-3col,.gp-cg-grid-4col,.gp-cg-grid-5col,.gp-cg-grid-6col{grid-template-columns:repeat(2,1fr)}}
 .gp-cg-card{text-decoration:none;color:inherit}
 .gp-cg-card>div{background:var(--gp-bg);border:1px solid var(--gp-border);border-radius:16px;overflow:hidden;text-align:center;transition:transform .3s,box-shadow .3s,border-color .3s;display:flex;flex-direction:column}
 .gp-cg-card:hover>div{transform:translateY(-8px);box-shadow:0 20px 40px rgba(33,69,72,.1);border-color:#214548}

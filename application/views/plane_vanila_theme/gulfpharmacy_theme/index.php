@@ -163,7 +163,7 @@ if ($bodyHtml !== '') {
 
         <?php if ($bodyHtml !== ''): ?>
             <section class="section section--body">
-                <div class="panel panel--body gp-body-content"><?= $bodyHtml ?></div>
+                <div class="panel panel--body gp-body-content home-cms-body"><?= $bodyHtml ?></div>
             </section>
         <?php elseif ($isDynamic): ?>
             <section class="section section--body">
@@ -182,11 +182,15 @@ if ($bodyHtml !== '') {
 
         <?php if ($showCatGrid): ?>
             <section class="section section--categories">
-                <?php if (!empty($home_category_grid_title)): ?>
+                <?php
+                $catGridTitle = isset($home_category_grid_title) ? trim((string) $home_category_grid_title) : '';
+                if ($catGridTitle === '') {
+                    $catGridTitle = 'Shop by Category';
+                }
+                ?>
                 <div class="section-head section-head--ruled">
-                    <h2><?= htmlspecialchars((string) $home_category_grid_title, ENT_QUOTES, 'UTF-8') ?></h2>
+                    <h2><?= htmlspecialchars($catGridTitle, ENT_QUOTES, 'UTF-8') ?></h2>
                 </div>
-                <?php endif; ?>
                 <div class="panel panel--catalog">
                     <?= $this->load->view('plane_vanila_theme/gulfpharmacy_theme/components/category_grid', array(
                         'items' => $catItems,

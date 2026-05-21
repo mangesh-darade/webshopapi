@@ -258,7 +258,12 @@ class Webshop_section_engine
                 continue;
             }
             $sectionData = $this->merge_component_theme_globals($sectionData, $data);
-            $html[] = $this->CI->load->view($view, $sectionData, true);
+            $chunk = $this->CI->load->view($view, $sectionData, true);
+            if (trim($chunk) === '') {
+                continue;
+            }
+            $typeSlug = preg_replace('/[^a-z0-9_]/', '', $type);
+            $html[] = '<div class="home-cms-section home-cms-section--' . $typeSlug . '">' . $chunk . '</div>';
         }
         return implode("\n", $html);
     }

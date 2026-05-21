@@ -48,3 +48,27 @@ body{margin:0;font-family:Inter,system-ui,sans-serif;background:#fff;color:var(-
 .gp-cms-page-title{margin:0 0 12px;font-size:clamp(1.5rem,3vw,2rem);font-weight:800;color:#214548}
 .gp-cms-empty-notice{margin:0;font-size:0.95rem;line-height:1.65;color:var(--gp-muted)}
 .gp-cms-empty-notice code{font-size:0.88em;background:#f1f5f9;padding:2px 6px;border-radius:4px}
+
+/* Section headings with horizontal rules (legacy + CMS) */
+.section-head--ruled{display:block;width:100%;margin:0 0 20px;text-align:center}
+.section-head--ruled h2{display:flex;align-items:center;justify-content:center;gap:clamp(12px,3vw,28px);margin:0;font-size:clamp(1.35rem,2.5vw,1.75rem);font-weight:800;color:#214548}
+.section-head--ruled h2::before,.section-head--ruled h2::after{content:"";flex:1;height:2px;background:#214548;max-width:220px}
+.section--categories{padding-bottom:12px}
+.section--categories .panel--catalog{padding-bottom:8px}
+.section--featured{margin-top:8px;padding-top:24px;border-top:1px solid var(--gp-border)}
+
+/* CMS sections inside home body */
+.home-cms-body .home-cms-section{width:100%}
+.home-cms-body .home-cms-section--category_grid,
+.home-cms-body .home-cms-section--category_carousel{margin-bottom:4px}
+.home-cms-body .home-cms-section--html_block:not(:last-child){margin-bottom:20px}
+.home-cms-body .gp-html-block:not(.gp-home-support-band){max-width:100%}
+.home-cms-body .gp-html-block:not(.gp-home-support-band) p{line-height:1.7;color:#374151}
+
+/* Tighten gap between category block and support band when both are CMS sections */
+.home-cms-section--category_grid + .home-cms-section--html_block,
+.home-cms-section--category_carousel + .home-cms-section--html_block{
+  margin-top:28px;
+  padding-top:28px;
+  border-top:1px solid var(--gp-border);
+}

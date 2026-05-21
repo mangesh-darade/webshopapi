@@ -1,0 +1,26 @@
+/* CMS body sections on home / storefront pages */
+.home-cms-body{display:flex;flex-direction:column;gap:0}
+.home-cms-section{display:block;width:100%}
+.home-cms-section--category_grid,
+.home-cms-section--category_carousel{padding-bottom:8px}
+.home-cms-section--html_block + .home-cms-section--html_block,
+.home-cms-section--category_grid + .home-cms-section--html_block{margin-top:0}
+
+/* Customer service / phone strip below categories */
+.home-cms-section--category_grid + .home-cms-section--html_block .gp-home-support-band,
+.home-cms-section--category_carousel + .home-cms-section--html_block .gp-home-support-band,
+.category-grid-section + .gp-home-support-band,
+.home-cms-section--html_block .gp-home-support-band{
+  margin:32px auto 0;
+  max-width:920px;
+  padding:28px 32px;
+  text-align:center;
+  background:linear-gradient(180deg,#f0f9f8 0%,#ecfdf5 100%);
+  border:1px solid #bae6fd;
+  border-radius:16px;
+  box-shadow:0 8px 24px rgba(15,118,110,.08);
+}
+.gp-home-support-band p{margin:0 0 8px;font-size:clamp(1rem,2vw,1.125rem);line-height:1.65;color:#0f172a}
+.gp-home-support-band p:last-child{margin-bottom:0;color:var(--gp-muted);font-size:.95rem}
+.gp-home-support-band a{color:var(--gp-primary);font-weight:700;text-decoration:none}
+.gp-home-support-band a:hover{text-decoration:underline;color:var(--gp-primary-light)}
