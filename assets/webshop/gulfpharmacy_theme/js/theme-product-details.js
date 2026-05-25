@@ -195,6 +195,13 @@
         })(variantBtns[vj]);
     }
 
+    if (variantBtns.length) {
+        var activeVariantBtn = document.querySelector('#pdVariants .pd-variant-btn.active');
+        if (activeVariantBtn) {
+            applyVariant(activeVariantBtn);
+        }
+    }
+
     function postAction(payload) {
         var body = new URLSearchParams(payload).toString();
         if (typeof window.webshopAppendCsrfParams === 'function') {

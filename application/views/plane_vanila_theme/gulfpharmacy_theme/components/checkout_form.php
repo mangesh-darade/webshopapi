@@ -104,12 +104,12 @@ $prefill_state    = isset($default_addr['state'])       ? (string) $default_addr
 $prefill_state_cd = isset($default_addr['state_code'])  ? (string) $default_addr['state_code']  : '';
 $prefill_country  = isset($default_addr['country'])     ? (string) $default_addr['country']     : '';
 
-// Cart stores 'product_price' as the unit price; 'price' is the raw eshop_price.
+// Cart subtotal = unit price × cart qty (variant unit_quantity is for POS stock only, not billed twice).
 $subtotal = 0;
 foreach ($cart_items as $ci) {
-    $ci_up    = isset($ci['product_price']) ? (float) $ci['product_price']
-              : (isset($ci['price']) ? (float) $ci['price'] : 0.0);
-    $subtotal += $ci_up * (float) (isset($ci['quantity']) ? $ci['quantity'] : 1);
+    $subtotal += function_exists('webshop_cart_line_display_total')
+        ? webshop_cart_line_display_total(is_array($ci) ? $ci : (array) $ci)
+        : 0;
 }
 
 // Compute effective shipping at render time.
@@ -120,16 +120,19 @@ if ($free_shipping_above > 0 && $subtotal >= $free_shipping_above) {
 }
 
 $co_assets = isset($assets) ? $assets : base_url('assets/webshop/');
-$checkout_flash_err = '';
-if (isset($this->session) && is_object($this->session)) {
-    $fe = $this->session->flashdata('error_message');
-    $checkout_flash_err = is_string($fe) ? trim($fe) : '';
-}
+$checkout_flash_err = function_exists('webshop_checkout_flash_error_message')
+    ? webshop_checkout_flash_error_message()
+    : '';
+$checkout_submit_token = function_exists('webshop_checkout_submit_token')
+    ? webshop_checkout_submit_token()
+    : md5(date('Y-m-d H'));
 ?>
 <link rel="stylesheet" href="<?= $co_assets ?>gulfpharmacy_theme/css/checkout-form.css">
+<div id="checkoutFlashHost">
 <?php if ($checkout_flash_err !== ''): ?>
-<div class="checkout-flash-error" role="alert"><?= html_escape($checkout_flash_err, ENT_QUOTES, 'UTF-8') ?></div>
+<div class="checkout-flash-error" id="checkoutFlashError" role="alert"><?= html_escape($checkout_flash_err, ENT_QUOTES, 'UTF-8') ?></div>
 <?php endif; ?>
+</div>
 <div class="checkout-container">
     <form id="checkoutForm"
           action="<?= base_url('webshop/submit_order') ?>"
@@ -140,7 +143,7 @@ if (isset($this->session) && is_object($this->session)) {
         <!-- Required controller fields -->
         <?= function_exists('webshop_csrf_hidden_input') ? webshop_csrf_hidden_input() : '' ?>
 
-        <input type="hidden" name="submit_order" value="<?= md5(date('Y-m-d H')) ?>">
+        <input type="hidden" name="submit_order" id="checkoutSubmitToken" value="<?= html_escape($checkout_submit_token, ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="cart_subtotal_amt" id="cart_subtotal_amt" value="<?= number_format($subtotal, 4, '.', '') ?>">
         <input type="hidden" name="cart_total" id="cart_total" value="<?= number_format($subtotal + $shipping_effective, 4, '.', '') ?>">
         <input type="hidden" name="billing_and_shipping_address_is_same" id="billing_and_shipping_address_is_same" value="1">
@@ -161,26 +164,33 @@ if (isset($this->session) && is_object($this->session)) {
         <input type="hidden" name="coupon_discount_rate"    id="coupon_discount_rate"    value="">
         <input type="hidden" name="coupon_discount_amount"  id="coupon_discount_amount"  value="">
 
-        <!-- Cart item arrays — required by submit_order() -->
-        <?php foreach ($cart_items as $ci):
-            $ci_id    = isset($ci['product_id'])      ? (int)   $ci['product_id']        : 0;
-            $ci_qty   = isset($ci['quantity'])        ? (float) $ci['quantity']          : 1;
-            $ci_price = isset($ci['product_price'])   ? (float) $ci['product_price']
-                      : (isset($ci['price'])          ? (float) $ci['price']             : 0.0);
-            $ci_tax   = isset($ci['tax_rate'])        ? (float) $ci['tax_rate']          : 0;
-            $ci_taxm  = isset($ci['tax_method'])      ? (int)   $ci['tax_method']        : 0;
-            $ci_promo = isset($ci['promotion_price']) ? (float) $ci['promotion_price']   : 0;
+        <!-- Cart line hidden fields — keys must match $_SESSION['cart'] (e.g. 12_45 for variant lines) -->
+        <?php foreach ($cart_items as $itemKey => $ci):
+            $ci_id     = isset($ci['product_id']) ? (int) $ci['product_id'] : 0;
+            $ci_vid    = isset($ci['variant_id']) ? (int) $ci['variant_id'] : 0;
+            $ci_vprice = isset($ci['variant_price']) ? (float) $ci['variant_price'] : 0.0;
+            $ci_uq     = isset($ci['unit_quantity']) ? (float) $ci['unit_quantity'] : 1.0;
+            if ($ci_uq < 1) {
+                $ci_uq = 1.0;
+            }
+            $ci_qty    = isset($ci['quantity']) ? (float) $ci['quantity'] : 1.0;
+            $ci_price  = isset($ci['product_price']) ? (float) $ci['product_price']
+                : (isset($ci['price']) ? (float) $ci['price'] : 0.0);
+            $ci_tax    = isset($ci['tax_rate']) ? (float) $ci['tax_rate'] : 0;
+            $ci_taxm   = isset($ci['tax_method']) ? (int) $ci['tax_method'] : 0;
+            $ci_promo  = isset($ci['promotion_price']) ? (float) $ci['promotion_price'] : 0;
+            $itemKeyEsc = htmlspecialchars((string) $itemKey, ENT_QUOTES, 'UTF-8');
         ?>
-        <input type="hidden" name="item_id[]"              value="<?= $ci_id ?>">
-        <input type="hidden" name="option_id[]"            value="0">
-        <input type="hidden" name="option_price[]"         value="0">
-        <input type="hidden" name="item_quantity[]"        value="<?= $ci_qty ?>">
-        <input type="hidden" name="item_unit_quantity[]"   value="1">
-        <input type="hidden" name="item_unit_price[]"      value="<?= $ci_price ?>">
-        <input type="hidden" name="item_tax_rate[]"        value="<?= $ci_tax ?>">
-        <input type="hidden" name="item_tax_method[]"      value="<?= $ci_taxm ?>">
-        <input type="hidden" name="item_promotion_price[]" value="<?= $ci_promo ?>">
-        <input type="hidden" name="item_product_price[]"   value="<?= $ci_price ?>">
+        <input type="hidden" name="item_id[<?= $itemKeyEsc ?>]" value="<?= $ci_id ?>">
+        <input type="hidden" name="option_id[<?= $itemKeyEsc ?>]" value="<?= $ci_vid ?>">
+        <input type="hidden" name="option_price[<?= $itemKeyEsc ?>]" value="<?= htmlspecialchars((string) $ci_vprice, ENT_QUOTES, 'UTF-8') ?>">
+        <input type="hidden" name="item_quantity[<?= $itemKeyEsc ?>]" value="<?= htmlspecialchars((string) $ci_qty, ENT_QUOTES, 'UTF-8') ?>">
+        <input type="hidden" name="item_unit_quantity[<?= $itemKeyEsc ?>]" value="<?= htmlspecialchars((string) $ci_uq, ENT_QUOTES, 'UTF-8') ?>">
+        <input type="hidden" name="item_unit_price[<?= $itemKeyEsc ?>]" value="<?= htmlspecialchars((string) $ci_price, ENT_QUOTES, 'UTF-8') ?>">
+        <input type="hidden" name="item_tax_rate[<?= $itemKeyEsc ?>]" value="<?= htmlspecialchars((string) $ci_tax, ENT_QUOTES, 'UTF-8') ?>">
+        <input type="hidden" name="item_tax_method[<?= $itemKeyEsc ?>]" value="<?= $ci_taxm ?>">
+        <input type="hidden" name="item_promotion_price[<?= $itemKeyEsc ?>]" value="<?= htmlspecialchars((string) $ci_promo, ENT_QUOTES, 'UTF-8') ?>">
+        <input type="hidden" name="item_product_price[<?= $itemKeyEsc ?>]" value="<?= htmlspecialchars((string) (isset($ci['price']) ? $ci['price'] : $ci_price), ENT_QUOTES, 'UTF-8') ?>">
         <?php endforeach; ?>
 
         <div class="checkout-grid">
@@ -510,12 +520,13 @@ if (isset($this->session) && is_object($this->session)) {
                                 $ci_name = $ci_pid > 0 ? ('Product #' . $ci_pid) : 'Product';
                             }
                             $ci_qty   = isset($ci['quantity'])     ? (float) $ci['quantity']     : 1;
-                            $ci_price = isset($ci['product_price']) ? (float) $ci['product_price']
-                                      : (isset($ci['price'])        ? (float) $ci['price']       : 0.0);
+                            $ci_line_total = function_exists('webshop_cart_line_display_total')
+                                ? webshop_cart_line_display_total($ci)
+                                : 0;
                         ?>
                         <div class="summary-item">
                             <span class="item-name"><?= html_escape($ci_name) ?> &times; <?= (int) $ci_qty ?></span>
-                            <span class="item-price"><?= $symbol ?> <?= number_format($ci_price * $ci_qty, 2) ?></span>
+                            <span class="item-price"><?= $symbol ?> <?= number_format($ci_line_total, 2) ?></span>
                         </div>
                         <?php endforeach; ?>
                     </div>
@@ -569,4 +580,4 @@ if (isset($this->session) && is_object($this->session)) {
 
     </form>
 </div><!-- /.checkout-container -->
-<script defer src="<?= $co_assets ?>gulfpharmacy_theme/js/checkout-form.js"></script>
+<script defer src="<?= $co_assets ?>gulfpharmacy_theme/js/checkout-form.js?ver=20260526i"></script>

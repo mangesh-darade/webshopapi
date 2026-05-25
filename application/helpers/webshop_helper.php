@@ -563,12 +563,15 @@ function webshop_coerce_to_array($value) {
  * @param array|object $variant
  * @return int
  */
-function webshop_variant_row_id($variant) {
+function webshop_variant_row_id($variant, $map_key = '') {
     $v = is_array($variant) ? $variant : (array) $variant;
     foreach (array('id', 'option_id', 'variant_id', 'product_option_id', 'optionId') as $k) {
-        if (isset($v[$k]) && (int) $v[$k] > 0) {
+        if (isset($v[$k]) && $v[$k] !== '' && is_numeric($v[$k]) && (int) $v[$k] > 0) {
             return (int) $v[$k];
         }
+    }
+    if ($map_key !== '' && is_numeric($map_key) && (int) $map_key > 0) {
+        return (int) $map_key;
     }
     return 0;
 }
@@ -614,7 +617,7 @@ function webshop_product_variants_from_row(array $product) {
                 continue;
             }
             $a = webshop_normalize_variant_row(is_array($row) ? $row : (array) $row);
-            $vid = webshop_variant_row_id($a);
+            $vid = webshop_variant_row_id($a, is_string($key) || is_int($key) ? (string) $key : '');
             if ($vid < 1 && is_numeric($key) && (int) $key > 0) {
                 $a['id'] = (int) $key;
                 $vid = (int) $key;
@@ -636,6 +639,117 @@ function webshop_product_variants_from_row(array $product) {
         }
     }
     return array();
+}
+
+/**
+ * Resolve order_items.option_id (product_variants.id) for checkout / ERP.
+ *
+ * @param array $product  Catalog row (ideally merged with resolve_product_row_by_id)
+ * @param int   $option_id Known id from POST or session (0 if unknown)
+ * @param array $hints     variant_id, variant_name, variant_price
+ * @return int
+ */
+function webshop_resolve_line_option_id(array $product, $option_id = 0, array $hints = array()) {
+    $oid = (int) $option_id;
+    foreach (array('variant_id', 'option_id', 'product_option_id') as $k) {
+        if ($oid > 0) {
+            break;
+        }
+        if (!empty($hints[$k]) && (int) $hints[$k] > 0) {
+            $oid = (int) $hints[$k];
+        }
+    }
+    if ($oid > 0) {
+        return $oid;
+    }
+
+    $variants = webshop_product_variants_from_row($product);
+    if (empty($variants)) {
+        return 0;
+    }
+
+    $nameHint = isset($hints['variant_name']) ? trim((string) $hints['variant_name']) : '';
+    if ($nameHint !== '') {
+        foreach ($variants as $v) {
+            $vn = webshop_variant_row_display_name($v, '');
+            if ($vn !== '' && strcasecmp($vn, $nameHint) === 0) {
+                $vid = webshop_variant_row_id($v);
+                if ($vid > 0) {
+                    return $vid;
+                }
+            }
+        }
+    }
+
+    $priceHint = isset($hints['variant_price']) ? (float) $hints['variant_price'] : 0.0;
+    if ($priceHint > 0) {
+        foreach ($variants as $v) {
+            $priced = webshop_variant_pricing_for_line($product, $v, null);
+            $vp = (float) $priced['variant_price'];
+            $up = (float) $priced['unit_price'];
+            if (abs($vp - $priceHint) < 0.02 || abs($up - $priceHint) < 0.02) {
+                $vid = webshop_variant_row_id($v);
+                if ($vid > 0) {
+                    return $vid;
+                }
+            }
+        }
+    }
+
+    if (count($variants) === 1) {
+        $vid = webshop_variant_row_id($variants[0]);
+        if ($vid > 0) {
+            return $vid;
+        }
+    }
+
+    $parentPrice = function_exists('webshop_product_effective_base_price')
+        ? webshop_product_effective_base_price($product, $variants)
+        : (isset($product['price']) ? (float) $product['price'] : 0.0);
+    if ($parentPrice <= 0) {
+        $vid = webshop_variant_row_id($variants[0]);
+        if ($vid > 0) {
+            return $vid;
+        }
+    }
+
+    return 0;
+}
+
+/**
+ * Default variant row when the client did not send variant_id (single-SKU / parent price 0).
+ *
+ * @param array $product
+ * @param array $hints
+ * @return array|null{id:int,name:string,variant_price:float,unit_quantity:float}
+ */
+function webshop_pick_default_variant_from_product(array $product, array $hints = array()) {
+    $oid = webshop_resolve_line_option_id($product, 0, $hints);
+    if ($oid < 1) {
+        return null;
+    }
+    foreach (webshop_product_variants_from_row($product) as $v) {
+        if (webshop_variant_row_id($v) !== $oid) {
+            continue;
+        }
+        $priced = webshop_variant_pricing_for_line($product, $v, null);
+        $uq = isset($v['unit_quantity']) ? (float) $v['unit_quantity'] : 1.0;
+        if ($uq < 1) {
+            $uq = 1.0;
+        }
+        return array(
+            'id'            => $oid,
+            'name'          => webshop_variant_row_display_name($v, ''),
+            'variant_price' => (float) $priced['variant_price'],
+            'unit_quantity' => $uq,
+        );
+    }
+    return array(
+        'id'            => $oid,
+        'name'          => '',
+        'variant_price' => isset($hints['variant_price']) ? (float) $hints['variant_price'] : 0.0,
+        'unit_quantity' => 1.0,
+    );
 }
 
 /**
@@ -1410,27 +1524,115 @@ function webshop_meta_tags_html_from_cms_rows($rows, array $context = array()) {
 }
 
 /**
+ * Cart packs ordered (ElintOm stores this in order_items.unit_quantity; quantity is stock units).
+ */
+function webshop_order_line_customer_qty(array $item) {
+    if (isset($item['unit_quantity']) && (float) $item['unit_quantity'] > 0) {
+        return (float) $item['unit_quantity'];
+    }
+    $qty = isset($item['quantity']) ? (float) $item['quantity'] : 1;
+    return $qty > 0 ? $qty : 1;
+}
+
+/**
+ * Sale price breakdown for submit_order: one cart pack price (never base + variant twice).
+ *
+ * @param array      $product
+ * @param int        $option_id
+ * @param float      $option_price Posted variant delta hint
+ * @param float      $cart_unit_price
+ * @param float      $cart_item_price
+ * @param array|null $sess_line $_SESSION['cart'] line
+ * @return array Same shape as product_sale_price_webshop()
+ */
+function webshop_submit_order_line_sale_price(array $product, $option_id, $option_price, $cart_unit_price, $cart_item_price, $sess_line = null) {
+    $option_id = (int) $option_id;
+    $hints_delta = $option_price > 0 ? (float) $option_price : null;
+    $resolved = webshop_resolve_variant_line_price(
+        $product,
+        $option_id,
+        $hints_delta,
+        (float) $cart_unit_price,
+        (float) $cart_item_price
+    );
+
+    $pack_unit = (float) (isset($resolved['net_unit_price']) && (float) $resolved['net_unit_price'] > 0
+        ? $resolved['net_unit_price']
+        : (isset($resolved['unit_price']) ? $resolved['unit_price'] : 0));
+
+    if (is_array($sess_line)) {
+        foreach (array('product_price', 'price') as $ck) {
+            if (isset($sess_line[$ck]) && (float) $sess_line[$ck] > 0) {
+                $pack_unit = (float) $sess_line[$ck];
+                break;
+            }
+        }
+    }
+    if ($pack_unit <= 0) {
+        $pack_unit = webshop_checkout_resolve_product_price($product, (float) $cart_unit_price, (float) $cart_item_price);
+    }
+
+    $work = $product;
+    $work['price'] = $pack_unit;
+    return product_sale_price_webshop($work, array('1' => 0.0), null, 1);
+}
+
+/**
  * Unit price for an order line (handles legacy rows with unit_price=0 but net_price/MRP set).
  */
 function webshop_order_item_unit_price(array $item) {
-    $qty = isset($item['quantity']) ? (float) $item['quantity'] : 0;
-    if ($qty <= 0) {
-        $qty = isset($item['unit_quantity']) ? (float) $item['unit_quantity'] : 1;
-    }
-    if ($qty <= 0) {
-        $qty = 1;
+    $pack_qty = webshop_order_line_customer_qty($item);
+    $stock_qty = isset($item['quantity']) ? (float) $item['quantity'] : 0;
+
+    if ($pack_qty > 0 && $stock_qty > $pack_qty + 0.0001) {
+        if (isset($item['subtotal']) && (float) $item['subtotal'] > 0) {
+            $stored = (float) $item['subtotal'];
+            $per_stock = $stored / $stock_qty;
+            foreach (array('net_unit_price', 'unit_price', 'invoice_unit_price', 'real_unit_price') as $k) {
+                if (!isset($item[$k]) || (float) $item[$k] <= 0) {
+                    continue;
+                }
+                $u = (float) $item[$k];
+                if (abs($u - ($stored / $pack_qty)) < 0.05 && $u > ($per_stock * 1.99)) {
+                    return $per_stock;
+                }
+                if (abs($stored - ($u * $pack_qty)) < 0.05) {
+                    return $u;
+                }
+                if (abs($stored - ($u * $stock_qty)) < 0.05) {
+                    return $per_stock;
+                }
+            }
+            return $per_stock;
+        }
+        if (isset($item['net_price']) && (float) $item['net_price'] > 0) {
+            return (float) $item['net_price'] / $pack_qty;
+        }
     }
 
     foreach (array('unit_price', 'net_unit_price', 'invoice_unit_price', 'real_unit_price') as $k) {
         if (isset($item[$k]) && (float) $item[$k] > 0) {
-            return (float) $item[$k];
+            $unit = (float) $item[$k];
+            if ($pack_qty > 0 && $stock_qty > $pack_qty + 0.0001 && isset($item['subtotal']) && (float) $item['subtotal'] > 0) {
+                $stored = (float) $item['subtotal'];
+                if (abs($stored - ($unit * $stock_qty)) < 0.05 && abs($stored - ($unit * $pack_qty)) > 0.05) {
+                    return $stored / $stock_qty;
+                }
+            }
+            return $unit;
         }
     }
-    if (isset($item['subtotal']) && (float) $item['subtotal'] > 0) {
-        return (float) $item['subtotal'] / $qty;
+    if (isset($item['subtotal']) && (float) $item['subtotal'] > 0 && $pack_qty > 0) {
+        return (float) $item['subtotal'] / $pack_qty;
     }
     if (isset($item['net_price']) && (float) $item['net_price'] > 0) {
-        return (float) $item['net_price'] / $qty;
+        if ($stock_qty > $pack_qty && $pack_qty > 0) {
+            return (float) $item['net_price'] / $pack_qty;
+        }
+        if ($stock_qty > 0) {
+            return (float) $item['net_price'] / $stock_qty;
+        }
+        return (float) $item['net_price'] / $pack_qty;
     }
     if (isset($item['mrp']) && (float) $item['mrp'] > 0) {
         return (float) $item['mrp'];
@@ -1442,20 +1644,57 @@ function webshop_order_item_unit_price(array $item) {
 }
 
 function webshop_order_item_line_total(array $item) {
-    $qty = isset($item['quantity']) ? (float) $item['quantity'] : 0;
-    if ($qty <= 0) {
-        $qty = isset($item['unit_quantity']) ? (float) $item['unit_quantity'] : 1;
+    $pack_qty = webshop_order_line_customer_qty($item);
+    $unit = webshop_order_item_unit_price($item);
+    $expected = $unit > 0 ? $unit * $pack_qty : 0;
+
+    if (isset($item['subtotal']) && (float) $item['subtotal'] > 0) {
+        $stored = (float) $item['subtotal'];
+        $stock_qty = isset($item['quantity']) ? (float) $item['quantity'] : 0;
+        // Legacy rows billed net_unit_price × stock quantity (cart × variant unit_quantity).
+        if ($stock_qty > $pack_qty && $unit > 0 && abs($stored - ($unit * $stock_qty)) < 0.05) {
+            return $expected > 0 ? $expected : $stored;
+        }
+        if ($stock_qty > $pack_qty && $pack_qty > 0 && abs($stored - ($unit * $pack_qty)) > 0.05) {
+            $scaled = $stored * ($pack_qty / $stock_qty);
+            if ($expected > 0 && abs($scaled - $expected) < 0.05) {
+                return $expected;
+            }
+            if ($expected > 0 && $scaled > $expected + 0.05) {
+                return $expected;
+            }
+        }
+        return $stored;
     }
+    if (isset($item['net_price']) && (float) $item['net_price'] > 0) {
+        $stock_qty = isset($item['quantity']) ? (float) $item['quantity'] : 0;
+        if ($stock_qty > $pack_qty && $pack_qty > 0) {
+            return (float) $item['net_price'] / $stock_qty * $pack_qty;
+        }
+        return (float) $item['net_price'];
+    }
+    return $expected;
+}
+
+/**
+ * Cart line total shown on checkout (unit price × cart quantity, not × variant unit_quantity).
+ */
+function webshop_cart_line_display_total(array $line) {
+    $qty = isset($line['quantity']) ? (float) $line['quantity'] : 1;
     if ($qty <= 0) {
         $qty = 1;
     }
-    if (isset($item['subtotal']) && (float) $item['subtotal'] > 0) {
-        return (float) $item['subtotal'];
+    $unit = 0.0;
+    foreach (array('product_price', 'price') as $k) {
+        if (isset($line[$k]) && (float) $line[$k] > 0) {
+            $unit = (float) $line[$k];
+            break;
+        }
     }
-    if (isset($item['net_price']) && (float) $item['net_price'] > 0) {
-        return (float) $item['net_price'];
+    if ($unit <= 0 && function_exists('webshop_order_item_unit_price')) {
+        $unit = webshop_order_item_unit_price($line);
     }
-    return webshop_order_item_unit_price($item) * $qty;
+    return $unit * $qty;
 }
 
 /**
@@ -1463,14 +1702,24 @@ function webshop_order_item_line_total(array $item) {
  *
  * @return array{order: array, items: array}
  */
+/**
+ * Ensure order header flags required for ElintOm E-shop list + admin new-order alert.
+ *
+ * @param array $order
+ * @return array
+ */
+function webshop_normalize_order_for_elintom(array $order) {
+    $order['eshop_sale'] = 1;
+    if (!isset($order['eshop_order_alert_status']) || $order['eshop_order_alert_status'] === '') {
+        $order['eshop_order_alert_status'] = 0;
+    }
+    return $order;
+}
+
 function webshop_normalize_order_payload(array $order, array $items) {
     $line_sum = 0;
     foreach ($items as $idx => $item) {
         $row = is_array($item) ? $item : (array) $item;
-        $qty = isset($row['quantity']) ? (float) $row['quantity'] : 1;
-        if ($qty <= 0) {
-            $qty = 1;
-        }
         $unit = webshop_order_item_unit_price($row);
         $line = webshop_order_item_line_total($row);
         if ($unit > 0) {
@@ -1480,6 +1729,9 @@ function webshop_normalize_order_payload(array $order, array $items) {
         }
         if ($line > 0) {
             $row['subtotal'] = $line;
+        }
+        if (function_exists('webshop_sanitize_order_line_for_elintom')) {
+            $row = webshop_sanitize_order_line_for_elintom($row);
         }
         $items[$idx] = $row;
         $line_sum += $line;
@@ -1500,6 +1752,230 @@ function webshop_normalize_order_payload(array $order, array $items) {
     }
 
     return array('order' => $order, 'items' => $items);
+}
+
+/**
+ * Allowed keys for ElintOm addorder line JSON (must match sma_order_items columns).
+ *
+ * @return array<int,string>
+ */
+function webshop_elintom_order_item_allowed_keys() {
+    return array(
+        'product_id', 'product_code', 'article_code', 'product_name', 'product_type',
+        'option_id', 'net_unit_price', 'unit_discount', 'unit_tax', 'invoice_unit_price',
+        'invoice_net_unit_price', 'unit_price', 'quantity', 'net_price', 'invoice_total_net_unit_price',
+        'warehouse_id', 'item_tax', 'tax_method', 'tax_rate_id', 'tax', 'discount', 'item_discount',
+        'subtotal', 'real_unit_price', 'product_unit_id', 'product_unit_code', 'unit_quantity',
+        'mrp', 'hsn_code', 'note', 'delivery_status', 'pending_quantity', 'delivered_quantity',
+        'gst_rate', 'cgst', 'sgst', 'igst', 'item_weight',
+    );
+}
+
+/**
+ * Strip storefront-only keys from a line before JSON post to ElintOm addorder.
+ * Only whitelisted columns are kept (variant_price / variant_id never sent).
+ *
+ * @param array $row
+ * @return array
+ */
+function webshop_sanitize_order_line_for_elintom(array $row) {
+    $src = is_array($row) ? $row : (array) $row;
+    $flat = array();
+    foreach ($src as $k => $v) {
+        if (!is_string($k) || $k === '' || is_array($v) || is_object($v)) {
+            continue;
+        }
+        $flat[$k] = $v;
+    }
+    $allowed = array_flip(webshop_elintom_order_item_allowed_keys());
+    $row = array();
+    foreach ($flat as $k => $v) {
+        if (isset($allowed[$k])) {
+            $row[$k] = $v;
+        }
+    }
+    $pid = isset($row['product_id']) ? (int) $row['product_id'] : 0;
+    if ($pid < 1) {
+        return array();
+    }
+    $row['product_id'] = $pid;
+    $oid = isset($row['option_id']) ? (int) $row['option_id'] : 0;
+    if ($oid > 0) {
+        $row['option_id'] = $oid;
+    } else {
+        unset($row['option_id']);
+    }
+    if (isset($row['quantity'])) {
+        $row['quantity'] = (float) $row['quantity'];
+        if ($row['quantity'] <= 0) {
+            $row['quantity'] = 1.0;
+        }
+    }
+    foreach (array('unit_price', 'net_unit_price', 'subtotal', 'item_tax', 'item_discount', 'unit_tax', 'unit_discount', 'mrp') as $nk) {
+        if (isset($row[$nk]) && $row[$nk] !== '' && is_numeric($row[$nk])) {
+            $row[$nk] = (float) $row[$nk];
+        }
+    }
+    if ((!isset($row['subtotal']) || (float) $row['subtotal'] <= 0) && isset($row['net_unit_price'])) {
+        $bill_qty = function_exists('webshop_order_line_customer_qty')
+            ? webshop_order_line_customer_qty($row)
+            : (isset($row['quantity']) ? (float) $row['quantity'] : 1.0);
+        if ($bill_qty <= 0) {
+            $bill_qty = 1.0;
+        }
+        $row['subtotal'] = (float) $row['net_unit_price'] * $bill_qty;
+    }
+    if ((!isset($row['unit_price']) || (float) $row['unit_price'] <= 0) && isset($row['net_unit_price'])) {
+        $row['unit_price'] = (float) $row['net_unit_price'];
+    }
+    return $row;
+}
+
+/**
+ * Normalize checkout line rows before ElintOm addorder API (option_id + variant_price).
+ *
+ * ElintOm create_order() reads order_items.option_id (product_variants.id). The storefront
+ * must send a positive integer for variant SKUs; 0 when the line is the parent product only.
+ *
+ * @param array      $items       Line rows from submit_order()
+ * @param array|null $session_cart Optional $_SESSION['cart'] keyed by cart line id
+ * @return array
+ */
+function webshop_prepare_order_lines_for_elintom(array $items, $session_cart = null) {
+    $out = array();
+    $cart = is_array($session_cart) ? $session_cart : array();
+
+    foreach ($items as $idx => $item) {
+        $row = is_array($item) ? $item : (array) $item;
+        $pid = isset($row['product_id']) ? (int) $row['product_id'] : 0;
+        if ($pid < 1) {
+            continue;
+        }
+
+        $oid = 0;
+        foreach (array('option_id', 'variant_id', 'product_option_id') as $k) {
+            if (isset($row[$k]) && (int) $row[$k] > 0) {
+                $oid = (int) $row[$k];
+                break;
+            }
+        }
+
+        $sess_key = is_string($idx) ? $idx : null;
+        if ($sess_key !== null && isset($cart[$sess_key]) && is_array($cart[$sess_key])) {
+            if ($oid <= 0 && !empty($cart[$sess_key]['variant_id'])) {
+                $oid = (int) $cart[$sess_key]['variant_id'];
+            }
+            if ($oid <= 0 && function_exists('webshop_resolve_line_option_id')) {
+                $hints = array();
+                if (!empty($cart[$sess_key]['variant_name'])) {
+                    $hints['variant_name'] = $cart[$sess_key]['variant_name'];
+                }
+                if (isset($cart[$sess_key]['variant_price'])) {
+                    $hints['variant_price'] = (float) $cart[$sess_key]['variant_price'];
+                }
+                $CI = function_exists('get_instance') ? get_instance() : null;
+                if ($CI && isset($CI->webshop_model) && method_exists($CI->webshop_model, 'resolve_product_row_by_id')) {
+                    $full = $CI->webshop_model->resolve_product_row_by_id($pid);
+                    if (is_array($full) && !empty($full)) {
+                        $oid = webshop_resolve_line_option_id($full, 0, $hints);
+                    }
+                }
+            }
+        } elseif (!empty($cart)) {
+            foreach ($cart as $cline) {
+                if (!is_array($cline) || (int) (isset($cline['product_id']) ? $cline['product_id'] : 0) !== $pid) {
+                    continue;
+                }
+                $cvid = isset($cline['variant_id']) ? (int) $cline['variant_id'] : 0;
+                if ($oid > 0 && $cvid !== $oid) {
+                    continue;
+                }
+                if ($oid <= 0 && $cvid > 0) {
+                    $oid = $cvid;
+                }
+                break;
+            }
+        }
+
+        $vprice = 0.0;
+        if (isset($row['variant_price'])) {
+            $vprice = (float) $row['variant_price'];
+        }
+        if ($vprice <= 0 && $sess_key !== null && isset($cart[$sess_key]['variant_price'])) {
+            $vprice = (float) $cart[$sess_key]['variant_price'];
+        } elseif ($vprice <= 0 && !empty($cart)) {
+            foreach ($cart as $cline) {
+                if (!is_array($cline) || (int) (isset($cline['product_id']) ? $cline['product_id'] : 0) !== $pid) {
+                    continue;
+                }
+                $cvid = isset($cline['variant_id']) ? (int) $cline['variant_id'] : 0;
+                if ($oid > 0 && $cvid !== $oid) {
+                    continue;
+                }
+                if (isset($cline['variant_price'])) {
+                    $vprice = (float) $cline['variant_price'];
+                }
+                break;
+            }
+        }
+
+        $row['product_id'] = $pid;
+        $row['option_id'] = $oid;
+        unset($row['variant_id'], $row['variant_price'], $row['product_option_id']);
+        $row = function_exists('webshop_sanitize_order_line_for_elintom')
+            ? webshop_sanitize_order_line_for_elintom($row)
+            : $row;
+        if (empty($row) || (int) (isset($row['product_id']) ? $row['product_id'] : 0) < 1) {
+            continue;
+        }
+
+        $out[] = $row;
+    }
+
+    return $out;
+}
+
+/**
+ * Snapshot checkout totals for order_success (avoids legacy API rows doubling variant qty).
+ *
+ * @param array $order
+ * @param array $products Line rows from submit_order / add_order
+ * @param int   $order_id
+ * @return array{order: array, items: array}
+ */
+function webshop_build_order_success_flash(array $order, array $products, $order_id = 0) {
+    $items = array();
+    foreach ($products as $p) {
+        $row = is_array($p) ? $p : (array) $p;
+        $pack_qty = function_exists('webshop_order_line_customer_qty')
+            ? webshop_order_line_customer_qty($row)
+            : (isset($row['unit_quantity']) ? (float) $row['unit_quantity'] : 1.0);
+        if ($pack_qty <= 0) {
+            $pack_qty = 1.0;
+        }
+        $name = isset($row['product_name']) ? (string) $row['product_name'] : '';
+        $subtotal = isset($row['subtotal']) ? (float) $row['subtotal'] : 0.0;
+        if ($subtotal <= 0 && isset($row['net_unit_price'])) {
+            $subtotal = (float) $row['net_unit_price'] * $pack_qty;
+        }
+        $items[] = array(
+            'name' => $name,
+            'product_name' => $name,
+            'unit_quantity' => $pack_qty,
+            'quantity' => isset($row['quantity']) ? (float) $row['quantity'] : $pack_qty,
+            'subtotal' => $subtotal,
+            'net_unit_price' => isset($row['net_unit_price']) ? (float) $row['net_unit_price'] : 0.0,
+            'unit_price' => isset($row['unit_price']) ? (float) $row['unit_price'] : 0.0,
+        );
+    }
+    return array(
+        'order' => array(
+            'id' => (int) $order_id,
+            'reference_no' => isset($order['reference_no']) ? (string) $order['reference_no'] : '',
+            'grand_total' => isset($order['grand_total']) ? (float) $order['grand_total'] : 0.0,
+        ),
+        'items' => $items,
+    );
 }
 
 function webshop_order_grand_total_amount(array $order, array $items = array()) {
@@ -1782,11 +2258,16 @@ function webshop_product_display_sellable_qty($product, $variants = null) {
 function webshop_product_detail_variants_ui($product, $variants, $Settings = null) {
     $product = is_array($product) ? $product : (array) $product;
     $variants = is_array($variants) ? $variants : array();
+    $normalized = webshop_product_variants_from_row(array_merge($product, array('variants' => $variants)));
+    if (!empty($normalized)) {
+        $variants = $normalized;
+    }
     $items = array();
 
     foreach ($variants as $idx => $v) {
         $v = webshop_normalize_variant_row(is_array($v) ? $v : (array) $v);
-        $vid = webshop_variant_row_id($v);
+        $mapKey = is_string($idx) || is_int($idx) ? (string) $idx : '';
+        $vid = webshop_variant_row_id($v, $mapKey);
         $name = webshop_variant_row_display_name($v, is_string($idx) && !is_numeric($idx) ? $idx : '');
         if ($vid < 1) {
             continue;
@@ -2745,6 +3226,76 @@ if (!function_exists('webshop_theme_assets_base_url')) {
             return rtrim(base_url('assets/webshop/'), '/') . '/';
         }
         return rtrim(base_url('assets/webshop/'), '/') . '/';
+    }
+}
+
+if (!function_exists('webshop_checkout_submit_token')) {
+    /**
+     * Hourly anti-replay token embedded in checkout forms (submit_order hidden field).
+     *
+     * @return string
+     */
+    function webshop_checkout_submit_token() {
+        return md5(date('Y-m-d H'));
+    }
+}
+
+if (!function_exists('webshop_checkout_submit_token_is_valid')) {
+    /**
+     * Accept current hour, previous hour (checkout left open across the hour), or session token from GET checkout.
+     *
+     * @param string $posted
+     * @return bool
+     */
+    function webshop_checkout_submit_token_is_valid($posted) {
+        $posted = trim((string) $posted);
+        if ($posted === '') {
+            return false;
+        }
+        if ($posted === webshop_checkout_submit_token()) {
+            return true;
+        }
+        if ($posted === md5(date('Y-m-d H', time() - 3600))) {
+            return true;
+        }
+        $CI = function_exists('get_instance') ? get_instance() : null;
+        if ($CI && isset($CI->session) && is_object($CI->session)) {
+            $sess = $CI->session->userdata('checkout_submit_token');
+            if (is_string($sess) && $sess !== '' && $posted === $sess) {
+                return true;
+            }
+        }
+        return false;
+    }
+}
+
+if (!function_exists('webshop_checkout_flash_error_message')) {
+    /**
+     * User-visible checkout error from session flash (error_message or error).
+     *
+     * @return string
+     */
+    function webshop_checkout_flash_error_message() {
+        $CI = function_exists('get_instance') ? get_instance() : null;
+        if (!$CI || !isset($CI->session) || !is_object($CI->session)) {
+            return '';
+        }
+        $cart_has_lines = isset($_SESSION['cart']) && is_array($_SESSION['cart']) && count($_SESSION['cart']) > 0;
+        foreach (array('error_message', 'error') as $key) {
+            $msg = $CI->session->flashdata($key);
+            if (!is_string($msg) || trim($msg) === '') {
+                continue;
+            }
+            $msg = trim($msg);
+            if ($cart_has_lines && stripos($msg, 'cart is empty') !== false) {
+                continue;
+            }
+            if ($cart_has_lines && stripos($msg, 'variant_price') !== false) {
+                continue;
+            }
+            return $msg;
+        }
+        return '';
     }
 }
 

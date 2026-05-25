@@ -67,6 +67,8 @@ $config['csrf_exclude_uris'] = array(
     'webshop/register',
     'webshop/forgot_password',
     'webshop/webshop_request',
+    // Checkout POST: full-page form; hourly submit token is the primary guard (see webshop_checkout_submit_token_*).
+    'webshop/submit_order',
     // Payment gateways redirect/POST back without elintom_csrf_token (CCAvenue, Paytm, Razorpay, Instamojo).
     'webshop/payment_cancel',
     'webshop/payment_declined',

@@ -414,9 +414,55 @@ class Elintom_api_client {
      * ================================================================ */
 
     public function add_order(array $order, array $items) {
+        $allowed = function_exists('webshop_elintom_order_item_allowed_keys')
+            ? webshop_elintom_order_item_allowed_keys()
+            : array(
+                'product_id', 'product_code', 'article_code', 'product_name', 'product_type',
+                'option_id', 'net_unit_price', 'unit_discount', 'unit_tax', 'invoice_unit_price',
+                'invoice_net_unit_price', 'unit_price', 'quantity', 'net_price', 'invoice_total_net_unit_price',
+                'warehouse_id', 'item_tax', 'tax_method', 'tax_rate_id', 'tax', 'discount', 'item_discount',
+                'subtotal', 'real_unit_price', 'product_unit_id', 'product_unit_code', 'unit_quantity',
+                'mrp', 'hsn_code', 'note', 'delivery_status', 'pending_quantity', 'delivered_quantity',
+                'gst_rate', 'cgst', 'sgst', 'igst', 'item_weight',
+            );
+        $allowed_flip = array_flip($allowed);
+
+        $clean_items = array();
+        foreach ($items as $item) {
+            $row = is_array($item) ? $item : (array) $item;
+            if (function_exists('webshop_sanitize_order_line_for_elintom')) {
+                $row = webshop_sanitize_order_line_for_elintom($row);
+            }
+            $pick = array();
+            foreach ($row as $k => $v) {
+                if (is_string($k) && isset($allowed_flip[$k]) && !is_array($v) && !is_object($v)) {
+                    $pick[$k] = $v;
+                }
+            }
+            if (!empty($pick) && (int) (isset($pick['product_id']) ? $pick['product_id'] : 0) > 0) {
+                $clean_items[] = $pick;
+            }
+        }
+        $items_json = json_encode($clean_items);
+        if ($items_json !== false && (stripos($items_json, 'variant_price') !== false || stripos($items_json, 'variant_id') !== false)) {
+            log_message('error', 'Elintom_api_client::add_order — variant_* still in items JSON after sanitize');
+            $decoded = json_decode($items_json, true);
+            if (is_array($decoded)) {
+                $clean_items = array();
+                foreach ($decoded as $line) {
+                    if (function_exists('webshop_sanitize_order_line_for_elintom')) {
+                        $row = webshop_sanitize_order_line_for_elintom(is_array($line) ? $line : (array) $line);
+                        if (!empty($row)) {
+                            $clean_items[] = $row;
+                        }
+                    }
+                }
+                $items_json = json_encode($clean_items);
+            }
+        }
         return $this->post('addorder', array(
             'order' => json_encode($order),
-            'items' => json_encode($items),
+            'items' => $items_json,
         ));
     }
 

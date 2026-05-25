@@ -67,7 +67,9 @@ $os_preload_logo = function_exists('webshop_resolve_header_logo_url')
                     <?php foreach ($items as $item):
                         $itemArr = is_array($item) ? $item : (array) $item;
                         $iName  = isset($itemArr['name']) ? $itemArr['name'] : (isset($itemArr['product_name']) ? $itemArr['product_name'] : 'Item');
-                        $iQty   = isset($itemArr['quantity']) ? (float) $itemArr['quantity'] : 1;
+                        $iQty = function_exists('webshop_order_line_customer_qty')
+                            ? webshop_order_line_customer_qty($itemArr)
+                            : (isset($itemArr['quantity']) ? (float) $itemArr['quantity'] : 1);
                         if ($iQty <= 0) {
                             $iQty = 1;
                         }

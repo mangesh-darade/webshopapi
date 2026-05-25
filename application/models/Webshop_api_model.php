@@ -35,6 +35,9 @@ class Webshop_api_model extends CI_Model {
     /** @var stdClass|null Memoized return value for home_page_data() */
     protected $_home_page_data_memo = null;
 
+    /** Last add_order() failure message for checkout flash (API or transport). */
+    protected $last_order_error = '';
+
     public function __construct() {
         parent::__construct();
 
@@ -3037,8 +3040,73 @@ class Webshop_api_model extends CI_Model {
      * @param  array $items   Order items
      * @return int|false      sale_id or false
      */
+    /**
+     * Human-readable reason the last add_order() call failed (for checkout flash).
+     *
+     * @return string
+     */
+    public function get_last_order_error() {
+        return (string) $this->last_order_error;
+    }
+
     public function add_order(array $order, array $items) {
+        $this->last_order_error = '';
+
+        if (function_exists('webshop_normalize_order_for_elintom')) {
+            $order = webshop_normalize_order_for_elintom($order);
+        } else {
+            $order['eshop_sale'] = 1;
+            $order['eshop_order_alert_status'] = 0;
+        }
+
+        if (function_exists('webshop_prepare_order_lines_for_elintom')) {
+            $sess_cart = (isset($_SESSION['cart']) && is_array($_SESSION['cart'])) ? $_SESSION['cart'] : array();
+            $items = webshop_prepare_order_lines_for_elintom($items, $sess_cart);
+        }
+        if (function_exists('webshop_normalize_order_payload')) {
+            $normalized = webshop_normalize_order_payload($order, $items);
+            $order = $normalized['order'];
+            $items = $normalized['items'];
+        }
+        if (function_exists('webshop_sanitize_order_line_for_elintom')) {
+            $sanitized = array();
+            foreach ($items as $item) {
+                $row = webshop_sanitize_order_line_for_elintom(is_array($item) ? $item : (array) $item);
+                if (!empty($row)) {
+                    $sanitized[] = $row;
+                }
+            }
+            $items = $sanitized;
+        }
+        if (empty($items)) {
+            $this->last_order_error = 'No valid order lines to send. Please refresh your cart and try again.';
+            log_message('error', 'Webshop_api_model::add_order — no order lines after normalization');
+            return false;
+        }
+
+        if (function_exists('webshop_sanitize_order_line_for_elintom')) {
+            $final_items = array();
+            foreach ($items as $item) {
+                $row = webshop_sanitize_order_line_for_elintom(is_array($item) ? $item : (array) $item);
+                if (!empty($row)) {
+                    $final_items[] = $row;
+                }
+            }
+            $items = $final_items;
+        }
+        if (empty($items)) {
+            $this->last_order_error = 'No valid order lines to send. Please refresh your cart and try again.';
+            log_message('error', 'Webshop_api_model::add_order — no order lines after final sanitize');
+            return false;
+        }
+
         if ($this->api_mode || !$this->has_local_db()) {
+            if (function_exists('log_message')) {
+                $probe_json = json_encode(isset($items[0]) ? $items[0] : array());
+                if ($probe_json !== false && stripos($probe_json, 'variant_price') !== false) {
+                    log_message('error', 'Webshop_api_model::add_order sending items still containing variant_price');
+                }
+            }
             $res = $this->api->add_order($order, $items);
             $ok = $res && isset($res->status) && strtoupper((string) $res->status) === 'SUCCESS';
             if ($ok) {
@@ -3048,9 +3116,32 @@ class Webshop_api_model extends CI_Model {
                 if (isset($res->sale_id) && (int) $res->sale_id > 0) {
                     return (int) $res->sale_id;
                 }
+                $this->last_order_error = 'ElintOm accepted the order but did not return an order number. Please contact support.';
                 $this->_log_error('add_order');
                 return false;
             }
+            $api_msg = ($res && isset($res->msg)) ? trim((string) $res->msg) : '';
+            if ($api_msg === '' && $res && isset($res->error)) {
+                $api_msg = trim((string) $res->error);
+            }
+            if ($api_msg === '' && $res && isset($res->message)) {
+                $api_msg = trim((string) $res->message);
+            }
+            $transport = method_exists($this->api, 'get_last_error') ? trim((string) $this->api->get_last_error()) : '';
+            if ($api_msg !== '') {
+                $this->last_order_error = $api_msg;
+            } elseif ($transport !== '') {
+                $this->last_order_error = 'Could not reach ElintOm: ' . $transport;
+            } else {
+                $this->last_order_error = 'ElintOm rejected the order. Check API URL and private key in elintom_api_switch.php.';
+            }
+            $keys_log = '';
+            if (!empty($items[0]) && is_array($items[0])) {
+                $keys_log = ' item_keys=' . implode(',', array_keys($items[0]));
+            }
+            log_message('error', 'Webshop_api_model::add_order API failed'
+                . ($this->last_order_error !== '' ? ': ' . $this->last_order_error : '')
+                . $keys_log);
             if (!$this->has_local_db()) {
                 $this->_log_error('add_order');
                 return false;
@@ -3060,7 +3151,11 @@ class Webshop_api_model extends CI_Model {
                 return false;
             }
         }
-        return $this->_fallback_webshop_model()->add_order($order, $items);
+        $local_id = $this->_fallback_webshop_model()->add_order($order, $items);
+        if (!$local_id) {
+            $this->last_order_error = 'Order could not be saved to the database.';
+        }
+        return $local_id;
     }
 
     /**

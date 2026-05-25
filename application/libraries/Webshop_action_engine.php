@@ -92,6 +92,42 @@ class Webshop_action_engine
             }
         }
 
+        if ($variant_id <= 0 && is_array($api_product) && function_exists('webshop_pick_default_variant_from_product')) {
+            $picked = webshop_pick_default_variant_from_product($api_product, array(
+                'variant_price' => $variant_price,
+            ));
+            if (is_array($picked) && !empty($picked['id'])) {
+                $variant_id = (int) $picked['id'];
+                if ($variant_price <= 0 && isset($picked['variant_price'])) {
+                    $variant_price = (float) $picked['variant_price'];
+                }
+                if ($unit_quantity < 1 && !empty($picked['unit_quantity'])) {
+                    $unit_quantity = max(1, (int) $picked['unit_quantity']);
+                }
+                $reresolved = $this->resolve_product_pricing($product_id, $variant_id);
+                if (is_array($reresolved) && !empty($reresolved)) {
+                    $api_product = $reresolved;
+                    if (function_exists('webshop_resolve_variant_line_price')) {
+                        $resolved_line = webshop_resolve_variant_line_price(
+                            $api_product,
+                            $variant_id,
+                            $variant_price > 0 ? $variant_price : null,
+                            $product_unit_price,
+                            $price
+                        );
+                        $api_price = isset($resolved_line['unit_price']) ? (float) $resolved_line['unit_price'] : 0.0;
+                        if ($api_price > 0) {
+                            $price = $api_price;
+                            $product_unit_price = $api_price;
+                        }
+                        if (isset($resolved_line['variant_price'])) {
+                            $variant_price = (float) $resolved_line['variant_price'];
+                        }
+                    }
+                }
+            }
+        }
+
         $catalog_max_qty = null;
         if (is_array($api_product) && array_key_exists('quantity', $api_product)) {
             $catalog_max_qty = max(0.0, (float) $api_product['quantity']);
@@ -145,6 +181,15 @@ class Webshop_action_engine
             }
             if ($product_name !== '') {
                 $_SESSION['cart'][$item_key]['product_name'] = $product_name;
+            }
+            if ($variant_id > 0) {
+                $_SESSION['cart'][$item_key]['variant_id'] = $variant_id;
+                if ($variant_price > 0) {
+                    $_SESSION['cart'][$item_key]['variant_price'] = $variant_price;
+                }
+                if ($unit_quantity >= 1) {
+                    $_SESSION['cart'][$item_key]['unit_quantity'] = $unit_quantity;
+                }
             }
             if ($variant_id > 0 && function_exists('webshop_cart_line_variant_label')) {
                 $vlabel = webshop_cart_line_variant_label(

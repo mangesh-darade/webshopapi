@@ -53,9 +53,15 @@ $payCurrencyIso = isset($payment_currency_iso) ? trim((string) $payment_currency
                 </div>
             </div>
 
-            <?php $flashErr = $this->session->flashdata('error_message'); ?>
+            <?php
+            $flashErr = $this->session->flashdata('error_message');
+            $flashMsg = $this->session->flashdata('message');
+            ?>
+            <?php if ($flashMsg): ?>
+                <div class="pay-notice" role="status"><?= htmlspecialchars($flashMsg, ENT_QUOTES, 'UTF-8') ?></div>
+            <?php endif; ?>
             <?php if ($flashErr): ?>
-                <div class="pay-error">⚠️ <?= htmlspecialchars($flashErr, ENT_QUOTES, 'UTF-8') ?></div>
+                <div class="pay-error" role="alert"><?= htmlspecialchars($flashErr, ENT_QUOTES, 'UTF-8') ?></div>
             <?php endif; ?>
 
             <form action="<?= base_url('webshop/payments') ?>?order=<?= urlencode((string) $orderId) ?>&customer=<?= urlencode((string) $customerId) ?>" method="post">

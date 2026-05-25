@@ -37,6 +37,43 @@
         var termsError = document.getElementById('termsError');
         var termsGroup = document.getElementById('termsGroup');
 
+        function syncCheckoutCsrfFields() {
+            var c = window.GP_CSRF;
+            if (!c || !c.name || !c.hash) {
+                return;
+            }
+            var existing = form.querySelector('input[name="' + c.name + '"]');
+            if (existing) {
+                existing.value = c.hash;
+            } else {
+                var inp = document.createElement('input');
+                inp.type = 'hidden';
+                inp.name = c.name;
+                inp.value = c.hash;
+                form.appendChild(inp);
+            }
+        }
+
+        function showCheckoutFlash(message) {
+            if (!message) {
+                return;
+            }
+            var host = document.getElementById('checkoutFlashHost');
+            if (!host) {
+                return;
+            }
+            var box = document.getElementById('checkoutFlashError');
+            if (!box) {
+                box = document.createElement('div');
+                box.className = 'checkout-flash-error';
+                box.id = 'checkoutFlashError';
+                box.setAttribute('role', 'alert');
+                host.appendChild(box);
+            }
+            box.textContent = message;
+            box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+
         form.addEventListener('submit', function (e) {
             if (checkoutTerms && !checkoutTerms.checked) {
                 e.preventDefault();
@@ -47,6 +84,7 @@
                 if (termsGroup) {
                     termsGroup.classList.add('terms-group--error');
                 }
+                showCheckoutFlash('Please agree to the terms and conditions before placing your order.');
                 checkoutTerms.focus();
                 return false;
             }
@@ -56,6 +94,12 @@
             }
             if (termsGroup) {
                 termsGroup.classList.remove('terms-group--error');
+            }
+            syncCheckoutCsrfFields();
+            var placeBtn = document.getElementById('placeOrder');
+            if (placeBtn) {
+                placeBtn.disabled = true;
+                placeBtn.textContent = 'Placing order…';
             }
         });
 

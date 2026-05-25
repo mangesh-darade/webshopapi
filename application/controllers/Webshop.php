@@ -2284,7 +2284,13 @@ XSL;
             $product = (array) $product;
         }
         $this->data['product'] = $product;
-        $this->data['product_variants'] = $productDetails['variants'];
+        $rawVariants = isset($productDetails['variants']) ? $productDetails['variants'] : array();
+        if (function_exists('webshop_product_variants_from_row')) {
+            $normalizedVariants = webshop_product_variants_from_row(array_merge($product, array('variants' => $rawVariants)));
+            $this->data['product_variants'] = !empty($normalizedVariants) ? $normalizedVariants : $rawVariants;
+        } else {
+            $this->data['product_variants'] = $rawVariants;
+        }
         $this->data['gallary_images'] = $productDetails['images'];
 
         $this->data['active_search_category'] = isset($product['category_id']) ? $product['category_id'] : 0;
@@ -3266,7 +3272,11 @@ XSL;
 
         if ($this->input->post('submit_order')) {
 
-            if (md5(date('Y-m-d H')) == $this->input->post('submit_order')) {
+            $submit_token_ok = function_exists('webshop_checkout_submit_token_is_valid')
+                ? webshop_checkout_submit_token_is_valid($this->input->post('submit_order'))
+                : (md5(date('Y-m-d H')) === (string) $this->input->post('submit_order'));
+
+            if ($submit_token_ok) {
 
                 $terms_post = $this->input->post('terms');
                 if ($terms_post === false || $terms_post === null || $terms_post === '') {
@@ -3519,10 +3529,35 @@ XSL;
 
                     foreach ($cartItems as $key => $product_id) {
 
-                        $option_id = $cart_options[$key];
-                        $option_price = (float) $cart_option_price[$key];
-                        $quintity = (float) $cart_item_quantity[$key];
-                        $unit_quantity =  $quintity *  $cart_item_unit_quantity[$key];
+                        $product_id = (int) $product_id;
+                        if ($product_id < 1) {
+                            continue;
+                        }
+
+                        $sess_line = (isset($_SESSION['cart'][$key]) && is_array($_SESSION['cart'][$key]))
+                            ? $_SESSION['cart'][$key]
+                            : null;
+
+                        $option_id = isset($cart_options[$key]) ? (int) $cart_options[$key] : 0;
+                        if ($option_id <= 0 && $sess_line !== null && !empty($sess_line['variant_id'])) {
+                            $option_id = (int) $sess_line['variant_id'];
+                        }
+
+                        $option_price = isset($cart_option_price[$key]) ? (float) $cart_option_price[$key] : 0.0;
+                        if ($option_price <= 0 && $sess_line !== null && isset($sess_line['variant_price'])) {
+                            $option_price = (float) $sess_line['variant_price'];
+                        }
+
+                        $quintity = isset($cart_item_quantity[$key]) ? (float) $cart_item_quantity[$key] : 1.0;
+                        $line_unit_qty = isset($cart_item_unit_quantity[$key]) ? (float) $cart_item_unit_quantity[$key] : 1.0;
+                        if ($line_unit_qty < 1 && $sess_line !== null && isset($sess_line['unit_quantity'])) {
+                            $line_unit_qty = max(1.0, (float) $sess_line['unit_quantity']);
+                        }
+                        if ($line_unit_qty < 1) {
+                            $line_unit_qty = 1.0;
+                        }
+                        // POS stock uses cart packs × variant unit_quantity; customer totals use cart packs only.
+                        $stock_quantity = $quintity * $line_unit_qty;
 
                         $unit_price = (float) $cart_item_unit_price[$key];
                         $tax_rate = (float) $cart_item_tax_rate[$key];
@@ -3543,17 +3578,30 @@ XSL;
 
                         $product = $productData[$product_id];
 
-                        if ((int) $option_id > 0 && method_exists($this->webshop_model, 'resolve_product_row_by_id')) {
+                        if (method_exists($this->webshop_model, 'resolve_product_row_by_id')) {
                             $full_product = $this->webshop_model->resolve_product_row_by_id($product_id);
                             if (is_array($full_product) && !empty($full_product)) {
                                 $product = array_merge($product, $full_product);
                             }
-                            if (function_exists('webshop_variant_delta_from_product')) {
-                                $catalog_delta = webshop_variant_delta_from_product($product, $option_id);
-                                if ($catalog_delta !== null) {
-                                    $option_price = (float) $catalog_delta;
+                        }
+
+                        if ($option_id <= 0 && function_exists('webshop_resolve_line_option_id')) {
+                            $opt_hints = array();
+                            if ($sess_line !== null) {
+                                if (!empty($sess_line['variant_id'])) {
+                                    $opt_hints['variant_id'] = (int) $sess_line['variant_id'];
+                                }
+                                if (!empty($sess_line['variant_name'])) {
+                                    $opt_hints['variant_name'] = trim((string) $sess_line['variant_name']);
+                                }
+                                if (isset($sess_line['variant_price'])) {
+                                    $opt_hints['variant_price'] = (float) $sess_line['variant_price'];
                                 }
                             }
+                            if ($option_price > 0) {
+                                $opt_hints['variant_price'] = $option_price;
+                            }
+                            $option_id = webshop_resolve_line_option_id($product, $option_id, $opt_hints);
                         }
 
                         $product['tax_rate']        = $tax_rate;
@@ -3566,26 +3614,24 @@ XSL;
                         $product['product_type']    = isset($product['product_type'])  ? $product['product_type']  : '';
                         $product['tax_id']          = isset($product['tax_id'])        ? $product['tax_id']        : null;
                         $product['promotion']       = isset($product['promotion'])     ? $product['promotion']     : 0;
-                        $product['price'] = webshop_checkout_resolve_product_price($product, $unit_price, $item_price);
                         $product['tax_method']      = isset($product['tax_method'])    ? $product['tax_method']    : $tax_method;
 
                         $sale_unit_id = $product['sale_unit_id'];
                         $unit_code = ($sale_unit_id && isset($units[$sale_unit_id]['code'])) ? $units[$sale_unit_id]['code'] : '';
-                        $variant_price = array('1' => $option_price); //Send para value in array
-                        // Cart coupon is order-level only: apply it once on grand_total as order_discount.
-                        // Do not pass a per-line share into product_sale_price_webshop — that already reduces
-                        // line net_unit_price and item_discount, and grand_total subtracts the full coupon again.
-                        $productPrice = product_sale_price_webshop($product, $variant_price, null, $unit_quantity);
+                        // Per cart pack (checkout $180), not base + variant again (which doubled to $360).
+                        $productPrice = function_exists('webshop_submit_order_line_sale_price')
+                            ? webshop_submit_order_line_sale_price($product, $option_id, $option_price, $unit_price, $item_price, $sess_line)
+                            : product_sale_price_webshop($product, array('1' => 0.0), null, 1);
                         $invoice_unit_price = $productPrice['net_unit_price'];
                         // $invoice_net_unit_price = $productPrice['net_unit_price'] + $productPrice['unit_discount'] + $productPrice['unit_tax'];
                         $invoice_net_unit_price = $productPrice['net_unit_price'] + $productPrice['unit_discount'];
-                        $net_price = $unit_quantity * $product['mrp'];
-                        $invoice_total_net_unit_price = $invoice_net_unit_price * $unit_quantity;
-                        $item_tax = $productPrice['unit_tax'] * $unit_quantity;
-                        // $item_discount = $productPrice['unit_discount'] * (float) $unit_quantity;
+                        $net_price = $stock_quantity * $product['mrp'];
+                        $invoice_total_net_unit_price = $invoice_net_unit_price * $quintity;
+                        $item_tax = $productPrice['unit_tax'] * $quintity;
+                        // $item_discount = $productPrice['unit_discount'] * (float) $quintity;
                         $item_discount = $productPrice['unit_discount'];
-                        // $subtotal = (($productPrice['net_unit_price'] * (float) $unit_quantity) + (float) $item_tax);
-                        $subtotal = ($productPrice['net_unit_price'] * $unit_quantity);
+                        // $subtotal = (($productPrice['net_unit_price'] * (float) $quintity) + (float) $item_tax);
+                        $subtotal = ($productPrice['net_unit_price'] * $quintity);
                         if ($interStateTax) {
                             $item_gst = $tax_rate;
                             $item_cgst = 0;
@@ -3600,28 +3646,48 @@ XSL;
                         $order_comment = trim((string) $this->input->post('order_comments'));
                         $order_comment = (strtolower($order_comment) === 'null' || $order_comment === '') ? null : $order_comment;
 
+                        $variant_label = '';
+                        if ($option_id > 0) {
+                            if ($sess_line !== null && !empty($sess_line['variant_name'])) {
+                                $variant_label = trim((string) $sess_line['variant_name']);
+                            } elseif (function_exists('webshop_product_variants_from_row')) {
+                                foreach (webshop_product_variants_from_row($product) as $vRow) {
+                                    if (webshop_variant_row_id($vRow) === $option_id) {
+                                        $variant_label = webshop_variant_row_display_name($vRow, '');
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        $line_product_name = (string) $product['name'];
+                        if ($variant_label !== '') {
+                            $line_product_name = $line_product_name . ' — ' . $variant_label;
+                        }
+
                         $products[] = array(
                             "product_id" => $product_id,
                             "product_code" => $product['code'],
                             "article_code" => $product['article_code'],
-                            "product_name" => $product['name'],
+                            "product_name" => $line_product_name,
                             "product_type" => $product['product_type'],
-                            "option_id" => $option_id,
+                            "option_id" => (int) $option_id,
                             "net_unit_price" => $this->sma->formatDecimal($productPrice['net_unit_price'], 4),
-                            "unit_discount" => $productPrice['unit_discount'],
+                            "unit_discount" => is_numeric($productPrice['unit_discount'])
+                                ? (float) $productPrice['unit_discount']
+                                : 0,
                             "unit_tax" => $this->sma->formatDecimal($productPrice['unit_tax'], 4),
                             "invoice_unit_price" => $this->sma->formatDecimal($invoice_unit_price, 4),
                             "invoice_net_unit_price" => $this->sma->formatDecimal($invoice_net_unit_price, 4),
                             "unit_price" => $productPrice['unit_price'],
-                            "quantity" => $unit_quantity,
+                            "quantity" => $stock_quantity,
                             "net_price" => $net_price,
                             "invoice_total_net_unit_price" => $invoice_total_net_unit_price,
                             "warehouse_id" => $warehouse_id,
                             "item_tax" => $this->sma->formatDecimal($item_tax, 4),
                             "tax_method" => $tax_method,
                             "tax_rate_id" => $product['tax_id'],
-                            "tax" => $productPrice['tax_rate'],
-                            "discount" => $productPrice['discount_rate'],
+                            "tax" => is_numeric($productPrice['tax_rate']) ? (float) $productPrice['tax_rate'] : 0,
+                            "discount" => is_numeric($productPrice['discount_rate']) ? (float) $productPrice['discount_rate'] : 0,
                             "item_discount" => $this->sma->formatDecimal($item_discount, 4),
                             "subtotal" => $this->sma->formatDecimal($subtotal, 4),
                             "real_unit_price" => $productPrice['real_unit_price'],
@@ -3638,7 +3704,7 @@ XSL;
                             "cgst" => $this->sma->formatDecimal($item_cgst, 4),
                             "sgst" => $this->sma->formatDecimal($item_sgst, 4),
                             "igst" => $this->sma->formatDecimal($item_igst, 4),
-                            "item_weight" => $unit_quantity,
+                            "item_weight" => $stock_quantity,
                         );
 
                         $total_items++;
@@ -3647,8 +3713,8 @@ XSL;
                         $sale_sgst += $item_sgst;
                         $sale_igst += $item_igst;
 
-                        // $total += ((float) $productPrice['net_unit_price'] * (float) $unit_quantity);
-                        $total += ($productPrice['net_unit_price'] * $unit_quantity);
+                        // $total += ((float) $productPrice['net_unit_price'] * (float) $quintity);
+                        $total += ($productPrice['net_unit_price'] * $quintity);
                         $total_item_tax += (float) $item_tax;
                         $total_item_discount += (float) $item_discount;
                     } //end foreach.
@@ -3735,12 +3801,31 @@ XSL;
 
                 if (count($products) && !empty($order)) {
 
+                    if (function_exists('webshop_prepare_order_lines_for_elintom')) {
+                        $products = webshop_prepare_order_lines_for_elintom(
+                            $products,
+                            isset($_SESSION['cart']) && is_array($_SESSION['cart']) ? $_SESSION['cart'] : array()
+                        );
+                    }
+                    if (empty($products)) {
+                        $this->session->set_flashdata(
+                            'error_message',
+                            'Your cart lines could not be sent to the store. Please open your cart, refresh quantities, and try checkout again.'
+                        );
+                        redirect('webshop/checkout');
+                        return;
+                    }
+
                     $payment_method = (string) $this->input->post('payment_method');
                     $customer_id    = isset($customer['id']) ? $customer['id'] : 0;
                     $is_online      = in_array($payment_method, array('razorpay', 'ccavenue', 'paytm', 'instamojo', 'online'), true);
 
                     if ($is_online) {
                         $temp_id = 'TMP_' . substr(md5(uniqid(mt_rand(), true)), 0, 8);
+                        $this->session->set_flashdata(
+                            'message',
+                            'Complete payment below. Your order is sent to ElintOm only after payment succeeds.'
+                        );
                         $this->session->set_userdata('order_id', $temp_id);
                         $this->session->set_userdata('pending_order_payload', array(
                             'order'    => $order,
@@ -3782,6 +3867,13 @@ XSL;
                             'method'       => $payment_method,
                         ));
 
+                        if (function_exists('webshop_build_order_success_flash')) {
+                            $this->session->set_flashdata(
+                                'order_success_display',
+                                webshop_build_order_success_flash($order, $products, (int) $order_id)
+                            );
+                        }
+
                         $this->_notify_order_placed_customer((int) $order_id, $order);
 
                         redirect("webshop/order_success?order=$order_id&customer=$customer_id");
@@ -3790,7 +3882,18 @@ XSL;
                     }
 
                     // add_order failed — redirect back to checkout with error.
-                    $this->session->set_flashdata('error_message', 'Order could not be placed. Please try again.');
+                    $api_err = method_exists($this->webshop_api_model, 'get_last_order_error')
+                        ? trim((string) $this->webshop_api_model->get_last_order_error())
+                        : '';
+                    $this->session->set_flashdata(
+                        'error_message',
+                        $api_err !== ''
+                            ? $api_err
+                            : 'Order could not be placed. Please try again or choose Cash on delivery.'
+                    );
+                    log_message('error', 'Webshop::submit_order add_order failed'
+                        . (isset($order['reference_no']) ? ' ref=' . $order['reference_no'] : '')
+                        . ($api_err !== '' ? ' — ' . $api_err : ''));
                     redirect('webshop/checkout');
                     return;
 
@@ -3801,13 +3904,16 @@ XSL;
                     return;
                 }
             } else {
-                $this->session->set_flashdata('error_message', 'Request Timeout');
+                $this->session->set_flashdata(
+                    'error_message',
+                    'Your checkout session expired. Please open checkout again and place your order within the same hour.'
+                );
                 $_SESSION['postdata'] = $this->input->post();
-                redirect('webshop/checkout/timeout');
+                redirect('webshop/checkout');
             }
         } else {
-            $this->session->set_flashdata('error_message', 'Invalid Request');
-            redirect('webshop/cart/invalid');
+            $this->session->set_flashdata('error_message', 'Invalid checkout request. Please try again from your cart.');
+            redirect('webshop/checkout');
         }
     }
 
@@ -4925,6 +5031,38 @@ XSL;
         }
         if (empty($this->data['items']) || !is_array($this->data['items'])) {
             $this->data['items'] = array();
+        }
+
+        // Prefer checkout snapshot from submit_order (matches cart totals; not ElintOm Eshop controller).
+        $success_display = $this->session->flashdata('order_success_display');
+        if (is_array($success_display)) {
+            if (!empty($success_display['order']) && is_array($success_display['order'])) {
+                $this->data['order'] = array_merge($this->data['order'], $success_display['order']);
+                if (isset($success_display['order']['grand_total']) && (float) $success_display['order']['grand_total'] > 0) {
+                    $this->data['order']['grand_total'] = $success_display['order']['grand_total'];
+                }
+                if (!empty($success_display['order']['reference_no'])) {
+                    $this->data['order']['reference_no'] = $success_display['order']['reference_no'];
+                }
+            }
+            if (!empty($success_display['items']) && is_array($success_display['items'])) {
+                $this->data['items'] = $success_display['items'];
+            }
+        }
+
+        if (function_exists('webshop_normalize_order_payload') && !empty($this->data['items'])) {
+            $normalized = webshop_normalize_order_payload(
+                is_array($this->data['order']) ? $this->data['order'] : array(),
+                $this->data['items']
+            );
+            $this->data['order'] = $normalized['order'];
+            $this->data['items'] = $normalized['items'];
+            if (function_exists('webshop_order_grand_total_amount')) {
+                $recomputed = webshop_order_grand_total_amount($this->data['order'], $this->data['items']);
+                if ($recomputed > 0) {
+                    $this->data['order']['grand_total'] = $recomputed;
+                }
+            }
         }
 
         // Clear the cart once the order is confirmed.

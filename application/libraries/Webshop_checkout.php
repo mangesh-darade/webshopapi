@@ -13,7 +13,10 @@ class Webshop_checkout {
      */
     public function present($c) {
         if (!isset($_SESSION['cart']) || !is_array($_SESSION['cart']) || $_SESSION['cart'] === array()) {
-            $c->session->set_flashdata('error', 'Your cart is empty. Please add a product before checkout.');
+            $c->session->set_flashdata(
+                'error_message',
+                'Your cart is empty. Please add a product before checkout.'
+            );
             redirect('webshop/cart');
             return;
         }
@@ -26,7 +29,7 @@ class Webshop_checkout {
             $msg = (isset($stockCheck['message']) && is_string($stockCheck['message']) && $stockCheck['message'] !== '')
                 ? $stockCheck['message']
                 : 'Some items in your cart are no longer available.';
-            $c->session->set_flashdata('error', $msg);
+            $c->session->set_flashdata('error_message', $msg);
             redirect('webshop/cart');
             return;
         }
@@ -118,6 +121,10 @@ class Webshop_checkout {
             if (function_exists('webshop_cart_variants_map_from_products')) {
                 $c->data['cart_data']['variants'] = webshop_cart_variants_map_from_products($products_map);
             }
+        }
+
+        if (isset($c->session) && is_object($c->session) && function_exists('webshop_checkout_submit_token')) {
+            $c->session->set_userdata('checkout_submit_token', webshop_checkout_submit_token());
         }
 
         // Resolved via auto-component fallback in resolve_webshop_view_path → components/checkout.

@@ -81,8 +81,17 @@ foreach ($cart_items as $item) {
 }
 ?>
 <?php $cv_assets = isset($assets) ? $assets : base_url('assets/webshop/'); ?>
+<?php
+$cv_cart_flash = function_exists('webshop_checkout_flash_error_message')
+    ? webshop_checkout_flash_error_message()
+    : '';
+?>
 <div class="cart-container">
     <h2 class="cart-title">Your Shopping Cart</h2>
+
+    <?php if ($cv_cart_flash !== ''): ?>
+        <div class="checkout-flash checkout-flash--error" role="alert"><?= htmlspecialchars($cv_cart_flash, ENT_QUOTES, 'UTF-8') ?></div>
+    <?php endif; ?>
 
     <?php if (empty($cart_items)): ?>
         <div class="empty-cart-message">
