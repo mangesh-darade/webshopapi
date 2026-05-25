@@ -1067,6 +1067,34 @@ class Webshop_api_model extends CI_Model {
             }
         }
         $data['products'] = $products_map;
+        if (!function_exists('webshop_enrich_cart_session_variant_labels')) {
+            $CI = get_instance();
+            if (isset($CI->load)) {
+                $CI->load->helper('webshop');
+            }
+        }
+        if (function_exists('webshop_enrich_cart_session_variant_labels')) {
+            $data['products'] = webshop_enrich_cart_session_variant_labels($data['products']);
+        }
+        if (function_exists('webshop_cart_variants_map_from_products')) {
+            $data['variants'] = webshop_cart_variants_map_from_products($data['products']);
+            foreach ($_SESSION['cart'] as $line) {
+                if (!is_array($line)) {
+                    continue;
+                }
+                $vid = isset($line['variant_id']) ? (int) $line['variant_id'] : 0;
+                if ($vid < 1 || isset($data['variants'][$vid])) {
+                    continue;
+                }
+                if (!empty($line['variant_name'])) {
+                    $data['variants'][$vid] = array(
+                        'id'         => $vid,
+                        'name'       => trim((string) $line['variant_name']),
+                        'product_id' => isset($line['product_id']) ? (int) $line['product_id'] : 0,
+                    );
+                }
+            }
+        }
         if ($cart_ttl > 0) {
             $CI = get_instance();
             if (isset($CI->session)) {
@@ -1161,44 +1189,82 @@ class Webshop_api_model extends CI_Model {
             return array();
         }
 
+        $this->load->helper('webshop');
+        $item = array();
+
         $list = $this->get_products_list('products', (string) $pid, false, 0, 1);
         if (is_array($list) && !empty($list['items']) && is_array($list['items'])) {
             foreach ($list['items'] as $row) {
                 $a = is_array($row) ? $row : (array) $row;
                 $rid = isset($a['id']) ? (int) $a['id'] : (isset($a['product_id']) ? (int) $a['product_id'] : 0);
                 if ($rid === $pid) {
-                    return $this->elintom_response->normalize_product_detail_item($a);
+                    $item = $this->elintom_response->normalize_product_detail_item($a);
+                    break;
                 }
             }
-            $first = $list['items'][0];
-            $a = is_array($first) ? $first : (array) $first;
-            return $this->elintom_response->normalize_product_detail_item($a);
+            if ($item === array() && !empty($list['items'][0])) {
+                $first = is_array($list['items'][0]) ? $list['items'][0] : (array) $list['items'][0];
+                $item = $this->elintom_response->normalize_product_detail_item($first);
+            }
+        }
+
+        $need_detail = ($item === array());
+        if (!$need_detail && function_exists('webshop_product_variants_from_row')) {
+            $variants = webshop_product_variants_from_row($item);
+            $price = isset($item['price']) ? (float) $item['price'] : 0.0;
+            $eshop = isset($item['eshop_price']) ? (float) $item['eshop_price'] : -1.0;
+            $need_detail = ($variants === array())
+                || ($price <= 0 && $eshop <= 0);
+            if (!$need_detail && $variants !== array() && function_exists('webshop_product_list_card_pricing')) {
+                $card = webshop_product_list_card_pricing($item, null);
+                $need_detail = ((float) $card['price'] <= 0);
+            }
+            if (!$need_detail && isset($item['type']) && strtolower((string) $item['type']) === 'variable' && $variants === array()) {
+                $need_detail = true;
+            }
         }
 
         $hash = md5((string) $pid);
-        $res = $this->api->get_product_by_hash($hash, $pid);
-        if ($res && $this->elintom_response->api_status_ok($res)) {
-            $bundle = $this->elintom_response->product_detail_bundle_from_api_response($res);
-            if (is_array($bundle) && isset($bundle['item'])) {
-                $a = is_array($bundle['item']) ? $bundle['item'] : (array) $bundle['item'];
-                if (!empty($a)) {
-                    return $this->elintom_response->normalize_product_detail_item($a);
+        if ($need_detail && $this->use_elintom_api_catalogue()) {
+            $res = $this->api->get_product_by_hash($hash, $pid);
+            if ($res && $this->elintom_response->api_status_ok($res)) {
+                $bundle = $this->elintom_response->product_detail_bundle_from_api_response($res);
+                if (is_array($bundle) && isset($bundle['item'])) {
+                    $detail = is_array($bundle['item']) ? $bundle['item'] : (array) $bundle['item'];
+                    if (!empty($detail)) {
+                        $detail = $this->elintom_response->normalize_product_detail_item($detail);
+                        if ($item !== array()) {
+                            $item = array_merge($item, $detail);
+                        } else {
+                            $item = $detail;
+                        }
+                        if (!empty($bundle['variants'])) {
+                            $item['variants'] = $bundle['variants'];
+                        }
+                    }
                 }
             }
+        }
+
+        if ($item !== array()) {
+            return $item;
         }
 
         $bundle = $this->get_product_by_hash($hash);
         if (is_array($bundle) && isset($bundle['item'])) {
             $a = is_array($bundle['item']) ? $bundle['item'] : (array) $bundle['item'];
             if (!empty($a)) {
-                return $this->elintom_response->normalize_product_detail_item($a);
+                $a = $this->elintom_response->normalize_product_detail_item($a);
+                if (!empty($bundle['variants'])) {
+                    $a['variants'] = $bundle['variants'];
+                }
+                return $a;
             }
         }
 
         $flat = $this->get_product_by_id($pid);
         if (isset($flat[$pid]) && is_array($flat[$pid]) && $flat[$pid] !== array()) {
-            $a = $flat[$pid];
-            return $this->elintom_response->normalize_product_detail_item($a);
+            return $this->elintom_response->normalize_product_detail_item($flat[$pid]);
         }
 
         return array();
@@ -1549,6 +1615,71 @@ class Webshop_api_model extends CI_Model {
     }
 
     /**
+     * Attach variant rows (and list pricing fields) to category/search PLP items when the list API omits them.
+     *
+     * @param array $items
+     * @return array
+     */
+    public function enrich_product_list_items_with_variants(array $items) {
+        if ($items === array()) {
+            return $items;
+        }
+        $this->load->helper('webshop');
+        foreach ($items as $i => $item) {
+            $row = is_array($item) ? $item : (array) $item;
+            $pid = isset($row['id']) ? (int) $row['id'] : 0;
+            $variants = function_exists('webshop_product_variants_from_row')
+                ? webshop_product_variants_from_row($row)
+                : array();
+            $price = isset($row['price']) ? (float) $row['price'] : 0.0;
+            $eshop = isset($row['eshop_price']) ? (float) $row['eshop_price'] : -1.0;
+            $needs_full = ($variants === array())
+                || ($price <= 0 && $eshop <= 0);
+            if (!$needs_full && $variants !== array() && function_exists('webshop_product_list_card_pricing')) {
+                $probe = webshop_product_list_card_pricing($row, null);
+                $needs_full = ((float) $probe['price'] <= 0);
+            }
+            if (!$needs_full && isset($row['type']) && strtolower((string) $row['type']) === 'variable' && $variants === array()) {
+                $needs_full = true;
+            }
+            if ($needs_full && $pid > 0) {
+                $full = $this->resolve_product_row_by_id($pid);
+                if (is_array($full) && !empty($full)) {
+                    $row = array_merge($row, $full);
+                    if (!empty($full['variants'])) {
+                        $row['variants'] = $full['variants'];
+                    }
+                }
+            }
+            if (function_exists('webshop_product_list_card_pricing')) {
+                $card = webshop_product_list_card_pricing($row, null);
+                if ((float) $card['price'] > 0) {
+                    $row['list_display_price'] = (float) $card['price'];
+                    $row['price'] = (float) $card['price'];
+                }
+                if (!empty($card['has_variants'])) {
+                    $row['list_default_variant_id'] = (int) $card['variant_id'];
+                    $row['list_variant_price'] = (float) $card['variant_price'];
+                    $row['list_variant_unit_quantity'] = (float) $card['variant_unit_quantity'];
+                    $row['list_variant_name'] = (string) $card['variant_name'];
+                    $row['list_price_from'] = !empty($card['price_from']);
+                    $row['list_price_min'] = isset($card['price_min']) ? (float) $card['price_min'] : 0.0;
+                    $row['list_price_max'] = isset($card['price_max']) ? (float) $card['price_max'] : 0.0;
+                }
+                if (!empty($card['mrp']) && (float) $card['mrp'] > 0) {
+                    $row['list_display_mrp'] = (float) $card['mrp'];
+                    $row['mrp'] = (float) $card['mrp'];
+                }
+                if (!empty($card['discount_percent'])) {
+                    $row['list_discount_percent'] = (int) $card['discount_percent'];
+                }
+            }
+            $items[$i] = $row;
+        }
+        return $items;
+    }
+
+    /**
      * @param int $category_id
      * @return array<int,float> product_id => sellable qty
      */
@@ -1631,6 +1762,7 @@ class Webshop_api_model extends CI_Model {
                         if ($by === 'category' && !empty($normalized['items'])) {
                             $catId = (!$hash && is_numeric($byid)) ? (int) $byid : 0;
                             $normalized['items'] = $this->enrich_product_list_items_with_stock($normalized['items'], $catId);
+                            $normalized['items'] = $this->enrich_product_list_items_with_variants($normalized['items']);
                         }
                         return $normalized;
                     }
@@ -1644,6 +1776,7 @@ class Webshop_api_model extends CI_Model {
                     if (!empty($legacyList['items'])) {
                         $catId = (!$hash && is_numeric($byid)) ? (int) $byid : 0;
                         $legacyList['items'] = $this->enrich_product_list_items_with_stock($legacyList['items'], $catId);
+                        $legacyList['items'] = $this->enrich_product_list_items_with_variants($legacyList['items']);
                     }
                     return $legacyList;
                 }
@@ -3380,10 +3513,14 @@ class Webshop_api_model extends CI_Model {
     }
 
     public function get_wishlist_count($user_id) {
+        if (!$user_id) {
+            return 0;
+        }
+        if (function_exists('webshop_wishlist_normalize_rows')) {
+            $norm = webshop_wishlist_normalize_rows($this->get_wishlist($user_id));
+            return (int) $norm['count'];
+        }
         if ($this->api_mode || !$this->has_local_db()) {
-            if (!$user_id) {
-                return 0;
-            }
             $res = $this->api->get_wishlist($user_id);
             if ($res && isset($res->status) && strtoupper((string) $res->status) === 'SUCCESS') {
                 if (isset($res->count)) {

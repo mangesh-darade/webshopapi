@@ -100,9 +100,24 @@ class Webshop_checkout {
         // Re-fetch cart enrichment so Order summary sees product names (get_cart_data may
         // have been empty earlier in the request lifecycle, or cart changed since construct).
         if (!empty($_SESSION['cart']) && is_array($_SESSION['cart'])) {
-            $c->data['cart_items'] = $_SESSION['cart'];
             $cdFresh = $c->webshop_model->get_cart_data();
+            $products_map = (is_array($cdFresh) && isset($cdFresh['products']) && is_array($cdFresh['products']))
+                ? $cdFresh['products']
+                : array();
+            if (function_exists('webshop_enrich_cart_session_prices')) {
+                $products_map = webshop_enrich_cart_session_prices($products_map);
+            }
+            if (function_exists('webshop_enrich_cart_session_variant_labels')) {
+                $products_map = webshop_enrich_cart_session_variant_labels($products_map);
+            }
+            $c->data['cart_items'] = $_SESSION['cart'];
             $c->data['cart_data'] = is_array($cdFresh) ? $cdFresh : array();
+            if (!empty($products_map)) {
+                $c->data['cart_data']['products'] = $products_map;
+            }
+            if (function_exists('webshop_cart_variants_map_from_products')) {
+                $c->data['cart_data']['variants'] = webshop_cart_variants_map_from_products($products_map);
+            }
         }
 
         // Resolved via auto-component fallback in resolve_webshop_view_path → components/checkout.

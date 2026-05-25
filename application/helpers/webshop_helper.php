@@ -507,6 +507,859 @@ function webshop_checkout_resolve_product_price(array $product, $cart_unit_price
 }
 
 /**
+ * Normalize variant row keys from CMS / ElintOm API (absolute eshop price fields).
+ *
+ * @param array $variant
+ * @return array
+ */
+function webshop_normalize_variant_row(array $variant) {
+    $v = is_array($variant) ? $variant : (array) $variant;
+    foreach (array(
+        'eshop_price_including_tax', 'variant_eshop_price_including_tax',
+        'eshop_price', 'variant_eshop_price',
+    ) as $k) {
+        if (isset($v[$k]) && $v[$k] !== '' && is_numeric($v[$k]) && (float) $v[$k] > 0) {
+            if (!isset($v['eshop_price']) || (float) $v['eshop_price'] <= 0) {
+                $v['eshop_price'] = (float) $v[$k];
+            }
+        }
+    }
+    foreach (array('variant_eshop_mrp', 'variant_mrp') as $k) {
+        if (isset($v[$k]) && $v[$k] !== '' && is_numeric($v[$k]) && (float) $v[$k] > 0) {
+            if (!isset($v['mrp']) || (float) $v['mrp'] <= 0) {
+                $v['mrp'] = (float) $v[$k];
+            }
+        }
+    }
+    return $v;
+}
+
+/**
+ * Decode API variant payloads (array, stdClass map, or JSON string).
+ *
+ * @param mixed $value
+ * @return array
+ */
+function webshop_coerce_to_array($value) {
+    if (is_array($value)) {
+        return $value;
+    }
+    if (is_object($value)) {
+        $decoded = json_decode(json_encode($value), true);
+        return is_array($decoded) ? $decoded : array();
+    }
+    if (is_string($value) && trim($value) !== '') {
+        $decoded = json_decode($value, true);
+        if (is_array($decoded)) {
+            return $decoded;
+        }
+    }
+    return array();
+}
+
+/**
+ * Numeric option / variant id from one variant row.
+ *
+ * @param array|object $variant
+ * @return int
+ */
+function webshop_variant_row_id($variant) {
+    $v = is_array($variant) ? $variant : (array) $variant;
+    foreach (array('id', 'option_id', 'variant_id', 'product_option_id', 'optionId') as $k) {
+        if (isset($v[$k]) && (int) $v[$k] > 0) {
+            return (int) $v[$k];
+        }
+    }
+    return 0;
+}
+
+/**
+ * Display label for a variant row (map keys such as "50Gram" count as name).
+ *
+ * @param array|object $variant
+ * @param string       $map_key Associative key from variants map when present
+ * @return string
+ */
+function webshop_variant_row_display_name($variant, $map_key = '') {
+    $v = is_array($variant) ? $variant : (array) $variant;
+    foreach (array('name', 'variant_name', 'option_name', 'title', 'label', 'value') as $k) {
+        if (!empty($v[$k]) && trim((string) $v[$k]) !== '') {
+            return trim((string) $v[$k]);
+        }
+    }
+    if (is_string($map_key) && trim($map_key) !== '' && !is_numeric($map_key)) {
+        return trim($map_key);
+    }
+    return '';
+}
+
+/**
+ * Normalized list of variant rows for PLP/cart (handles stdClass maps from ElintOm API).
+ *
+ * @param array $product
+ * @return array<int,array>
+ */
+function webshop_product_variants_from_row(array $product) {
+    foreach (array('variants', 'product_variants', 'options', 'product_options') as $vk) {
+        if (empty($product[$vk])) {
+            continue;
+        }
+        $raw = webshop_coerce_to_array($product[$vk]);
+        if ($raw === array()) {
+            continue;
+        }
+        $list = array();
+        foreach ($raw as $key => $row) {
+            if (!is_array($row) && !is_object($row)) {
+                continue;
+            }
+            $a = webshop_normalize_variant_row(is_array($row) ? $row : (array) $row);
+            $vid = webshop_variant_row_id($a);
+            if ($vid < 1 && is_numeric($key) && (int) $key > 0) {
+                $a['id'] = (int) $key;
+                $vid = (int) $key;
+            }
+            $name = webshop_variant_row_display_name($a, is_string($key) ? $key : '');
+            if ($name !== '' && (!isset($a['name']) || trim((string) $a['name']) === '')) {
+                $a['name'] = $name;
+            }
+            if ($vid < 1) {
+                continue;
+            }
+            if ($name === '') {
+                $a['name'] = 'Variant #' . $vid;
+            }
+            $list[] = $a;
+        }
+        if (!empty($list)) {
+            return $list;
+        }
+    }
+    return array();
+}
+
+/**
+ * Base product price for variant math (0 when CMS stores prices only on variants).
+ *
+ * @param array      $product
+ * @param array|null $variants
+ * @return float
+ */
+function webshop_product_effective_base_price(array $product, $variants = null) {
+    $product = is_array($product) ? $product : (array) $product;
+    if ($variants === null) {
+        $variants = webshop_product_variants_from_row($product);
+    }
+    if (empty($variants) || !is_array($variants)) {
+        return webshop_checkout_resolve_product_price($product, 0, 0);
+    }
+    if (isset($product['eshop_price']) && $product['eshop_price'] !== '' && is_numeric($product['eshop_price']) && (float) $product['eshop_price'] <= 0) {
+        return 0.0;
+    }
+    foreach ($variants as $v) {
+        $v = webshop_normalize_variant_row(is_array($v) ? $v : (array) $v);
+        if (webshop_variant_row_absolute_eshop_price($v) !== null) {
+            return 0.0;
+        }
+    }
+    return webshop_checkout_resolve_product_price($product, 0, 0);
+}
+
+/**
+ * @param array $variant
+ * @return float
+ */
+function webshop_variant_row_price_delta(array $variant) {
+    $v = webshop_normalize_variant_row(is_array($variant) ? $variant : (array) $variant);
+    foreach (array('price', 'variant_price', 'option_price') as $k) {
+        if (isset($v[$k]) && $v[$k] !== '' && is_numeric($v[$k])) {
+            return (float) $v[$k];
+        }
+    }
+    return 0.0;
+}
+
+/**
+ * Absolute variant eshop sell price when CMS stores full price on the option row.
+ *
+ * @param array $variant
+ * @return float|null
+ */
+function webshop_variant_row_absolute_eshop_price(array $variant) {
+    $v = webshop_normalize_variant_row(is_array($variant) ? $variant : (array) $variant);
+    foreach (array(
+        'eshop_price_including_tax', 'variant_eshop_price_including_tax',
+        'eshop_price', 'variant_eshop_price',
+        'unit_price', 'sale_price', 'selling_price', 'final_price',
+    ) as $k) {
+        if (isset($v[$k]) && (float) $v[$k] > 0) {
+            return (float) $v[$k];
+        }
+    }
+    return null;
+}
+
+/**
+ * @param array $variant
+ * @param array $product
+ * @return float
+ */
+function webshop_variant_row_mrp(array $variant, array $product = array()) {
+    $v = webshop_normalize_variant_row(is_array($variant) ? $variant : (array) $variant);
+    foreach (array('mrp', 'variant_mrp', 'variant_eshop_mrp') as $k) {
+        if (isset($v[$k]) && (float) $v[$k] > 0) {
+            return (float) $v[$k];
+        }
+    }
+    return isset($product['mrp']) ? (float) $product['mrp'] : 0.0;
+}
+
+/**
+ * Resolve sell price for one variant (CMS absolute eshop vs legacy base + delta).
+ *
+ * @param array       $product
+ * @param array       $variant
+ * @param object|null $Settings unused; reserved
+ * @return array{unit_price:float,promo_price:float,net_unit_price:float,variant_price:float,display_mrp:float,discount_percent:int}
+ */
+function webshop_variant_pricing_for_line(array $product, array $variant, $Settings = null) {
+    $product = is_array($product) ? $product : (array) $product;
+    $variant = webshop_normalize_variant_row(is_array($variant) ? $variant : (array) $variant);
+    $base = webshop_product_effective_base_price($product, webshop_product_variants_from_row($product));
+    $delta = webshop_variant_row_price_delta($variant);
+    $absolute = webshop_variant_row_absolute_eshop_price($variant);
+    $combined = $base + $delta;
+    $variantMrp = webshop_variant_row_mrp($variant, $product);
+
+    $useAbsolute = false;
+    if ($absolute !== null && $absolute > 0) {
+        if ($base <= 0 || abs($absolute - $combined) > 0.009) {
+            $useAbsolute = true;
+        }
+    } elseif ($base <= 0 && $delta > 0) {
+        $useAbsolute = true;
+        $absolute = $delta;
+        $delta = 0.0;
+    } elseif ($delta > 0 && $variantMrp > 0 && abs($delta - $variantMrp) < 0.01) {
+        // CMS Products Price: variant.price equals variant MRP (full eshop price, not a delta).
+        $useAbsolute = true;
+        $absolute = $delta;
+        $delta = 0.0;
+    }
+
+    if ($useAbsolute && $absolute !== null && $absolute > 0) {
+        $work = $product;
+        $work['price'] = $absolute;
+        if ($variantMrp > 0) {
+            $work['mrp'] = $variantMrp;
+        }
+        $priceData = product_sale_price($work, array(1 => 0.0));
+        $unitPrice = isset($priceData['unit_price']) ? (float) $priceData['unit_price'] : (float) $absolute;
+        $cartDelta = ($base <= 0) ? (float) $absolute : max(0.0, $unitPrice - $base);
+        $displayMrp = $variantMrp;
+        $discountPct = ($displayMrp > $unitPrice && $unitPrice > 0)
+            ? (int) round((($displayMrp - $unitPrice) / $displayMrp) * 100)
+            : 0;
+        return array(
+            'unit_price'         => $unitPrice,
+            'promo_price'        => isset($priceData['promo_price']) ? (float) $priceData['promo_price'] : 0.0,
+            'net_unit_price'     => isset($priceData['net_unit_price']) ? (float) $priceData['net_unit_price'] : $unitPrice,
+            'variant_price'      => $cartDelta,
+            'display_mrp'        => $displayMrp,
+            'discount_percent'   => $discountPct,
+        );
+    }
+
+    $work = $product;
+    $work['price'] = $base;
+    $priceData = product_sale_price($work, array(1 => $delta));
+    $unitPrice = isset($priceData['unit_price']) ? (float) $priceData['unit_price'] : $combined;
+    $baseMrp = isset($product['mrp']) ? (float) $product['mrp'] : 0.0;
+    $displayMrp = ($variantMrp > 0) ? $variantMrp : (($baseMrp > 0) ? ($baseMrp + $delta) : 0.0);
+    if ($displayMrp > 0 && $displayMrp <= $unitPrice) {
+        $displayMrp = 0.0;
+    }
+    $discountPct = ($displayMrp > $unitPrice && $unitPrice > 0)
+        ? (int) round((($displayMrp - $unitPrice) / $displayMrp) * 100)
+        : 0;
+    return array(
+        'unit_price'         => $unitPrice,
+        'promo_price'        => isset($priceData['promo_price']) ? (float) $priceData['promo_price'] : 0.0,
+        'net_unit_price'     => isset($priceData['net_unit_price']) ? (float) $priceData['net_unit_price'] : $unitPrice,
+        'variant_price'      => $delta,
+        'display_mrp'        => $displayMrp,
+        'discount_percent'   => $discountPct,
+    );
+}
+
+/**
+ * Variant price delta from a product row (base + delta = selling price).
+ *
+ * @param array $product
+ * @param int   $variant_id
+ * @return float|null null when variant not found on the row
+ */
+function webshop_variant_delta_from_product(array $product, $variant_id) {
+    $vid = (int) $variant_id;
+    if ($vid < 1) {
+        return null;
+    }
+    foreach (array('variants', 'product_variants', 'options', 'product_options') as $vk) {
+        if (empty($product[$vk]) || !is_array($product[$vk])) {
+            continue;
+        }
+        foreach ($product[$vk] as $idx => $v) {
+            $r = is_array($v) ? $v : (array) $v;
+            $id = 0;
+            foreach (array('id', 'variant_id', 'option_id', 'product_option_id') as $ok) {
+                if (!empty($r[$ok]) && is_numeric($r[$ok])) {
+                    $id = (int) $r[$ok];
+                    break;
+                }
+            }
+            if ($id < 1 && is_numeric($idx)) {
+                $id = (int) $idx;
+            }
+            if ($id !== $vid) {
+                continue;
+            }
+            if (function_exists('webshop_variant_pricing_for_line')) {
+                $priced = webshop_variant_pricing_for_line($product, $r);
+                return isset($priced['variant_price']) ? (float) $priced['variant_price'] : 0.0;
+            }
+            return webshop_variant_row_price_delta($r);
+        }
+    }
+    return null;
+}
+
+/**
+ * Authoritative unit price for a cart/checkout line (variant-aware).
+ *
+ * @param array    $product
+ * @param int      $variant_id
+ * @param float|null $fallback_delta Session/posted variant delta when catalogue row lacks variants
+ * @param float    $cart_unit_price
+ * @param float    $cart_item_price
+ * @return array{unit_price:float,variant_price:float,promo_price:float,net_unit_price:float}
+ */
+function webshop_resolve_variant_line_price(array $product, $variant_id = 0, $fallback_delta = null, $cart_unit_price = 0, $cart_item_price = 0) {
+    $vid = (int) $variant_id;
+    $out = array(
+        'unit_price'      => 0.0,
+        'variant_price'   => 0.0,
+        'promo_price'     => 0.0,
+        'net_unit_price'  => 0.0,
+    );
+    if ($vid > 0 && !empty($product)) {
+        foreach (array('variants', 'product_variants', 'options', 'product_options') as $vk) {
+            if (empty($product[$vk]) || !is_array($product[$vk])) {
+                continue;
+            }
+            foreach ($product[$vk] as $v) {
+                $r = is_array($v) ? $v : (array) $v;
+                $id = isset($r['id']) ? (int) $r['id'] : 0;
+                if ($id !== $vid) {
+                    continue;
+                }
+                $priced = webshop_variant_pricing_for_line($product, $r);
+                $out['unit_price'] = (float) $priced['unit_price'];
+                $out['net_unit_price'] = (float) $priced['net_unit_price'];
+                $out['promo_price'] = (float) $priced['promo_price'];
+                $out['variant_price'] = (float) $priced['variant_price'];
+                if ($out['unit_price'] > 0) {
+                    return $out;
+                }
+            }
+        }
+        $delta = webshop_variant_delta_from_product($product, $vid);
+        if ($delta === null && $fallback_delta !== null) {
+            $delta = (float) $fallback_delta;
+        }
+        if ($delta !== null) {
+            $base = webshop_product_effective_base_price($product);
+            $work = $product;
+            $work['price'] = $base;
+            $priceData = product_sale_price($work, array(1 => (float) $delta));
+            $unit = isset($priceData['unit_price']) ? (float) $priceData['unit_price'] : 0.0;
+            if ($unit > 0) {
+                $out['unit_price'] = $unit;
+                $out['net_unit_price'] = isset($priceData['net_unit_price']) ? (float) $priceData['net_unit_price'] : $unit;
+                $out['promo_price'] = isset($priceData['promo_price']) ? (float) $priceData['promo_price'] : 0.0;
+                $out['variant_price'] = (float) $delta;
+                return $out;
+            }
+        }
+    }
+    if (!empty($product)) {
+        $unit = webshop_checkout_resolve_product_price($product, $cart_unit_price, $cart_item_price);
+        $out['unit_price'] = $unit;
+        $out['net_unit_price'] = $unit;
+        return $out;
+    }
+    if ((float) $cart_unit_price > 0) {
+        $out['unit_price'] = (float) $cart_unit_price;
+        $out['net_unit_price'] = (float) $cart_unit_price;
+    } elseif ((float) $cart_item_price > 0) {
+        $out['unit_price'] = (float) $cart_item_price;
+        $out['net_unit_price'] = (float) $cart_item_price;
+    }
+    return $out;
+}
+
+/**
+ * Refresh session cart line prices from catalogue (keeps variant deltas correct).
+ *
+ * @param array|null $products_map product_id => row from get_cart_data()
+ * @return array|null Updated products map
+ */
+function webshop_enrich_cart_session_prices($products_map = null) {
+    if (!isset($_SESSION['cart']) || !is_array($_SESSION['cart']) || $_SESSION['cart'] === array()) {
+        return is_array($products_map) ? $products_map : array();
+    }
+    $products_map = is_array($products_map) ? $products_map : array();
+    $CI = function_exists('get_instance') ? get_instance() : null;
+    $can_resolve = ($CI && isset($CI->webshop_model) && is_object($CI->webshop_model)
+        && method_exists($CI->webshop_model, 'resolve_product_row_by_id'));
+
+    foreach ($_SESSION['cart'] as $key => $line) {
+        if (!is_array($line)) {
+            continue;
+        }
+        $pid = isset($line['product_id']) ? (int) $line['product_id'] : 0;
+        if ($pid < 1) {
+            continue;
+        }
+        $vid = isset($line['variant_id']) ? (int) $line['variant_id'] : 0;
+        $product = (isset($products_map[$pid]) && is_array($products_map[$pid])) ? $products_map[$pid] : array();
+
+        if ($vid > 0) {
+            $has_variants = false;
+            foreach (array('variants', 'product_variants', 'options', 'product_options') as $vk) {
+                if (!empty($product[$vk]) && is_array($product[$vk])) {
+                    $has_variants = true;
+                    break;
+                }
+            }
+            if (!$has_variants && $can_resolve) {
+                $full = $CI->webshop_model->resolve_product_row_by_id($pid);
+                if (is_array($full) && !empty($full)) {
+                    $product = array_merge($product, $full);
+                    $products_map[$pid] = isset($products_map[$pid]) && is_array($products_map[$pid])
+                        ? array_merge($products_map[$pid], $full)
+                        : $full;
+                }
+            }
+        }
+
+        $fallback_delta = array_key_exists('variant_price', $line) ? (float) $line['variant_price'] : null;
+        $cart_unit = isset($line['product_price']) ? (float) $line['product_price'] : 0.0;
+        $cart_price = isset($line['price']) ? (float) $line['price'] : 0.0;
+        $resolved = webshop_resolve_variant_line_price($product, $vid, $fallback_delta, $cart_unit, $cart_price);
+
+        if ($resolved['unit_price'] > 0) {
+            $_SESSION['cart'][$key]['product_price'] = $resolved['unit_price'];
+            $_SESSION['cart'][$key]['price'] = $resolved['unit_price'];
+            if ($vid > 0) {
+                $_SESSION['cart'][$key]['variant_price'] = $resolved['variant_price'];
+            }
+            if ($resolved['promo_price'] > 0) {
+                $_SESSION['cart'][$key]['promotion_price'] = $resolved['promo_price'];
+            }
+        }
+    }
+
+    return $products_map;
+}
+
+/**
+ * Wishlist rows from API → product_id => list of option/variant ids.
+ *
+ * @param mixed $wishlist_rows array or list of objects from get_wishlist()
+ * @return array<int,int[]>
+ */
+function webshop_build_wishlist_lookup($wishlist_rows) {
+    $norm = webshop_wishlist_normalize_rows($wishlist_rows);
+    return $norm['lookup'];
+}
+
+/**
+ * One wishlist row per product_id (API may return duplicates).
+ *
+ * @param mixed $wishlist_rows
+ * @return array{lines:array<int,array{product_id:int,option_id:int}>,lookup:array<int,int[]>,count:int,duplicates:array<int,array{product_id:int,option_id:int}>}
+ */
+function webshop_wishlist_normalize_rows($wishlist_rows) {
+    $lines = array();
+    $lookup = array();
+    $duplicates = array();
+    if (!is_array($wishlist_rows)) {
+        return array(
+            'lines'        => $lines,
+            'lookup'       => $lookup,
+            'count'        => 0,
+            'duplicates'   => $duplicates,
+        );
+    }
+    $seen_pid = array();
+    foreach ($wishlist_rows as $row) {
+        $a = is_object($row) ? (array) $row : (is_array($row) ? $row : array());
+        $pid = isset($a['product_id']) ? (int) $a['product_id'] : 0;
+        if ($pid < 1 && isset($a['id'])) {
+            $pid = (int) $a['id'];
+        }
+        if ($pid < 1) {
+            continue;
+        }
+        $oid = isset($a['option_id']) ? (int) $a['option_id'] : 0;
+        if (isset($seen_pid[$pid])) {
+            $duplicates[] = array(
+                'product_id' => $pid,
+                'option_id'  => $oid,
+            );
+            continue;
+        }
+        $seen_pid[$pid] = true;
+        $lines[] = array(
+            'product_id' => $pid,
+            'option_id'  => $oid,
+        );
+        $lookup[$pid] = array($oid);
+    }
+    return array(
+        'lines'        => $lines,
+        'lookup'       => $lookup,
+        'count'        => count($lines),
+        'duplicates'   => $duplicates,
+    );
+}
+
+/**
+ * Whether product_id is already in the normalized wishlist lookup.
+ *
+ * @param array<int,int[]> $lookup
+ * @param int              $product_id
+ * @param int              $variant_id unused; product-level match for UI hearts
+ * @return bool
+ */
+function webshop_wishlist_product_is_saved(array $lookup, $product_id, $variant_id = 0) {
+    $pid = (int) $product_id;
+    return $pid > 0 && isset($lookup[$pid]) && is_array($lookup[$pid]) && count($lookup[$pid]) > 0;
+}
+
+/**
+ * Whether a product (and optional variant) is in the user's wishlist lookup.
+ *
+ * @param array<int,int[]> $lookup from webshop_build_wishlist_lookup()
+ * @param int              $product_id
+ * @param int              $variant_id 0 = any saved row for this product
+ * @return bool
+ */
+function webshop_product_in_wishlist_lookup(array $lookup, $product_id, $variant_id = 0) {
+    return webshop_wishlist_product_is_saved($lookup, $product_id, $variant_id);
+}
+
+/**
+ * Numeric product id from a list/card API row.
+ *
+ * @param array|object $row
+ * @return int
+ */
+function webshop_product_list_item_id($row) {
+    $row = is_array($row) ? $row : (array) $row;
+    foreach (array('id', 'product_id', 'item_id') as $key) {
+        if (isset($row[$key]) && (int) $row[$key] > 0) {
+            return (int) $row[$key];
+        }
+    }
+    return 0;
+}
+
+/**
+ * Whether the current storefront visitor has a valid customer session.
+ *
+ * @return bool
+ */
+function webshop_is_customer_logged_in() {
+    $CI =& get_instance();
+    if (!empty($CI->data['webshop_is_logged_in'])) {
+        return true;
+    }
+    $ws = $CI->session->userdata('webshop');
+    if (!$ws) {
+        return false;
+    }
+    $uid = is_object($ws)
+        ? (int) (isset($ws->user_id) ? $ws->user_id : 0)
+        : (int) (isset($ws['user_id']) ? $ws['user_id'] : 0);
+    if ($uid < 1) {
+        return false;
+    }
+    if (is_object($ws)) {
+        return !isset($ws->is_login) || !empty($ws->is_login);
+    }
+    return !isset($ws['is_login']) || !empty($ws['is_login']);
+}
+
+/**
+ * Wishlist lookup map for PLP/PDP views (controller data or explicit override).
+ *
+ * @param array|null $from_view Optional array passed from load->view()
+ * @return array<int,int[]>
+ */
+function webshop_view_wishlist_lookup($from_view = null) {
+    if (is_array($from_view)) {
+        return $from_view;
+    }
+    $CI =& get_instance();
+    if (isset($CI->data['wishlist_lookup']) && is_array($CI->data['wishlist_lookup'])) {
+        return $CI->data['wishlist_lookup'];
+    }
+    return array();
+}
+
+/**
+ * Pricing + labels for one wishlist row (saved option_id + product catalogue row).
+ *
+ * @param array|object $product
+ * @param int          $saved_variant_id option_id from wishlist API
+ * @param object|null  $Settings
+ * @return array{price:float,mrp:float,discount_percent:int,variant_id:int,variant_price:float,variant_unit_quantity:float,variant_name:string,price_from:bool}
+ */
+function webshop_wishlist_item_display($product, $saved_variant_id = 0, $Settings = null) {
+    $product = is_array($product) ? $product : (array) $product;
+    $vid = (int) $saved_variant_id;
+    $out = array(
+        'price'                 => 0.0,
+        'mrp'                   => 0.0,
+        'discount_percent'      => 0,
+        'variant_id'            => $vid,
+        'variant_price'         => 0.0,
+        'variant_unit_quantity' => 1.0,
+        'variant_name'          => '',
+        'price_from'            => false,
+        'price_min'             => 0.0,
+        'price_max'             => 0.0,
+    );
+
+    if ($vid > 0) {
+        foreach (webshop_product_variants_from_row($product) as $v) {
+            if (webshop_variant_row_id($v) !== $vid) {
+                continue;
+            }
+            $priced = webshop_variant_pricing_for_line($product, $v, $Settings);
+            $out['price'] = (float) $priced['unit_price'];
+            $out['mrp'] = (float) $priced['display_mrp'];
+            $out['variant_price'] = (float) $priced['variant_price'];
+            $out['variant_unit_quantity'] = isset($v['unit_quantity']) ? (float) $v['unit_quantity'] : 1.0;
+            if ($out['variant_unit_quantity'] < 1) {
+                $out['variant_unit_quantity'] = 1.0;
+            }
+            $out['variant_name'] = webshop_variant_row_display_name($v);
+            $out['discount_percent'] = (int) $priced['discount_percent'];
+            if ($out['price'] > 0) {
+                return $out;
+            }
+        }
+    }
+
+    if (function_exists('webshop_product_list_card_pricing')) {
+        $card = webshop_product_list_card_pricing($product, $Settings);
+        $out['price'] = (float) $card['price'];
+        $out['mrp'] = (float) $card['mrp'];
+        $out['discount_percent'] = (int) $card['discount_percent'];
+        $out['price_from'] = !empty($card['price_from']);
+        if (!empty($card['has_variants'])) {
+            if ($vid < 1) {
+                $out['variant_id'] = (int) $card['variant_id'];
+            }
+            $out['variant_price'] = (float) $card['variant_price'];
+            $out['variant_unit_quantity'] = (float) $card['variant_unit_quantity'];
+            if ($out['variant_name'] === '') {
+                $out['variant_name'] = (string) $card['variant_name'];
+            }
+            $out['price_min'] = isset($card['price_min']) ? (float) $card['price_min'] : $out['price'];
+            $out['price_max'] = isset($card['price_max']) ? (float) $card['price_max'] : $out['price'];
+        }
+    } else {
+        $out['price'] = isset($product['price']) ? (float) $product['price'] : 0.0;
+        $out['mrp'] = isset($product['mrp']) ? (float) $product['mrp'] : 0.0;
+    }
+
+    if ($out['price'] <= 0) {
+        $variants = webshop_product_variants_from_row($product);
+        if (!empty($variants) && function_exists('webshop_product_detail_variants_ui')) {
+            $ui = webshop_product_detail_variants_ui($product, $variants, $Settings);
+            if (!empty($ui['has_variants']) && !empty($ui['default'])) {
+                $d = $ui['default'];
+                $out['price'] = (float) $d['unit_price'];
+                $out['variant_id'] = (int) $d['id'];
+                $out['variant_price'] = (float) $d['variant_price'];
+                $out['variant_unit_quantity'] = (float) $d['unit_quantity'];
+                $out['variant_name'] = (string) $d['name'];
+                $out['discount_percent'] = (int) $d['discount_percent'];
+                if (!empty($d['display_mrp']) && (float) $d['display_mrp'] > 0) {
+                    $out['mrp'] = (float) $d['display_mrp'];
+                }
+                if (!empty($ui['items']) && count($ui['items']) > 1) {
+                    $prices = array();
+                    foreach ($ui['items'] as $row) {
+                        $prices[] = (float) $row['unit_price'];
+                    }
+                    $out['price_min'] = min($prices);
+                    $out['price_max'] = max($prices);
+                    if ($out['price_max'] > $out['price_min']) {
+                        $out['price_from'] = true;
+                    }
+                }
+            }
+        }
+    }
+
+    return $out;
+}
+
+/**
+ * Build variant_id => { id, name, product_id } from cart catalogue rows.
+ *
+ * @param array<int,array> $products_map
+ * @return array<int,array{id:int,name:string,product_id:int}>
+ */
+function webshop_cart_variants_map_from_products(array $products_map) {
+    $map = array();
+    foreach ($products_map as $pid => $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $pid = (int) $pid;
+        foreach (webshop_product_variants_from_row($row) as $v) {
+            $r = webshop_normalize_variant_row(is_array($v) ? $v : (array) $v);
+            $vid = isset($r['id']) ? (int) $r['id'] : 0;
+            if ($vid > 0 && !empty($r['name'])) {
+                $map[$vid] = array(
+                    'id'         => $vid,
+                    'name'       => trim((string) $r['name']),
+                    'product_id' => $pid,
+                );
+            }
+        }
+    }
+    return $map;
+}
+
+/**
+ * Human-readable variant label for one cart line.
+ *
+ * @param array      $item
+ * @param array      $product
+ * @param array<int,array> $variants_map optional from webshop_cart_variants_map_from_products()
+ * @return string
+ */
+function webshop_cart_line_variant_label(array $item, array $product = array(), array $variants_map = array()) {
+    $vid = isset($item['variant_id']) ? (int) $item['variant_id'] : 0;
+    if ($vid < 1) {
+        return '';
+    }
+    if (!empty($item['variant_name'])) {
+        $n = trim((string) $item['variant_name']);
+        if ($n !== '') {
+            return $n;
+        }
+    }
+    if (isset($variants_map[$vid]['name'])) {
+        $n = trim((string) $variants_map[$vid]['name']);
+        if ($n !== '') {
+            return $n;
+        }
+    }
+    $product = is_array($product) ? $product : array();
+    foreach (webshop_product_variants_from_row($product) as $v) {
+        $r = webshop_normalize_variant_row(is_array($v) ? $v : (array) $v);
+        if ((isset($r['id']) ? (int) $r['id'] : 0) === $vid && !empty($r['name'])) {
+            return trim((string) $r['name']);
+        }
+    }
+    $pid = isset($item['product_id']) ? (int) $item['product_id'] : 0;
+    if ($pid < 1 && !empty($product['id'])) {
+        $pid = (int) $product['id'];
+    }
+    if ($pid > 0) {
+        $CI = function_exists('get_instance') ? get_instance() : null;
+        if ($CI && isset($CI->webshop_model) && is_object($CI->webshop_model)
+            && method_exists($CI->webshop_model, 'resolve_product_row_by_id')) {
+            $full = $CI->webshop_model->resolve_product_row_by_id($pid);
+            if (is_array($full)) {
+                foreach (webshop_product_variants_from_row($full) as $v) {
+                    $r = webshop_normalize_variant_row(is_array($v) ? $v : (array) $v);
+                    if ((isset($r['id']) ? (int) $r['id'] : 0) === $vid && !empty($r['name'])) {
+                        return trim((string) $r['name']);
+                    }
+                }
+            }
+        }
+    }
+    return '';
+}
+
+/**
+ * Resolve variant names for session cart lines; merge variant rows into products map.
+ *
+ * @param array<int,array> $products_map
+ * @return array<int,array>
+ */
+function webshop_enrich_cart_session_variant_labels(array $products_map = array()) {
+    if (!isset($_SESSION['cart']) || !is_array($_SESSION['cart']) || $_SESSION['cart'] === array()) {
+        return is_array($products_map) ? $products_map : array();
+    }
+    $products_map = is_array($products_map) ? $products_map : array();
+    $CI = function_exists('get_instance') ? get_instance() : null;
+    $can_resolve = ($CI && isset($CI->webshop_model) && is_object($CI->webshop_model)
+        && method_exists($CI->webshop_model, 'resolve_product_row_by_id'));
+
+    $resolve_pids = array();
+    foreach ($_SESSION['cart'] as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $vid = isset($item['variant_id']) ? (int) $item['variant_id'] : 0;
+        if ($vid < 1) {
+            continue;
+        }
+        $pid = isset($item['product_id']) ? (int) $item['product_id'] : 0;
+        if ($pid < 1) {
+            continue;
+        }
+        $p = isset($products_map[$pid]) && is_array($products_map[$pid]) ? $products_map[$pid] : array();
+        if (webshop_cart_line_variant_label($item, $p, array()) === '' && $can_resolve) {
+            $resolve_pids[$pid] = $pid;
+        }
+    }
+    foreach ($resolve_pids as $pid) {
+        $full = $CI->webshop_model->resolve_product_row_by_id($pid);
+        if (is_array($full) && !empty($full)) {
+            $products_map[$pid] = isset($products_map[$pid]) && is_array($products_map[$pid])
+                ? array_merge($products_map[$pid], $full)
+                : $full;
+        }
+    }
+
+    $variants_map = webshop_cart_variants_map_from_products($products_map);
+    foreach ($_SESSION['cart'] as $key => $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $pid = isset($item['product_id']) ? (int) $item['product_id'] : 0;
+        $p = ($pid > 0 && isset($products_map[$pid]) && is_array($products_map[$pid])) ? $products_map[$pid] : array();
+        $label = webshop_cart_line_variant_label($item, $p, $variants_map);
+        if ($label !== '') {
+            $_SESSION['cart'][$key]['variant_name'] = $label;
+        }
+    }
+
+    return $products_map;
+}
+
+/**
  * Normalize CMS page tag rows (page_tag_mapping) for Webshop_meta_engine.
  *
  * @param mixed $rows
@@ -919,6 +1772,151 @@ function webshop_product_display_sellable_qty($product, $variants = null) {
 }
 
 /**
+ * Normalize product variants for product-detail UI (prices, stock, first selected).
+ *
+ * @param array       $product
+ * @param array       $variants Rows from get_product_by_hash variants[]
+ * @param object|null $Settings
+ * @return array{has_variants:bool,items:array,default:array|null}
+ */
+function webshop_product_detail_variants_ui($product, $variants, $Settings = null) {
+    $product = is_array($product) ? $product : (array) $product;
+    $variants = is_array($variants) ? $variants : array();
+    $items = array();
+
+    foreach ($variants as $idx => $v) {
+        $v = webshop_normalize_variant_row(is_array($v) ? $v : (array) $v);
+        $vid = webshop_variant_row_id($v);
+        $name = webshop_variant_row_display_name($v, is_string($idx) && !is_numeric($idx) ? $idx : '');
+        if ($vid < 1) {
+            continue;
+        }
+        if ($name === '') {
+            $name = 'Variant #' . $vid;
+        }
+        $unitQty = isset($v['unit_quantity']) ? (float) $v['unit_quantity'] : 1.0;
+        if ($unitQty < 1) {
+            $unitQty = 1.0;
+        }
+        $rowQty = webshop_row_numeric_stock($v);
+        $qty = $rowQty !== null ? max(0.0, (float) $rowQty) : 0.0;
+
+        $priced = webshop_variant_pricing_for_line($product, $v, $Settings);
+        $unitPrice = (float) $priced['unit_price'];
+        $promoUnit = (float) $priced['promo_price'];
+        $displayMrp = (float) $priced['display_mrp'];
+        $discountPct = (int) $priced['discount_percent'];
+
+        $items[] = array(
+            'id'               => $vid,
+            'name'             => $name,
+            'variant_price'    => (float) $priced['variant_price'],
+            'unit_quantity'    => $unitQty,
+            'quantity'         => $qty,
+            'unit_price'       => $unitPrice,
+            'promo_price'      => $promoUnit,
+            'formatted_price'  => webshop_price_display($unitPrice, $Settings),
+            'formatted_mrp'    => $displayMrp > 0 ? webshop_price_display($displayMrp, $Settings) : '',
+            'display_mrp'      => $displayMrp,
+            'discount_percent' => $discountPct,
+            'in_stock'         => $qty > 0,
+        );
+    }
+
+    if (empty($items)) {
+        return array('has_variants' => false, 'items' => array(), 'default' => null);
+    }
+
+    return array(
+        'has_variants' => true,
+        'items'        => $items,
+        'default'      => $items[0],
+    );
+}
+
+/**
+ * PLP/card pricing: use first variant when product has options (same as PDP default).
+ *
+ * @param array       $product
+ * @param object|null $Settings
+ * @return array{price:float,mrp:float,discount_percent:int,has_variants:bool,variant_id:int,variant_price:float,variant_unit_quantity:float,variant_name:string,price_from:bool,price_min:float,price_max:float}
+ */
+function webshop_product_list_card_pricing(array $product, $Settings = null) {
+    $product = is_array($product) ? $product : (array) $product;
+    $variants = webshop_product_variants_from_row($product);
+    $out = array(
+        'price'                 => 0.0,
+        'mrp'                   => isset($product['mrp']) ? (float) $product['mrp'] : 0.0,
+        'discount_percent'      => 0,
+        'has_variants'          => false,
+        'variant_id'            => 0,
+        'variant_price'         => 0.0,
+        'variant_unit_quantity' => 1.0,
+        'variant_name'          => '',
+        'price_from'            => false,
+        'price_min'             => 0.0,
+        'price_max'             => 0.0,
+    );
+    if (!empty($variants)) {
+        $ui = webshop_product_detail_variants_ui($product, $variants, $Settings);
+        if (!empty($ui['has_variants']) && !empty($ui['default'])) {
+            $d = $ui['default'];
+            $out['has_variants'] = true;
+            $out['price'] = (float) $d['unit_price'];
+            $out['variant_id'] = (int) $d['id'];
+            $out['variant_price'] = (float) $d['variant_price'];
+            $out['variant_unit_quantity'] = (float) $d['unit_quantity'];
+            $out['variant_name'] = (string) $d['name'];
+            $out['discount_percent'] = (int) $d['discount_percent'];
+            if (!empty($d['display_mrp']) && (float) $d['display_mrp'] > 0) {
+                $out['mrp'] = (float) $d['display_mrp'];
+            }
+            if (!empty($ui['items']) && count($ui['items']) > 1) {
+                $prices = array();
+                foreach ($ui['items'] as $row) {
+                    $prices[] = (float) $row['unit_price'];
+                }
+                $out['price_min'] = min($prices);
+                $out['price_max'] = max($prices);
+                if ($out['price_max'] > $out['price_min']) {
+                    $out['price_from'] = true;
+                }
+            }
+            return $out;
+        }
+        foreach ($variants as $idx => $v) {
+            $priced = webshop_variant_pricing_for_line($product, $v, $Settings);
+            $unit = (float) $priced['unit_price'];
+            if ($unit <= 0) {
+                continue;
+            }
+            $v = webshop_normalize_variant_row(is_array($v) ? $v : (array) $v);
+            $out['has_variants'] = true;
+            $out['price'] = $unit;
+            $out['variant_id'] = webshop_variant_row_id($v);
+            $out['variant_price'] = (float) $priced['variant_price'];
+            $out['variant_unit_quantity'] = isset($v['unit_quantity']) ? (float) $v['unit_quantity'] : 1.0;
+            if ($out['variant_unit_quantity'] < 1) {
+                $out['variant_unit_quantity'] = 1.0;
+            }
+            $out['variant_name'] = webshop_variant_row_display_name($v, is_string($idx) && !is_numeric($idx) ? $idx : '');
+            $out['discount_percent'] = (int) $priced['discount_percent'];
+            if (!empty($priced['display_mrp']) && (float) $priced['display_mrp'] > 0) {
+                $out['mrp'] = (float) $priced['display_mrp'];
+            }
+            return $out;
+        }
+    }
+    $out['price'] = webshop_checkout_resolve_product_price($product, 0, 0);
+    $mrp = isset($product['mrp']) ? (float) $product['mrp'] : 0.0;
+    $out['mrp'] = $mrp;
+    if ($mrp > $out['price'] && $out['price'] > 0) {
+        $out['discount_percent'] = (int) round((($mrp - $out['price']) / $mrp) * 100);
+    }
+    return $out;
+}
+
+/**
  * Stock state for product listing cards (category PLP, CMS product grid).
  * When the API omits stock fields, treats the item as in stock (legacy list behaviour).
  *
@@ -927,13 +1925,9 @@ function webshop_product_display_sellable_qty($product, $variants = null) {
  */
 function webshop_product_list_stock_state($row) {
     $row = is_array($row) ? $row : (array) $row;
-    $variants = array();
-    foreach (array('variants', 'product_variants', 'options', 'product_options') as $vk) {
-        if (!empty($row[$vk]) && is_array($row[$vk])) {
-            $variants = $row[$vk];
-            break;
-        }
-    }
+    $variants = function_exists('webshop_product_variants_from_row')
+        ? webshop_product_variants_from_row($row)
+        : array();
     $parent = webshop_row_numeric_stock($row);
     $hasVariantStock = false;
     if (!empty($variants)) {

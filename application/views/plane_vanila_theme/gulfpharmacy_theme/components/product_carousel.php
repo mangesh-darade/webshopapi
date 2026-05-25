@@ -17,8 +17,12 @@ if ($appBasePath === '/' || $appBasePath === '\\' || $appBasePath === '.') {
 }
 if (empty($items)) return;
 $pc_assets = isset($assets) ? $assets : base_url('assets/webshop/');
+$_pc_wl_lookup = function_exists('webshop_view_wishlist_lookup')
+    ? webshop_view_wishlist_lookup(isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : null)
+    : (isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : array());
 ?>
-<link rel="stylesheet" href="<?= $pc_assets ?>gulfpharmacy_theme/css/product-carousel.css">
+<link rel="stylesheet" href="<?= $pc_assets ?>gulfpharmacy_theme/css/product-carousel.css?ver=20260526a">
+<link rel="stylesheet" href="<?= $pc_assets ?>gulfpharmacy_theme/css/wishlist-fav.css?ver=20260526a">
 <section class="gp-component dynamic-product-carousel">
     <?php if ($title !== ''): ?>
     <h2 class="cms-pc-title"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h2>
@@ -32,10 +36,19 @@ $pc_assets = isset($assets) ? $assets : base_url('assets/webshop/');
                 $p     = is_object($p) ? (array)$p : (is_array($p) ? $p : array());
                 $img   = webshop_product_image_src($uploadsB, isset($thumbs) ? $thumbs : '', $p);
                 $name  = isset($p['name']) ? (string) $p['name'] : '';
-                $promo = isset($p['promo_price']) ? (float)$p['promo_price'] : 0;
-                $base  = isset($p['price'])       ? (float)$p['price']       : 0;
-                $price = ($promo > 0) ? $promo : $base;
-                $orig  = ($promo > 0 && $base > $promo) ? $base : 0;
+                $_pcSettings = isset($Settings) ? $Settings : null;
+                if (function_exists('webshop_product_list_card_pricing')) {
+                    $_pcCard = webshop_product_list_card_pricing($p, $_pcSettings);
+                    $price = (float) $_pcCard['price'];
+                    $orig = (!empty($_pcCard['mrp']) && (float) $_pcCard['mrp'] > $price) ? (float) $_pcCard['mrp'] : 0;
+                    $_pcVid = !empty($_pcCard['has_variants']) ? (int) $_pcCard['variant_id'] : 0;
+                } else {
+                    $_pcVid = 0;
+                    $promo = isset($p['promo_price']) ? (float)$p['promo_price'] : 0;
+                    $base  = isset($p['price'])       ? (float)$p['price']       : 0;
+                    $price = ($promo > 0) ? $promo : $base;
+                    $orig  = ($promo > 0 && $base > $promo) ? $base : 0;
+                }
                 $hash  = '';
                 foreach (array('hash_id', 'proudctIdHash', 'product_hash', 'id_hash', 'hash') as $hk) {
                     if (isset($p[$hk]) && trim((string) $p[$hk]) !== '') {
@@ -46,7 +59,7 @@ $pc_assets = isset($assets) ? $assets : base_url('assets/webshop/');
                 if ($hash === '') {
                     $hash = md5((string)(isset($p['id']) ? $p['id'] : ''));
                 }
-                $pId = isset($p['id']) ? (int) $p['id'] : 0;
+                $pId = function_exists('webshop_product_list_item_id') ? webshop_product_list_item_id($p) : (isset($p['id']) ? (int) $p['id'] : 0);
                 $pcPurchase = function_exists('webshop_product_list_purchase_state')
                     ? webshop_product_list_purchase_state($p, true)
                     : array('can_purchase' => true, 'label' => '', 'unavailable' => false);
@@ -60,7 +73,8 @@ $pc_assets = isset($assets) ? $assets : base_url('assets/webshop/');
             ?>
             <div class="gp-carousel-item">
                 <article class="gp-pc-card<?= $pcUnavailable ? ' gp-pc-card--unavailable' : '' ?>">
-                    <a href="<?= $url ?>" class="gp-pc-img-wrap" data-product-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>">
+                    <div class="gp-pc-img-wrap">
+                        <a href="<?= $url ?>" class="gp-pc-img-link" data-product-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>">
                         <?php if ($img !== ''): ?>
                         <img src="<?= htmlspecialchars($img, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>" loading="lazy" class="gp-pc-img">
                         <?php else: ?>
@@ -68,7 +82,13 @@ $pc_assets = isset($assets) ? $assets : base_url('assets/webshop/');
                              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
                         </div>
                         <?php endif; ?>
-                    </a>
+                        </a>
+                        <?php $CI =& get_instance(); $CI->load->view('plane_vanila_theme/gulfpharmacy_theme/components/wishlist_card_button', array(
+                            'product_id'      => $pId,
+                            'variant_id'      => isset($_pcVid) ? $_pcVid : 0,
+                            'wishlist_lookup' => $_pc_wl_lookup,
+                        )); ?>
+                    </div>
                     <div class="gp-pc-info">
                         <a href="<?= $url ?>" class="gp-product-name" data-product-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?></a>
                         <div class="gp-pc-pricing">

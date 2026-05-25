@@ -16,16 +16,20 @@ $webshop_url = base_url('webshop');
 
 // Pull user session for profile dropdown + sidebar greeting without leaking session details client-side.
 $ws_sess = $this->session->userdata('webshop');
-$is_login = false;
+$is_login = function_exists('webshop_is_customer_logged_in') ? webshop_is_customer_logged_in() : false;
 $user_name = '';
 $user_email = '';
 if ($ws_sess) {
     if (is_object($ws_sess)) {
-        $is_login   = !empty($ws_sess->is_login);
+        if (!$is_login) {
+            $is_login = !empty($ws_sess->is_login) && !empty($ws_sess->user_id);
+        }
         $user_name  = isset($ws_sess->name)  ? (string) $ws_sess->name  : '';
         $user_email = isset($ws_sess->email) ? (string) $ws_sess->email : '';
     } else {
-        $is_login   = !empty($ws_sess['is_login']);
+        if (!$is_login) {
+            $is_login = !empty($ws_sess['is_login']) && !empty($ws_sess['user_id']);
+        }
         $user_name  = isset($ws_sess['name'])  ? (string) $ws_sess['name']  : '';
         $user_email = isset($ws_sess['email']) ? (string) $ws_sess['email'] : '';
     }
@@ -37,7 +41,7 @@ $_gp_header_slots = function_exists('webshop_header_gather_display_slots')
     ? webshop_header_gather_display_slots()
     : array('announcement' => array(), 'top_html' => array(), 'phone' => array());
 ?>
-<link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css">
+<link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css?ver=20260525g">
 <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header-drawers.css">
 <header class="gp-header" id="gp-header">
     <?php if (!empty($_gp_header_slots['announcement'])) : ?>

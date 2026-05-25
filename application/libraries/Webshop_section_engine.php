@@ -273,6 +273,9 @@ class Webshop_section_engine
             'Customer_assets',
             'plane_vanila_theme_folder',
             'plane_vanila_view_prefix',
+            'wishlist_lookup',
+            'webshop_is_logged_in',
+            'wishlist_count',
         );
         foreach ($keys as $key) {
             if ((!isset($sectionData[$key]) || $sectionData[$key] === '' || $sectionData[$key] === null)
@@ -355,6 +358,10 @@ class Webshop_section_engine
             && method_exists($this->CI->webshop_model, 'enrich_product_list_items_with_stock')) {
             $catId = (isset($cfg['category_id']) && is_numeric($cfg['category_id'])) ? (int) $cfg['category_id'] : 0;
             $items = $this->CI->webshop_model->enrich_product_list_items_with_stock($items, $catId);
+        }
+        if (!empty($items) && isset($this->CI->webshop_model)
+            && method_exists($this->CI->webshop_model, 'enrich_product_list_items_with_variants')) {
+            $items = $this->CI->webshop_model->enrich_product_list_items_with_variants($items);
         }
         return array(
             'title' => isset($cfg['title']) && trim((string) $cfg['title']) !== '' ? (string) $cfg['title'] : '',

@@ -8716,7 +8716,7 @@ $(document).ready(function () {
     ),
       document.querySelector("head").appendChild(e);
   }
-  (offset_main = $("body > div:first-of-type").offset()),
+  (offset_main = ($(".gp-site-wrapper").first().length ? $(".gp-site-wrapper").first() : $("body > div").first()).offset() || { top: 0, left: 0 }),
     doneResizing(),
     scroll_if_anchor(window.location.hash),
     $("body").on("click", 'a[href*="#"]:not([href="#"])', scroll_if_anchor);
@@ -8867,7 +8867,7 @@ $(document).ready(function () {
         })));
 }),
   $(document).scroll(function (e) {
-    $(document).scrollTop() > offset_main.top
+    offset_main && typeof offset_main.top === "number" && $(document).scrollTop() > offset_main.top
       ? $("body").hasClass("scrolly") ||
         ($("body").addClass("scrolly").css("top", offset_main.top),
         $("header").animate({ top: "0px" }, 300))

@@ -53,12 +53,29 @@ class Webshop_action_engine
         // and payment screens stay consistent.
         $api_product = $this->resolve_product_pricing($product_id, $variant_id);
         if (is_array($api_product) && !empty($api_product)) {
-            $api_price = function_exists('webshop_checkout_resolve_product_price')
-                ? (float) webshop_checkout_resolve_product_price($api_product, $product_unit_price, $price)
-                : (isset($api_product['price']) ? (float) $api_product['price'] : 0.0);
+            $resolved_line = function_exists('webshop_resolve_variant_line_price')
+                ? webshop_resolve_variant_line_price(
+                    $api_product,
+                    $variant_id,
+                    $variant_id > 0 ? $variant_price : null,
+                    $product_unit_price,
+                    $price
+                )
+                : array('unit_price' => 0.0, 'variant_price' => 0.0, 'promo_price' => 0.0);
+            $api_price = isset($resolved_line['unit_price']) ? (float) $resolved_line['unit_price'] : 0.0;
+            if ($api_price <= 0) {
+                $api_price = function_exists('webshop_checkout_resolve_product_price')
+                    ? (float) webshop_checkout_resolve_product_price($api_product, $product_unit_price, $price)
+                    : (isset($api_product['price']) ? (float) $api_product['price'] : 0.0);
+            }
+            if ($variant_id > 0 && isset($resolved_line['variant_price'])) {
+                $variant_price = (float) $resolved_line['variant_price'];
+            }
             $api_tax_rate = isset($api_product['tax_rate']) ? (float) $api_product['tax_rate'] : 0.0;
             $api_tax_method = isset($api_product['tax_method']) ? (int) $api_product['tax_method'] : 0;
-            $api_promo = isset($api_product['promo_price']) ? (float) $api_product['promo_price'] : 0.0;
+            $api_promo = isset($resolved_line['promo_price']) && (float) $resolved_line['promo_price'] > 0
+                ? (float) $resolved_line['promo_price']
+                : (isset($api_product['promo_price']) ? (float) $api_product['promo_price'] : 0.0);
 
             if ($api_price > 0) {
                 $price = $api_price;
@@ -129,8 +146,17 @@ class Webshop_action_engine
             if ($product_name !== '') {
                 $_SESSION['cart'][$item_key]['product_name'] = $product_name;
             }
+            if ($variant_id > 0 && function_exists('webshop_cart_line_variant_label')) {
+                $vlabel = webshop_cart_line_variant_label(
+                    $_SESSION['cart'][$item_key],
+                    is_array($api_product) ? $api_product : array()
+                );
+                if ($vlabel !== '') {
+                    $_SESSION['cart'][$item_key]['variant_name'] = $vlabel;
+                }
+            }
         } else {
-            $_SESSION['cart'][$item_key] = array(
+            $line = array(
                 'product_id' => $product_id,
                 'variant_id' => $variant_id,
                 'variant_price' => $variant_price,
@@ -143,6 +169,13 @@ class Webshop_action_engine
                 'promotion_price' => $promotion_price,
                 'product_name' => $product_name,
             );
+            if ($variant_id > 0 && function_exists('webshop_cart_line_variant_label')) {
+                $vlabel = webshop_cart_line_variant_label($line, is_array($api_product) ? $api_product : array());
+                if ($vlabel !== '') {
+                    $line['variant_name'] = $vlabel;
+                }
+            }
+            $_SESSION['cart'][$item_key] = $line;
         }
 
         $totals = $this->cart_totals_from_session();
@@ -212,6 +245,21 @@ class Webshop_action_engine
             return array();
         }
         $vid = (int) $variant_id;
+        if ($vid > 0) {
+            $has_variants = false;
+            foreach (array('variants', 'product_variants', 'options', 'product_options') as $vk) {
+                if (!empty($out[$vk]) && is_array($out[$vk])) {
+                    $has_variants = true;
+                    break;
+                }
+            }
+            if (!$has_variants && method_exists($this->CI->webshop_model, 'resolve_product_row_by_id')) {
+                $full = $this->CI->webshop_model->resolve_product_row_by_id($pid);
+                if (is_array($full) && !empty($full)) {
+                    $out = array_merge($out, $full);
+                }
+            }
+        }
         if ($vid > 0 && isset($out['variant_stock']) && is_array($out['variant_stock']) && !empty($out['variant_stock'])) {
             if (array_key_exists($vid, $out['variant_stock'])) {
                 $out['quantity'] = (float) $out['variant_stock'][$vid];
@@ -221,6 +269,15 @@ class Webshop_action_engine
         }
         if (isset($out['variant_stock'])) {
             unset($out['variant_stock']);
+        }
+        if ($vid > 0 && function_exists('webshop_resolve_variant_line_price')) {
+            $line = webshop_resolve_variant_line_price($out, $vid, null, 0, 0);
+            if (!empty($line['unit_price']) && (float) $line['unit_price'] > 0) {
+                $out['price'] = (float) $line['unit_price'];
+            }
+            if (isset($line['variant_price'])) {
+                $out['resolved_variant_price'] = (float) $line['variant_price'];
+            }
         }
         return $out;
     }
@@ -308,9 +365,30 @@ class Webshop_action_engine
         }
 
         $model = $this->CI->webshop_model;
-        $ok = ($op === 'remove')
-            ? $model->remove_from_wishlist($uid, $product_id, $option_id ?: null)
-            : $model->add_to_wishlist($uid, $product_id, $option_id ?: null);
+        $existing_rows = method_exists($model, 'get_wishlist') ? $model->get_wishlist($uid) : array();
+        $norm = function_exists('webshop_wishlist_normalize_rows')
+            ? webshop_wishlist_normalize_rows($existing_rows)
+            : array('lines' => array(), 'lookup' => array(), 'count' => 0, 'duplicates' => array());
+
+        if ($op === 'add' && function_exists('webshop_wishlist_product_is_saved')) {
+            if (webshop_wishlist_product_is_saved($norm['lookup'], $product_id, $option_id)) {
+                return array(
+                    'status'             => 'SUCCESS',
+                    'count'              => (int) $norm['count'],
+                    'already_in_wishlist' => true,
+                );
+            }
+        }
+
+        if ($op === 'remove') {
+            $ok = $model->remove_from_wishlist($uid, $product_id, $option_id ?: null);
+            if (!$ok && function_exists('webshop_wishlist_product_is_saved')
+                && webshop_wishlist_product_is_saved($norm['lookup'], $product_id, 0)) {
+                $ok = $model->remove_from_wishlist($uid, $product_id, null);
+            }
+        } else {
+            $ok = $model->add_to_wishlist($uid, $product_id, $option_id ?: null);
+        }
 
         if (!$ok) {
             return array(

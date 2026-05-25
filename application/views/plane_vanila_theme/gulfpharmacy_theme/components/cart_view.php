@@ -10,6 +10,7 @@ $cart_items = isset($cart_items) && is_array($cart_items)
 $Settings = isset($Settings) ? $Settings : (object) array('symbol' => '$');
 
 $cv_products = (isset($cart_data['products']) && is_array($cart_data['products'])) ? $cart_data['products'] : array();
+$cv_variants_map = (isset($cart_data['variants']) && is_array($cart_data['variants'])) ? $cart_data['variants'] : array();
 
 $cv_clean_label = function ($raw) {
     $clean = trim(strip_tags((string) $raw));
@@ -48,24 +49,27 @@ $cv_resolve_name = function ($p_id, $item) use ($cv_products, $cv_clean_label) {
 };
 
 /**
- * Resolve unit price for a cart row (session first, then API product map).
+ * Resolve unit price for a cart row (variant-aware; session + catalogue).
  */
 $cv_unit_price = function ($item) use ($cv_products) {
+    $pid = isset($item['product_id']) ? (int) $item['product_id'] : 0;
+    $vid = isset($item['variant_id']) ? (int) $item['variant_id'] : 0;
+    $p = ($pid > 0 && isset($cv_products[$pid]) && is_array($cv_products[$pid])) ? $cv_products[$pid] : array();
+    $fallback_delta = ($vid > 0 && isset($item['variant_price'])) ? (float) $item['variant_price'] : null;
+    $cart_unit = 0.0;
     foreach (array('product_price', 'price', 'promotion_price', 'promo_price') as $k) {
         if (isset($item[$k]) && (float) $item[$k] > 0) {
-            return (float) $item[$k];
+            $cart_unit = (float) $item[$k];
+            break;
         }
     }
-    $pid = isset($item['product_id']) ? (int) $item['product_id'] : 0;
-    if ($pid > 0 && isset($cv_products[$pid]) && is_array($cv_products[$pid])) {
-        $p = $cv_products[$pid];
-        foreach (array('eshop_price', 'price', 'sale_price', 'mrp', 'promo_price') as $k) {
-            if (isset($p[$k]) && (float) $p[$k] > 0) {
-                return (float) $p[$k];
-            }
+    if (function_exists('webshop_resolve_variant_line_price')) {
+        $resolved = webshop_resolve_variant_line_price($p, $vid, $fallback_delta, $cart_unit, $cart_unit);
+        if (!empty($resolved['unit_price']) && (float) $resolved['unit_price'] > 0) {
+            return (float) $resolved['unit_price'];
         }
     }
-    return 0.0;
+    return $cart_unit;
 };
 
 $subtotal = 0;
@@ -95,7 +99,15 @@ foreach ($cart_items as $item) {
                         continue;
                     }
                     $p_id = isset($item['product_id']) ? (int) $item['product_id'] : 0;
+                    $vid = isset($item['variant_id']) ? (int) $item['variant_id'] : 0;
                     $name = $cv_resolve_name($p_id, $item);
+                    $variant_label = '';
+                    if (function_exists('webshop_cart_line_variant_label')) {
+                        $p_row = ($p_id > 0 && isset($cv_products[$p_id]) && is_array($cv_products[$p_id])) ? $cv_products[$p_id] : array();
+                        $variant_label = webshop_cart_line_variant_label($item, $p_row, $cv_variants_map);
+                    } elseif (!empty($item['variant_name'])) {
+                        $variant_label = trim((string) $item['variant_name']);
+                    }
                     $price = $cv_unit_price($item);
                     $qty = isset($item['quantity']) ? (float) $item['quantity'] : 0;
                     $line_total = $price * $qty;
@@ -103,6 +115,9 @@ foreach ($cart_items as $item) {
                     <div class="cart-item-card" data-cart-line="<?= html_escape($hash) ?>">
                         <div class="item-details">
                             <h4 class="item-name"><?= html_escape($name) ?></h4>
+                            <?php if ($variant_label !== ''): ?>
+                            <p class="item-variant"><?= html_escape($variant_label) ?></p>
+                            <?php endif; ?>
                             <div class="item-meta">
                                 <div class="item-price-wrap">
                                     <?php if ($price > 0): ?>

@@ -25,8 +25,19 @@ $toast_err = $CI->session->flashdata('toast_error');
             <div class="login-alert login-alert-error"><?= html_escape($flash_err ? $flash_err : $toast_err) ?></div>
         <?php endif; ?>
 
+        <?php
+        $_login_return = '';
+        if (isset($return_page) && trim((string) $return_page) !== '') {
+            $_login_return = trim((string) $return_page);
+        } elseif (isset($_GET['return_page']) && trim((string) $_GET['return_page']) !== '') {
+            $_login_return = trim((string) $_GET['return_page']);
+        }
+        ?>
         <form action="<?= base_url('webshop/login') ?>" method="post" class="login-form">
             <?= function_exists('webshop_csrf_hidden_input') ? webshop_csrf_hidden_input() : '' ?>
+            <?php if ($_login_return !== ''): ?>
+            <input type="hidden" name="return_page" value="<?= htmlspecialchars($_login_return, ENT_QUOTES, 'UTF-8') ?>">
+            <?php endif; ?>
 
             <div class="form-group">
                 <label for="identity">Email or Phone</label>

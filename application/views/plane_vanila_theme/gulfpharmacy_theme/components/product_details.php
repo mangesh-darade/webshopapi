@@ -50,7 +50,7 @@ if ($_pd_lcp_img === '' && !empty($product) && is_array($product)) {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/common.css">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css">
+    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css?ver=20260525g">
     <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/product-details-shell.css">
 </head>
 <body>
@@ -76,10 +76,9 @@ if ($_pd_lcp_img === '' && !empty($product) && is_array($product)) {
     ?>
 </div>
 
-<script src="<?= $assets ?>gulfpharmacy_theme/js/jquery.min.js"></script>
-<script src="<?= $assets ?>gulfpharmacy_theme/js/main.js"></script>
-<script src="<?= $assets ?>gulfpharmacy_theme/js/jquery.responsiveTabs.min.js"></script>
-<script src="//cdn.jsdelivr.net/jquery.slick/1.5.9/slick.min.js"></script>
+<script defer src="<?= $assets ?>gulfpharmacy_theme/js/main.js?ver=200406"></script>
+<script defer src="<?= $assets ?>gulfpharmacy_theme/js/jquery.responsiveTabs.min.js"></script>
+<script defer src="//cdn.jsdelivr.net/jquery.slick/1.5.9/slick.min.js"></script>
 <script>window.GP_PRODUCT_DETAILS_CTX=<?= json_encode(array(
     'base_url'        => base_url('webshop/'),
     'currency_symbol' => isset($this->data['Settings']->symbol) ? $this->data['Settings']->symbol : 'Rs.',

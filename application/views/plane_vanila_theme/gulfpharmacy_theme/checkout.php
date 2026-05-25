@@ -500,16 +500,23 @@ if (count($tax_rates_used) === 1) {
                     <?php
                     $cart_data2 = isset($cart_data) ? $cart_data : array();
                     $cart_products2 = isset($cart_data2['products']) ? $cart_data2['products'] : array();
+                    $cart_variants2 = isset($cart_data2['variants']) && is_array($cart_data2['variants']) ? $cart_data2['variants'] : array();
                     if (is_array($cart_items)):
                         foreach ($cart_items as $item):
                             $pinfo = isset($cart_products2[$item['product_id']]) ? $cart_products2[$item['product_id']] : null;
                             $iname = $pinfo && isset($pinfo['name']) ? $pinfo['name'] : 'Product';
                             $iimg  = ($pinfo && !empty($pinfo['image'])) ? $pinfo['image'] : 'no_image.png';
+                            $ivlabel = function_exists('webshop_cart_line_variant_label')
+                                ? webshop_cart_line_variant_label($item, is_array($pinfo) ? $pinfo : array(), $cart_variants2)
+                                : (isset($item['variant_name']) ? trim((string) $item['variant_name']) : '');
                     ?>
                     <div class="pv-summary-item">
                         <img src="<?= webshop_media_src($uploads, $iimg) ?>" alt="<?= htmlspecialchars($iname, ENT_QUOTES, 'UTF-8') ?>">
                         <div class="pv-summary-item-body">
                             <p class="pv-summary-item-name"><?= htmlspecialchars($iname, ENT_QUOTES, 'UTF-8') ?></p>
+                            <?php if ($ivlabel !== ''): ?>
+                            <p class="pv-summary-item-variant"><?= htmlspecialchars($ivlabel, ENT_QUOTES, 'UTF-8') ?></p>
+                            <?php endif; ?>
                             <p class="pv-summary-item-meta">Qty: <?= (int) $item['quantity'] ?></p>
                         </div>
                         <?php if (!empty($item['show_price'])): ?><span class="pv-summary-item-price"><?= $this->sma->formatMoney((float) $item['quantity'] * (float) $item['product_price']) ?></span><?php endif; ?>

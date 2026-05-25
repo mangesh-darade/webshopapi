@@ -125,6 +125,7 @@ class Webshop extends MY_Controller
                 $webshopUserId = is_object($ws_sess) ? (isset($ws_sess->user_id) ? $ws_sess->user_id : null) : (isset($ws_sess['user_id']) ? $ws_sess['user_id'] : null);
             }
             $this->data['wishlist_count'] = $this->webshop_model->get_wishlist_count($webshopUserId);
+            $this->_apply_wishlist_lookup_for_user($webshopUserId);
 
             $this->data['custom_pages'] = $this->webshop_model->getCustomPages();
             $this->data['cms_nav_pages'] = $this->webshop_model->get_cms_nav_pages();
@@ -160,6 +161,7 @@ class Webshop extends MY_Controller
                 $webshopUserId = is_object($ws_sess) ? (isset($ws_sess->user_id) ? $ws_sess->user_id : null) : (isset($ws_sess['user_id']) ? $ws_sess['user_id'] : null);
             }
             $this->data['wishlist_count'] = $this->webshop_model->get_wishlist_count($webshopUserId);
+            $this->_apply_wishlist_lookup_for_user($webshopUserId);
             $this->data['custom_pages'] = [];
             // Header/sidebar nav (CMS pages) — still required on cart/checkout-light pages.
             $this->data['cms_nav_pages'] = $this->webshop_model->get_cms_nav_pages();
@@ -2686,6 +2688,9 @@ XSL;
                 (int) $this->data['get_category_id']
             );
         }
+        if (!empty($products) && method_exists($this->webshop_model, 'enrich_product_list_items_with_variants')) {
+            $products = $this->webshop_model->enrich_product_list_items_with_variants($products);
+        }
         $this->data['listItems'] = $products;
 
         foreach ($specialItemsList as $key => $item1) {
@@ -2893,22 +2898,89 @@ XSL;
         }
 
         $wishlist = $this->webshop_model->get_wishlist($user_id);
-        $products = [];
-        $this->data['wishlist_variants'] = [];
+        $product_ids = array();
+        $wishlist_lines = array();
+        $this->data['wishlist_variants'] = array();
 
-        if (is_array($wishlist)) {
-            foreach ($wishlist as $list) {
-                if (!is_object($list)) continue;
-                $products[] = $list->product_id;
-                $this->data['wishlist_variants'][$list->product_id][] = $list->option_id;
+        $norm = function_exists('webshop_wishlist_normalize_rows')
+            ? webshop_wishlist_normalize_rows($wishlist)
+            : array('lines' => array(), 'lookup' => array(), 'count' => 0, 'duplicates' => array());
+
+        if (!empty($norm['duplicates']) && method_exists($this->webshop_model, 'remove_from_wishlist')) {
+            foreach ($norm['duplicates'] as $dup) {
+                $dup_pid = isset($dup['product_id']) ? (int) $dup['product_id'] : 0;
+                if ($dup_pid < 1) {
+                    continue;
+                }
+                $dup_oid = isset($dup['option_id']) ? (int) $dup['option_id'] : 0;
+                $this->webshop_model->remove_from_wishlist($user_id, $dup_pid, $dup_oid > 0 ? $dup_oid : null);
             }
         }
 
-        $this->data['wishlist'] = !empty($products) ? $this->webshop_model->get_products_list('products', $products, true) : ['items' => []];
-        $wl_items = isset($this->data['wishlist']['items']) && is_array($this->data['wishlist']['items'])
-            ? $this->data['wishlist']['items']
-            : [];
-        $this->data['wishlist_count'] = count($wl_items);
+        foreach ($norm['lines'] as $line) {
+            $pid = (int) $line['product_id'];
+            $oid = (int) $line['option_id'];
+            $product_ids[$pid] = $pid;
+            $wishlist_lines[] = array(
+                'product_id' => $pid,
+                'option_id'  => $oid,
+            );
+            if (!isset($this->data['wishlist_variants'][$pid])) {
+                $this->data['wishlist_variants'][$pid] = array();
+            }
+            if (!in_array($oid, $this->data['wishlist_variants'][$pid], true)) {
+                $this->data['wishlist_variants'][$pid][] = $oid;
+            }
+        }
+
+        $products_by_id = array();
+        if (!empty($product_ids)) {
+            $list_data = $this->webshop_model->get_products_list('products', array_values($product_ids), true);
+            $items = (is_array($list_data) && isset($list_data['items']) && is_array($list_data['items']))
+                ? $list_data['items']
+                : array();
+            if (!empty($items) && method_exists($this->webshop_model, 'enrich_product_list_items_with_variants')) {
+                $items = $this->webshop_model->enrich_product_list_items_with_variants($items);
+            }
+            foreach ($items as $item) {
+                $a = is_array($item) ? $item : (array) $item;
+                $id = isset($a['id']) ? (int) $a['id'] : 0;
+                if ($id > 0) {
+                    $products_by_id[$id] = $a;
+                }
+            }
+            $missing = array();
+            foreach ($product_ids as $pid) {
+                if (!isset($products_by_id[$pid]) && method_exists($this->webshop_model, 'resolve_product_row_by_id')) {
+                    $missing[$pid] = $pid;
+                }
+            }
+            foreach ($missing as $pid) {
+                $full = $this->webshop_model->resolve_product_row_by_id($pid);
+                if (is_array($full) && !empty($full)) {
+                    $products_by_id[$pid] = $full;
+                }
+            }
+        }
+
+        $wl_display = array();
+        foreach ($wishlist_lines as $line) {
+            $pid = (int) $line['product_id'];
+            if (!isset($products_by_id[$pid])) {
+                continue;
+            }
+            $wl_display[] = array(
+                'product'   => $products_by_id[$pid],
+                'option_id' => (int) $line['option_id'],
+            );
+        }
+
+        $this->data['wishlist'] = array('items' => array_values($products_by_id));
+        $this->data['wishlist_display'] = $wl_display;
+        $this->data['wishlist_count'] = (int) $norm['count'];
+        if (function_exists('webshop_build_wishlist_lookup')) {
+            $this->data['wishlist_lookup'] = webshop_build_wishlist_lookup($wishlist);
+        }
         $this->data['recent_viewed'] = $this->webshop_model->get_recent_viewed_product();
 
         $theme = isset($this->webshop_settings->webshop_theme) ? $this->webshop_settings->webshop_theme : 'default';
@@ -2982,6 +3054,43 @@ XSL;
     }
 
     /**
+     * Expose wishlist product/variant ids to views for PLP card heart state (logged-in only).
+     *
+     * @param int|null $user_id
+     */
+    private function _apply_wishlist_lookup_for_user($user_id)
+    {
+        $this->data['wishlist_lookup'] = array();
+        $this->data['webshop_is_logged_in'] = false;
+        $uid = (int) $user_id;
+        if ($uid < 1 && function_exists('webshop_is_customer_logged_in') && webshop_is_customer_logged_in()) {
+            $ws_sess = $this->session->userdata('webshop');
+            if ($ws_sess) {
+                $uid = is_object($ws_sess)
+                    ? (int) (isset($ws_sess->user_id) ? $ws_sess->user_id : 0)
+                    : (int) (isset($ws_sess['user_id']) ? $ws_sess['user_id'] : 0);
+            }
+        }
+        if ($uid < 1) {
+            return;
+        }
+        if (function_exists('webshop_is_customer_logged_in') && !webshop_is_customer_logged_in()) {
+            return;
+        }
+        $this->data['webshop_is_logged_in'] = true;
+        if (!function_exists('webshop_build_wishlist_lookup')) {
+            return;
+        }
+        $rows = $this->webshop_model->get_wishlist($uid);
+        $this->data['wishlist_lookup'] = webshop_build_wishlist_lookup($rows);
+        if (method_exists($this->webshop_model, 'get_wishlist_count')) {
+            $this->data['wishlist_count'] = (int) $this->webshop_model->get_wishlist_count($uid);
+        } elseif (function_exists('webshop_wishlist_normalize_rows')) {
+            $this->data['wishlist_count'] = (int) webshop_wishlist_normalize_rows($rows)['count'];
+        }
+    }
+
+    /**
      * Cart page enrichment: one bulk API pass when possible; refresh session cache only if incomplete.
      */
     private function _prepare_cart_page_data()
@@ -3032,6 +3141,13 @@ XSL;
             }
         }
 
+        if (function_exists('webshop_enrich_cart_session_prices')) {
+            $products = webshop_enrich_cart_session_prices($products);
+        }
+        if (function_exists('webshop_enrich_cart_session_variant_labels')) {
+            $products = webshop_enrich_cart_session_variant_labels($products);
+        }
+
         foreach ($_SESSION['cart'] as $key => $item) {
             if (!is_array($item)) {
                 continue;
@@ -3040,31 +3156,7 @@ XSL;
             if ($pid < 1) {
                 continue;
             }
-
             $p = isset($products[$pid]) && is_array($products[$pid]) ? $products[$pid] : array();
-            $unit = 0.0;
-            foreach (array('eshop_price', 'price', 'sale_price', 'mrp') as $pk) {
-                if (isset($p[$pk]) && (float) $p[$pk] > 0) {
-                    $unit = (float) $p[$pk];
-                    break;
-                }
-            }
-            if ($unit <= 0) {
-                foreach (array('product_price', 'price', 'promotion_price') as $sk) {
-                    if (isset($item[$sk]) && (float) $item[$sk] > 0) {
-                        $unit = (float) $item[$sk];
-                        break;
-                    }
-                }
-            }
-            if ($unit > 0) {
-                if (!isset($_SESSION['cart'][$key]['product_price']) || (float) $_SESSION['cart'][$key]['product_price'] <= 0) {
-                    $_SESSION['cart'][$key]['product_price'] = $unit;
-                }
-                if (!isset($_SESSION['cart'][$key]['price']) || (float) $_SESSION['cart'][$key]['price'] <= 0) {
-                    $_SESSION['cart'][$key]['price'] = $unit;
-                }
-            }
             if (!empty($p['name']) && empty($_SESSION['cart'][$key]['product_name'])) {
                 $_SESSION['cart'][$key]['product_name'] = (string) $p['name'];
             }
@@ -3072,6 +3164,25 @@ XSL;
 
         $this->data['cart_items'] = $_SESSION['cart'];
         $this->data['cart_data']  = array('products' => $products);
+        if (function_exists('webshop_cart_variants_map_from_products')) {
+            $this->data['cart_data']['variants'] = webshop_cart_variants_map_from_products($products);
+            foreach ($_SESSION['cart'] as $line) {
+                if (!is_array($line)) {
+                    continue;
+                }
+                $vid = isset($line['variant_id']) ? (int) $line['variant_id'] : 0;
+                if ($vid < 1 || isset($this->data['cart_data']['variants'][$vid])) {
+                    continue;
+                }
+                if (!empty($line['variant_name'])) {
+                    $this->data['cart_data']['variants'][$vid] = array(
+                        'id'         => $vid,
+                        'name'       => trim((string) $line['variant_name']),
+                        'product_id' => isset($line['product_id']) ? (int) $line['product_id'] : 0,
+                    );
+                }
+            }
+        }
         if (is_array($raw_cd) && isset($raw_cd['coupon'])) {
             $this->data['cart_data']['coupon'] = $raw_cd['coupon'];
         }
@@ -3431,6 +3542,19 @@ XSL;
                         }
 
                         $product = $productData[$product_id];
+
+                        if ((int) $option_id > 0 && method_exists($this->webshop_model, 'resolve_product_row_by_id')) {
+                            $full_product = $this->webshop_model->resolve_product_row_by_id($product_id);
+                            if (is_array($full_product) && !empty($full_product)) {
+                                $product = array_merge($product, $full_product);
+                            }
+                            if (function_exists('webshop_variant_delta_from_product')) {
+                                $catalog_delta = webshop_variant_delta_from_product($product, $option_id);
+                                if ($catalog_delta !== null) {
+                                    $option_price = (float) $catalog_delta;
+                                }
+                            }
+                        }
 
                         $product['tax_rate']        = $tax_rate;
                         $product['sale_unit_id']    = isset($product['sale_unit_id'])  ? $product['sale_unit_id']  : null;
@@ -5008,8 +5132,15 @@ XSL;
     {
 
         if (isset($_SESSION['cart']) && !empty($_SESSION['cart'])) {
-            $this->data['cart_items'] = $_SESSION['cart'];
             $this->data['cart_data'] = $this->webshop_model->get_cart_data();
+            if (function_exists('webshop_enrich_cart_session_prices') && is_array($this->data['cart_data'])) {
+                $pm = isset($this->data['cart_data']['products']) && is_array($this->data['cart_data']['products'])
+                    ? $this->data['cart_data']['products']
+                    : array();
+                $pm = webshop_enrich_cart_session_prices($pm);
+                $this->data['cart_data']['products'] = $pm;
+            }
+            $this->data['cart_items'] = $_SESSION['cart'];
 
             $this->load_view("headers/header_cart_items", $this->data);
         } else {
@@ -5140,29 +5271,33 @@ XSL;
             $pid = (int) (isset($item['product_id']) ? $item['product_id'] : 0);
             $vid = (int) (isset($item['variant_id']) ? $item['variant_id'] : 0);
             $qty = (int) (isset($item['quantity']) ? $item['quantity'] : 0);
-            $unit_price = (float) (isset($item['product_price']) ? $item['product_price'] : (isset($item['price']) ? $item['price'] : 0));
             $prow = isset($products[$pid]) ? $products[$pid] : array();
-            if ($unit_price <= 0 && is_array($prow) && !empty($prow)) {
-                if (function_exists('webshop_checkout_resolve_product_price')) {
-                    $unit_price = (float) webshop_checkout_resolve_product_price($prow, 0, 0);
-                } else {
-                    foreach (array('eshop_price', 'price', 'sale_price', 'mrp', 'promo_price') as $pk) {
-                        if (isset($prow[$pk]) && (float) $prow[$pk] > 0) {
-                            $unit_price = (float) $prow[$pk];
-                            break;
-                        }
-                    }
-                }
-                if ($unit_price > 0 && isset($_SESSION['cart'][$key]) && is_array($_SESSION['cart'][$key])) {
-                    $_SESSION['cart'][$key]['product_price'] = $unit_price;
-                    $_SESSION['cart'][$key]['price'] = $unit_price;
+            $fallback_delta = ($vid > 0 && isset($item['variant_price'])) ? (float) $item['variant_price'] : null;
+            $cart_unit = (float) (isset($item['product_price']) ? $item['product_price'] : (isset($item['price']) ? $item['price'] : 0));
+            $resolved = array('unit_price' => $cart_unit, 'variant_price' => $fallback_delta !== null ? $fallback_delta : 0.0);
+            if (function_exists('webshop_resolve_variant_line_price')) {
+                $resolved = webshop_resolve_variant_line_price($prow, $vid, $fallback_delta, $cart_unit, $cart_unit);
+            } elseif ($cart_unit <= 0 && is_array($prow) && !empty($prow) && function_exists('webshop_checkout_resolve_product_price')) {
+                $resolved['unit_price'] = (float) webshop_checkout_resolve_product_price($prow, 0, 0);
+            }
+            $unit_price = isset($resolved['unit_price']) ? (float) $resolved['unit_price'] : $cart_unit;
+            if ($unit_price > 0 && isset($_SESSION['cart'][$key]) && is_array($_SESSION['cart'][$key])) {
+                $_SESSION['cart'][$key]['product_price'] = $unit_price;
+                $_SESSION['cart'][$key]['price'] = $unit_price;
+                if ($vid > 0 && isset($resolved['variant_price'])) {
+                    $_SESSION['cart'][$key]['variant_price'] = (float) $resolved['variant_price'];
                 }
             }
             $line = $unit_price * $qty;
             $subtotal += $line;
             $name = isset($prow['name']) ? (string) $prow['name'] : 'Product';
             $variant_name = '';
-            if ($vid && isset($variants[$vid]['name'])) {
+            if (function_exists('webshop_cart_line_variant_label')) {
+                $variant_name = webshop_cart_line_variant_label($item, is_array($prow) ? $prow : array(), $variants);
+                if ($variant_name !== '' && isset($_SESSION['cart'][$key]) && is_array($_SESSION['cart'][$key])) {
+                    $_SESSION['cart'][$key]['variant_name'] = $variant_name;
+                }
+            } elseif ($vid && isset($variants[$vid]['name'])) {
                 $variant_name = (string) $variants[$vid]['name'];
             }
             $image_url = '';
@@ -5340,6 +5475,8 @@ XSL;
             // Don't loop back to the login page on success.
             if ($return_page === '' || stripos($return_page, 'webshop/login') !== false) {
                 $return_page = site_url('webshop');
+            } elseif (strpos($return_page, 'http') !== 0) {
+                $return_page = site_url(ltrim($return_page, '/'));
             }
 
             if ($login_input === '' || $plainPassword === '') {
@@ -5402,7 +5539,13 @@ XSL;
             redirect('webshop/index');
             return;
         }
-        $this->data['return_page'] = isset($_SERVER['HTTP_REFERER']) ? str_replace(base_url(), '', $_SERVER['HTTP_REFERER']) : '';
+        $return_page = '';
+        if (isset($_GET['return_page']) && trim((string) $_GET['return_page']) !== '') {
+            $return_page = trim((string) $_GET['return_page']);
+        } elseif (isset($_SERVER['HTTP_REFERER']) && trim((string) $_SERVER['HTTP_REFERER']) !== '') {
+            $return_page = str_replace(base_url(), '', (string) $_SERVER['HTTP_REFERER']);
+        }
+        $this->data['return_page'] = $return_page;
         $this->data['website_setting'] = $this->webshop_model->get_website_setting();
         $this->data['validated'] = null;
         $this->load_view('login', $this->data);

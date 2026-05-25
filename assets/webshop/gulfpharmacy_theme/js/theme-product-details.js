@@ -9,6 +9,7 @@
     var loginUrl = typeof ctx.login_url === 'string' ? ctx.login_url : '';
     var checkoutUrl = typeof ctx.checkout_url === 'string' ? ctx.checkout_url : '';
     var productId = parseInt(ctx.product_id, 10) || 0;
+    var overselling = !!ctx.overselling;
     var cartBlocked = (ctx.in_stock === false);
 
     function failMessage(data, fallback) {
@@ -76,7 +77,7 @@
     function buildCartPayload(btn) {
         var qty = parseInt((q || { value: '1' }).value, 10) || 1;
         if (qty < 1) qty = 1;
-        return {
+        var payload = {
             action: 'add_to_cart',
             product_id: parseInt(btn.getAttribute('product_id'), 10) || 0,
             product_price: Number(btn.getAttribute('product_price')) || 0,
@@ -86,6 +87,112 @@
             price: Number(btn.getAttribute('price')) || 0,
             promotion_price: Number(btn.getAttribute('promotion_price')) || 0
         };
+        var vid = parseInt(btn.getAttribute('data-variant-id'), 10) || 0;
+        if (vid > 0) {
+            payload.variant_id = vid;
+            payload.variant_price = Number(btn.getAttribute('data-variant-price')) || 0;
+            payload.variant_unit_quantity = Number(btn.getAttribute('data-variant-unit-quantity')) || 1;
+        }
+        return payload;
+    }
+
+    var addBtn = document.querySelector('.add-to-cart');
+    var buyBtn = document.querySelector('.buy-now');
+    var wishBtn = document.getElementById('pdWishlistBtn');
+    var pdWrap = document.querySelector('.pd-wrap');
+    var stockEl = document.getElementById('pdStock');
+    var oosNote = document.getElementById('pdOosNote');
+    var priceNow = document.getElementById('price-current');
+    var priceMrp = document.getElementById('price-mrp');
+    var priceOff = document.getElementById('price-off');
+    var variantBtns = document.querySelectorAll('#pdVariants .pd-variant-btn');
+
+    function setCartBlocked(blocked) {
+        cartBlocked = !!blocked;
+        if (pdWrap) {
+            pdWrap.classList.toggle('pd-wrap--oos', blocked);
+        }
+        if (stockEl) {
+            stockEl.textContent = blocked ? 'Out of Stock' : 'In Stock';
+            stockEl.classList.toggle('ok', !blocked);
+            stockEl.classList.toggle('no', blocked);
+        }
+        if (oosNote) {
+            oosNote.style.display = blocked ? '' : 'none';
+        }
+        if (addBtn) { addBtn.disabled = blocked; }
+        if (buyBtn) { buyBtn.disabled = blocked; }
+        if (qInc) { qInc.disabled = blocked; }
+        if (qDec) { qDec.disabled = blocked; }
+        if (q) { q.disabled = blocked; }
+    }
+
+    function applyVariant(btn) {
+        if (!btn) { return; }
+        for (var vi = 0; vi < variantBtns.length; vi++) {
+            variantBtns[vi].classList.remove('active');
+            variantBtns[vi].setAttribute('aria-pressed', 'false');
+        }
+        btn.classList.add('active');
+        btn.setAttribute('aria-pressed', 'true');
+
+        var inStock = btn.getAttribute('data-in-stock') === '1' || overselling;
+        setCartBlocked(!inStock);
+
+        if (priceNow) {
+            priceNow.textContent = btn.getAttribute('data-formatted-price') || priceNow.textContent;
+        }
+        if (priceMrp) {
+            var fm = btn.getAttribute('data-formatted-mrp') || '';
+            priceMrp.textContent = fm;
+            priceMrp.style.display = fm !== '' ? '' : 'none';
+        }
+        if (priceOff) {
+            var dp = parseInt(btn.getAttribute('data-discount-percent'), 10) || 0;
+            if (dp > 0) {
+                priceOff.textContent = dp + '% OFF';
+                priceOff.style.display = '';
+            } else {
+                priceOff.style.display = 'none';
+            }
+        }
+
+        if (addBtn) {
+            addBtn.setAttribute('data-variant-id', btn.getAttribute('data-variant-id') || '0');
+            addBtn.setAttribute('data-variant-price', btn.getAttribute('data-variant-price') || '0');
+            addBtn.setAttribute('data-variant-unit-quantity', btn.getAttribute('data-unit-quantity') || '1');
+            var unitPrice = parseFloat(btn.getAttribute('data-unit-price')) || 0;
+            var promoPrice = parseFloat(btn.getAttribute('data-promo-price')) || 0;
+            var sell = unitPrice;
+            if (promoPrice > 0 && (unitPrice <= 0 || promoPrice < unitPrice)) {
+                sell = promoPrice;
+            }
+            addBtn.setAttribute('product_price', String(sell));
+            addBtn.setAttribute('price', String(sell));
+            addBtn.setAttribute('promotion_price', String(promoPrice));
+        }
+
+        if (q) {
+            var vq = parseFloat(btn.getAttribute('data-quantity')) || 0;
+            if (vq > 0 && !overselling) {
+                var mx = Math.max(1, Math.floor(vq));
+                q.setAttribute('max', String(mx));
+                if (parseInt(q.value, 10) > mx) {
+                    q.value = String(mx);
+                }
+            }
+        }
+    }
+
+    for (var vj = 0; vj < variantBtns.length; vj++) {
+        (function (btn) {
+            btn.addEventListener('click', function () {
+                if (btn.classList.contains('pd-variant-btn--oos') && !overselling) {
+                    return;
+                }
+                applyVariant(btn);
+            });
+        })(variantBtns[vj]);
     }
 
     function postAction(payload) {
@@ -109,8 +216,18 @@
         var wish = document.getElementById('pdWishlistBtn');
         if (!wish) { return; }
         wish.classList.toggle('active', inWishlist);
+        wish.classList.toggle('is-saved', inWishlist);
         wish.setAttribute('data-in-wishlist', inWishlist ? '1' : '0');
-        wish.textContent = inWishlist ? '♥' : '♡';
+        wish.setAttribute('aria-pressed', inWishlist ? 'true' : 'false');
+        wish.setAttribute('aria-label', inWishlist ? 'Remove from favourites' : 'Save to favourites');
+        var icon = wish.querySelector('.gp-fav-btn__icon');
+        if (icon) {
+            icon.textContent = inWishlist ? '\u2665' : '\u2661';
+        }
+        var label = wish.querySelector('.gp-fav-btn__label');
+        if (label) {
+            label.textContent = inWishlist ? 'Saved' : 'Save';
+        }
     }
 
     function updateWishlistBadge(count) {
@@ -125,10 +242,6 @@
         badge.textContent = String(n);
         badge.style.display = n > 0 ? '' : 'none';
     }
-
-    var addBtn = document.querySelector('.add-to-cart');
-    var buyBtn = document.querySelector('.buy-now');
-    var wishBtn = document.getElementById('pdWishlistBtn');
 
     if (addBtn) {
         addBtn.addEventListener('click', function (e) {

@@ -136,5 +136,19 @@ $_gp_footer_styles_in_head = !empty($gp_footer_styles_in_head);
 <?php
 $_gp_csrf = function_exists('webshop_csrf_pair') ? webshop_csrf_pair() : array('name' => '', 'hash' => '');
 ?>
+<?php
+$_gp_wl_lookup = function_exists('webshop_view_wishlist_lookup')
+    ? webshop_view_wishlist_lookup(isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : null)
+    : (isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : array());
+$_gp_logged_in = function_exists('webshop_is_customer_logged_in')
+    ? webshop_is_customer_logged_in()
+    : !empty($webshop_is_logged_in);
+?>
 <script>window.GP_CSRF=<?= json_encode($_gp_csrf, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
-<script src="<?= htmlspecialchars($_gp_assets, ENT_QUOTES, 'UTF-8') ?>gulfpharmacy_theme/js/webshop-csrf.js?ver=20260520b"></script>
+<script>window.GP_PLP_CTX=Object.assign(window.GP_PLP_CTX||{},<?= json_encode(array(
+    'request_url'     => base_url('webshop/webshop_request'),
+    'login_url'       => base_url('webshop/login'),
+    'is_logged_in'    => (bool) $_gp_logged_in,
+    'wishlist_lookup' => $_gp_wl_lookup,
+), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>);</script>
+<script defer src="<?= htmlspecialchars($_gp_assets, ENT_QUOTES, 'UTF-8') ?>gulfpharmacy_theme/js/webshop-csrf.js?ver=20260526c"></script>

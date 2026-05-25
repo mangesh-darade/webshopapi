@@ -38,26 +38,47 @@ $getImg = function($item) use ($uploadsBase, $thumbsBase) {
     $row = is_array($item) ? $item : (array) $item;
     return webshop_product_image_src($uploadsBase, $thumbsBase, $row);
 };
-$getPrice = function($item) {
+$_cpSettings = isset($Settings) ? $Settings : null;
+$getCardPricing = function($item) use ($_cpSettings) {
     $row = is_array($item) ? $item : (array) $item;
-    if (function_exists('webshop_checkout_resolve_product_price')) {
-        return (float) webshop_checkout_resolve_product_price($row, 0, 0);
+    if (function_exists('webshop_product_list_card_pricing')) {
+        $card = webshop_product_list_card_pricing($row, $_cpSettings);
+        if ((float) $card['price'] <= 0 && !empty($row['list_display_price']) && (float) $row['list_display_price'] > 0) {
+            $card['price'] = (float) $row['list_display_price'];
+        }
+        if ((float) $card['mrp'] <= 0 && !empty($row['list_display_mrp']) && (float) $row['list_display_mrp'] > 0) {
+            $card['mrp'] = (float) $row['list_display_mrp'];
+        }
+        if (empty($card['has_variants']) && !empty($row['list_default_variant_id'])) {
+            $card['has_variants'] = true;
+            $card['variant_id'] = (int) $row['list_default_variant_id'];
+            $card['variant_price'] = isset($row['list_variant_price']) ? (float) $row['list_variant_price'] : 0.0;
+            $card['variant_unit_quantity'] = isset($row['list_variant_unit_quantity']) ? (float) $row['list_variant_unit_quantity'] : 1.0;
+            $card['variant_name'] = isset($row['list_variant_name']) ? (string) $row['list_variant_name'] : '';
+            $card['price_from'] = !empty($row['list_price_from']);
+            $card['price_min'] = isset($row['list_price_min']) ? (float) $row['list_price_min'] : $card['price'];
+            $card['price_max'] = isset($row['list_price_max']) ? (float) $row['list_price_max'] : $card['price'];
+        }
+        if (empty($card['discount_percent']) && !empty($row['list_discount_percent'])) {
+            $card['discount_percent'] = (int) $row['list_discount_percent'];
+        }
+        return $card;
     }
-    $p = isset($row['price']) ? (float) $row['price'] : 0;
-    if ($p <= 0 && isset($row['eshop_price']) && (float) $row['eshop_price'] > 0) {
-        $p = (float) $row['eshop_price'];
-    }
-    if (isset($row['promo_price']) && (float) $row['promo_price'] > 0 && ((float) $row['promo_price'] < $p || $p <= 0)) {
-        $p = (float) $row['promo_price'];
-    }
-    return $p;
-};
-$getMrp = function($item) {
-    $row = is_array($item) ? $item : (array) $item;
-    return isset($row['mrp']) ? (float) $row['mrp'] : 0;
-};
-$getDiscount = function($price, $mrp) {
-    return ($mrp > 0 && $price > 0 && $mrp > $price) ? (int) round(($mrp - $price) / $mrp * 100) : 0;
+    $price = isset($row['list_display_price']) ? (float) $row['list_display_price'] : (isset($row['price']) ? (float) $row['price'] : 0);
+    $mrp = isset($row['list_display_mrp']) ? (float) $row['list_display_mrp'] : (isset($row['mrp']) ? (float) $row['mrp'] : 0);
+    return array(
+        'price' => $price,
+        'mrp' => $mrp,
+        'discount_percent' => ($mrp > $price && $price > 0) ? (int) round((($mrp - $price) / $mrp) * 100) : 0,
+        'has_variants' => !empty($row['list_default_variant_id']),
+        'variant_id' => isset($row['list_default_variant_id']) ? (int) $row['list_default_variant_id'] : 0,
+        'variant_price' => isset($row['list_variant_price']) ? (float) $row['list_variant_price'] : 0.0,
+        'variant_unit_quantity' => isset($row['list_variant_unit_quantity']) ? (float) $row['list_variant_unit_quantity'] : 1.0,
+        'variant_name' => isset($row['list_variant_name']) ? (string) $row['list_variant_name'] : '',
+        'price_from' => !empty($row['list_price_from']),
+        'price_min' => isset($row['list_price_min']) ? (float) $row['list_price_min'] : $price,
+        'price_max' => isset($row['list_price_max']) ? (float) $row['list_price_max'] : $price,
+    );
 };
 $getHash = function($item) {
     $row = is_array($item) ? $item : (array) $item;
@@ -80,6 +101,12 @@ if (isset($webshop_settings) && is_object($webshop_settings)) {
         }
     }
 }
+$_cp_wl_lookup = function_exists('webshop_view_wishlist_lookup')
+    ? webshop_view_wishlist_lookup(isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : null)
+    : (isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : array());
+$_cp_logged_in = function_exists('webshop_is_customer_logged_in')
+    ? webshop_is_customer_logged_in()
+    : !empty($webshop_is_logged_in);
 $_cp_lcp_img = '';
 if (!empty($products)) {
     $_cp_first = reset($products);
@@ -104,8 +131,9 @@ if (!empty($products)) {
     <link rel="preload" as="image" href="<?= htmlspecialchars($_cp_lcp_img, ENT_QUOTES, 'UTF-8') ?>" fetchpriority="high">
     <?php endif; ?>
     <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/common.css">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/category-products.css">
+    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css?ver=20260525g">
+    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/category-products.css?ver=20260526a">
+    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/wishlist-fav.css?ver=20260526a">
 </head>
 <body>
 <div class="gp-site-wrapper cp-shell">
@@ -183,12 +211,17 @@ if (!empty($products)) {
                 <div class="cp-grid">
                 <?php foreach ($products as $_cp_idx => $item):
                     $row       = is_array($item) ? $item : (array) $item;
-                    $itemId    = isset($row['id']) ? $row['id'] : 0;
+                    $itemId    = function_exists('webshop_product_list_item_id') ? webshop_product_list_item_id($row) : (isset($row['id']) ? (int) $row['id'] : 0);
                     $hash      = $getHash($row);
                     $name      = isset($row['name']) ? $row['name'] : (isset($row['product_name']) ? $row['product_name'] : 'Product');
-                    $price     = $getPrice($row);
-                    $mrp       = $getMrp($row);
-                    $discount  = $getDiscount($price, $mrp);
+                    $cardPricing = $getCardPricing($row);
+                    $price     = (float) $cardPricing['price'];
+                    $mrp       = (float) $cardPricing['mrp'];
+                    $discount  = (int) $cardPricing['discount_percent'];
+                    $listVariantId = !empty($cardPricing['has_variants']) ? (int) $cardPricing['variant_id'] : 0;
+                    $listVariantPrice = !empty($cardPricing['has_variants']) ? (float) $cardPricing['variant_price'] : 0.0;
+                    $listVariantUq = !empty($cardPricing['has_variants']) ? (float) $cardPricing['variant_unit_quantity'] : 1.0;
+                    $displayPrice = $price > 0 ? $price : (isset($cardPricing['price_min']) ? (float) $cardPricing['price_min'] : 0.0);
                     $imgSrc    = $getImg($row);
                     $catLabel  = $getCategory($row);
                     $isActive  = isset($row['product_is_active']) ? $row['product_is_active'] : 'true';
@@ -226,12 +259,26 @@ if (!empty($products)) {
                     $imgFinal = ($imgSrc !== '') ? $imgSrc : $noImgSrc;
                 ?>
                     <div class="pc-card<?= $unavailable ? ' pc-card--unavailable' : '' ?>">
-                        <a class="pc-media" href="<?= $detailUrl ?>">
+                        <div class="pc-media">
                             <div class="pc-img-frame is-loading">
+                                <a class="pc-img-link" href="<?= $detailUrl ?>" tabindex="-1" aria-hidden="true">
+                                    <img src="<?= htmlspecialchars($imgFinal, ENT_QUOTES, 'UTF-8') ?>"
+                                         alt="<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>"
+                                         class="pc-product-img"
+                                         <?= $_cp_idx === 0 ? 'fetchpriority="high" decoding="sync"' : 'loading="lazy" decoding="async"' ?>
+                                         onload="var f=this.closest('.pc-img-frame');if(f)f.classList.remove('is-loading');"
+                                         onerror="this.onerror=null;this.src='<?= $noImgSrcAttr ?>';var f=this.closest('.pc-img-frame');if(f)f.classList.remove('is-loading');">
+                                </a>
+                                <?php
+                                $CI =& get_instance();
+                                $CI->load->view('plane_vanila_theme/gulfpharmacy_theme/components/wishlist_card_button', array(
+                                    'product_id'      => $itemId,
+                                    'variant_id'      => $listVariantId,
+                                    'wishlist_lookup' => $_cp_wl_lookup,
+                                    'extra_class'     => 'pc-wish-btn',
+                                ));
+                                ?>
                                 <div class="pc-badges-tl">
-                                    <?php if ($discount >= 5 && !$unavailable): ?>
-                                        <span class="pc-pill pc-pill-off"><?= (int) $discount ?>% OFF</span>
-                                    <?php endif; ?>
                                     <?php if ($rxProd && !$unavailable): ?>
                                         <span class="pc-pill pc-pill-rx">Rx</span>
                                     <?php endif; ?>
@@ -247,14 +294,8 @@ if (!empty($products)) {
                                         <span class="pc-pill pc-pill-new">New</span>
                                     <?php endif; ?>
                                 </div>
-                                <img src="<?= htmlspecialchars($imgFinal, ENT_QUOTES, 'UTF-8') ?>"
-                                     alt="<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>"
-                                     class="pc-product-img"
-                                     <?= $_cp_idx === 0 ? 'fetchpriority="high" decoding="sync"' : 'loading="lazy" decoding="async"' ?>
-                                     onload="var f=this.closest('.pc-img-frame');if(f)f.classList.remove('is-loading');"
-                                     onerror="this.onerror=null;this.src='<?= $noImgSrcAttr ?>';var f=this.closest('.pc-img-frame');if(f)f.classList.remove('is-loading');">
                             </div>
-                        </a>
+                        </div>
 
                         <div class="pc-body">
                             <?php if ($catLabel): ?>
@@ -269,8 +310,8 @@ if (!empty($products)) {
                             </div>
 
                             <div class="pc-price-row">
-                                <span class="pc-price"><?= htmlspecialchars($symbol, ENT_QUOTES, 'UTF-8') ?> <?= number_format($price, 2) ?></span>
-                                <?php if ($mrp > 0 && $mrp > $price): ?>
+                                <span class="pc-price"><?php if ($displayPrice > 0) { ?><?= htmlspecialchars($symbol, ENT_QUOTES, 'UTF-8') ?> <?= number_format($displayPrice, 2) ?><?php } else { ?><span class="pc-price-zero">Price on request</span><?php } ?></span>
+                                <?php if ($mrp > 0 && $mrp > $displayPrice && $displayPrice > 0): ?>
                                     <span class="pc-mrp"><?= htmlspecialchars($symbol, ENT_QUOTES, 'UTF-8') ?> <?= number_format($mrp, 2) ?></span>
                                     <span class="pc-pct-off"><?= (int) $discount ?>% OFF</span>
                                 <?php endif; ?>
@@ -295,6 +336,9 @@ if (!empty($products)) {
                                             onclick="wsAddToCart('<?= (int) $itemId ?>', '<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>', this)"
                                             data-item-id="<?= (int) $itemId ?>" data-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>"
                                             data-product-price="<?= htmlspecialchars((string) $price, ENT_QUOTES, 'UTF-8') ?>"
+                                            data-variant-id="<?= (int) $listVariantId ?>"
+                                            data-variant-price="<?= htmlspecialchars((string) $listVariantPrice, ENT_QUOTES, 'UTF-8') ?>"
+                                            data-variant-unit-quantity="<?= htmlspecialchars((string) $listVariantUq, ENT_QUOTES, 'UTF-8') ?>"
                                             data-label-default="Add to cart">
                                         Add to cart
                                     </button>
@@ -356,23 +400,42 @@ function wsAddToCart(itemId, hash, btn) {
     btn.textContent = 'Adding…';
     requestAnimationFrame(function () {
     var listPrice = btn && btn.getAttribute('data-product-price') ? btn.getAttribute('data-product-price') : '';
-    var addBody = 'action=add_to_cart&product_id=' + encodeURIComponent(itemId) + '&quantity=1&variant_id=0';
+    var variantId = btn ? parseInt(btn.getAttribute('data-variant-id'), 10) || 0 : 0;
+    var variantPrice = btn && btn.getAttribute('data-variant-price') ? btn.getAttribute('data-variant-price') : '0';
+    var variantUq = btn && btn.getAttribute('data-variant-unit-quantity') ? btn.getAttribute('data-variant-unit-quantity') : '1';
+    var addBody = 'action=add_to_cart&product_id=' + encodeURIComponent(itemId) + '&quantity=1&variant_id=' + encodeURIComponent(variantId);
     if (listPrice !== '' && parseFloat(listPrice) > 0) {
         addBody += '&product_price=' + encodeURIComponent(listPrice) + '&price=' + encodeURIComponent(listPrice);
+    }
+    if (variantId > 0) {
+        addBody += '&variant_price=' + encodeURIComponent(variantPrice) + '&variant_unit_quantity=' + encodeURIComponent(variantUq);
     }
     if (typeof window.webshopAppendCsrfParams === 'function') {
         addBody = window.webshopAppendCsrfParams(addBody);
     }
     fetch('<?= base_url('webshop/webshop_request') ?>', {
         method: 'POST',
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
         body: addBody,
         credentials: 'same-origin'
     })
-    .then(function(r){ return r.json(); })
+    .then(function(r) {
+        if (r.status === 403) {
+            return { status: 'FAIL', error: 'csrf', message: 'Session expired. Please refresh the page and try again.' };
+        }
+        return r.json();
+    })
     .then(function(d) {
         if (typeof window.webshopUpdateCsrfFromJson === 'function') {
             window.webshopUpdateCsrfFromJson(d);
+        }
+        if (d && d.error === 'csrf') {
+            btn.textContent = 'Refresh page';
+            btn.disabled = true;
+            return;
         }
         if (d && (d.status === 'SUCCESS' || d.success)) {
             btn.textContent = 'Added';
@@ -408,5 +471,17 @@ function wsAddToCart(itemId, hash, btn) {
     });
 }
 </script>
+<?php
+$_cp_csrf = function_exists('webshop_csrf_pair') ? webshop_csrf_pair() : array('name' => '', 'hash' => '');
+$_cp_assets = isset($assets) ? $assets : base_url('assets/webshop/');
+?>
+<script>window.GP_CSRF=<?= json_encode($_cp_csrf, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+<script>window.GP_PLP_CTX=<?= json_encode(array(
+    'request_url'      => base_url('webshop/webshop_request'),
+    'login_url'        => base_url('webshop/login'),
+    'is_logged_in'     => (bool) $_cp_logged_in,
+    'wishlist_lookup'  => $_cp_wl_lookup,
+), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+<script defer src="<?= $_cp_assets ?>gulfpharmacy_theme/js/webshop-csrf.js?ver=20260526c"></script>
 </body>
 </html>

@@ -127,6 +127,7 @@ if ($bodyHtml !== '') {
     <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/cms-blocks.css">
     <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/index-home.css">
     <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/components.css">
+    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/wishlist-fav.css?ver=20260526a">
     <?php if (function_exists('webshop_async_stylesheet_tag')): ?>
     <?= webshop_async_stylesheet_tag($assets . 'css/techmarket-font-awesome.css') ?>
 

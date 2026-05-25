@@ -509,6 +509,11 @@ class Elintom_api_response {
             $resolved_price = (float) $a['promo_price'];
         }
         $a['price'] = $resolved_price;
+        if (isset($a['eshop_price']) && is_numeric($a['eshop_price']) && (float) $a['eshop_price'] > 0) {
+            $a['price'] = (float) $a['eshop_price'];
+        } elseif (isset($a['eshop_price']) && is_numeric($a['eshop_price']) && (float) $a['eshop_price'] <= 0) {
+            $a['price'] = 0.0;
+        }
         if (!isset($a['tax_rate'])) {
             $a['tax_rate'] = isset($a['tax']) ? $a['tax'] : 0;
         }
@@ -691,6 +696,20 @@ class Elintom_api_response {
         } elseif (isset($res->variants)) {
             $variants = $this->rows_to_assoc_arrays($res->variants);
         }
+        if (!empty($variants)) {
+            $CI = get_instance();
+            if (!function_exists('webshop_normalize_variant_row')) {
+                $CI->load->helper('webshop');
+            }
+            if (function_exists('webshop_normalize_variant_row')) {
+                foreach ($variants as $vk => $vrow) {
+                    $variants[$vk] = webshop_normalize_variant_row(is_array($vrow) ? $vrow : (array) $vrow);
+                }
+            }
+        }
+        if (!empty($variants) && isset($item['eshop_price']) && is_numeric($item['eshop_price']) && (float) $item['eshop_price'] <= 0) {
+            $item['price'] = 0.0;
+        }
         $images = array();
         if (isset($bundle['images'])) {
             $images = $this->normalize_product_images_from_api($bundle['images']);
@@ -727,12 +746,27 @@ class Elintom_api_response {
         if ($rows === null || $rows === false) {
             return array();
         }
+        if (is_object($rows)) {
+            $rows = json_decode(json_encode($rows), true);
+        }
         if (!is_array($rows)) {
-            $rows = (array) $rows;
+            return array();
         }
         $out = array();
-        foreach ($rows as $row) {
-            $out[] = is_array($row) ? $row : (array) $row;
+        foreach ($rows as $key => $row) {
+            if (!is_array($row) && !is_object($row)) {
+                continue;
+            }
+            $a = is_array($row) ? $row : (array) $row;
+            if (is_string($key) && trim($key) !== '' && !is_numeric($key)) {
+                if (!isset($a['name']) || trim((string) $a['name']) === '') {
+                    $a['name'] = trim($key);
+                }
+            }
+            if (!isset($a['id']) && is_numeric($key) && (int) $key > 0) {
+                $a['id'] = (int) $key;
+            }
+            $out[] = $a;
         }
         return $out;
     }

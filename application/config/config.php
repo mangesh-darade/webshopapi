@@ -50,7 +50,8 @@ if ((int) ini_get('session.sid_length') < 32) {
 $config['cookie_prefix'] = '';
 $config['cookie_domain'] = '';
 $config['cookie_path'] = '/';
-$config['cookie_secure'] = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+// Secure cookies are not stored on plain http://localhost — CSRF then fails with 403 on webshop_request.
+$config['cookie_secure'] = $is_local_host ? FALSE : (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
 $config['cookie_httponly'] = TRUE;
 $config['standardize_newlines'] = TRUE;
 $config['global_xss_filtering'] = FALSE;
@@ -61,6 +62,11 @@ $config['csrf_expire'] = 7200;
 $config['csrf_regenerate'] = TRUE;
 $config['csrf_exclude_uris'] = array(
     'whatsapp/webhook',
+    // Storefront auth + AJAX (session/cookie issues on local http://localhost; forms still send elintom_csrf_token when possible).
+    'webshop/login',
+    'webshop/register',
+    'webshop/forgot_password',
+    'webshop/webshop_request',
     // Payment gateways redirect/POST back without elintom_csrf_token (CCAvenue, Paytm, Razorpay, Instamojo).
     'webshop/payment_cancel',
     'webshop/payment_declined',
