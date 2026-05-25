@@ -1,5 +1,8 @@
 DirectoryIndex index.php index.html
 
+# NOTE: webshop.elintpos.in uses nginx (Plesk) — this file is IGNORED unless Apache serves the site.
+# For nginx, use deploy/nginx-webshop.conf.sample (try_files → index.php).
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
 

@@ -24,6 +24,22 @@ switch (ENVIRONMENT)
 	case 'production':
 		ini_set('display_errors', 0);
 		error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED & ~E_STRICT & ~E_USER_NOTICE & ~E_USER_DEPRECATED);
+		register_shutdown_function(function () {
+			$err = error_get_last();
+			if (!$err || !in_array($err['type'], array(E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR), true)) {
+				return;
+			}
+			$log = __DIR__ . DIRECTORY_SEPARATOR . 'application' . DIRECTORY_SEPARATOR . 'logs' . DIRECTORY_SEPARATOR
+				. 'shutdown-' . date('Y-m-d') . '.log';
+			$line = date('c') . ' ' . $err['message'] . ' in ' . $err['file'] . ':' . $err['line'] . "\n";
+			@file_put_contents($log, $line, FILE_APPEND | LOCK_EX);
+			if (!empty($_GET['debug_fatal'])) {
+				if (!headers_sent()) {
+					header('Content-Type: text/plain; charset=utf-8', true, 500);
+				}
+				echo $line;
+			}
+		});
 	break;
 	default:
 		header('HTTP/1.1 503 Service Unavailable.', TRUE, 503);

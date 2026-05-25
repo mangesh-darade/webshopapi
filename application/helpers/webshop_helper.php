@@ -277,13 +277,6 @@ function webshop_normalize_html_media_urls($html, $uploads_base) {
 }
 
 /**
- * True when html_block body repeats the configured title (e.g. title "Category" and content "Category").
- *
- * @param string $content
- * @param string $title
- * @return bool
- */
-/**
  * True when API page body is the same markup already produced by render_components().
  *
  * @param string $pageBodyHtml

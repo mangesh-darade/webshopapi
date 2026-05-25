@@ -1,9 +1,5 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
-require_once(APPPATH . "libraries/razorpay/razorpay-php/Razorpay.php");
-
-use Razorpay\Api\Api;
-use Razorpay\Api\Errors\SignatureVerificationError;
 
 #[\AllowDynamicProperties]
 class Webshop extends MY_Controller
@@ -660,6 +656,30 @@ XSL;
         $this->output->set_header('Link: <' . $origin . '>; rel=preconnect', false);
     }
 
+    /**
+     * Minimal HTML when a theme view is missing or rendered empty (avoids blank 200 responses).
+     *
+     * @param string $title
+     * @param string $detail
+     * @return string
+     */
+    private function render_storefront_view_failure_page($title, $detail)
+    {
+        $this->output->set_status_header(500);
+        $safeTitle = htmlspecialchars((string) $title, ENT_QUOTES, 'UTF-8');
+        $safeDetail = htmlspecialchars((string) $detail, ENT_QUOTES, 'UTF-8');
+        $host = isset($_SERVER['HTTP_HOST']) ? htmlspecialchars((string) $_SERVER['HTTP_HOST'], ENT_QUOTES, 'UTF-8') : '';
+
+        return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+            . '<title>' . $safeTitle . '</title>'
+            . '<style>body{font-family:system-ui,sans-serif;margin:40px auto;max-width:640px;line-height:1.6;color:#1f2937}'
+            . 'h1{color:#0f766e;font-size:1.35rem}code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:.9em}</style></head><body>'
+            . '<h1>' . $safeTitle . '</h1><p>' . $safeDetail . '</p>'
+            . ($host !== '' ? '<p><small>Host: ' . $host . '</small></p>' : '')
+            . '<p><small>Check <code>application/logs/</code> on the server. Nginx/Plesk: ensure <code>application/views/plane_vanila_theme/</code> is deployed and PHP OPcache is cleared.</small></p>'
+            . '</body></html>';
+    }
+
     public function load_view($method = '', $data = array())
     {
         $data = $this->resolve_dynamic_runtime_data($method, $data);
@@ -667,15 +687,41 @@ XSL;
         $seoKey = $this->get_theme_page_seo_key($method);
         $data['page_seo'] = $this->get_theme_page_seo($seoKey);
         $this->log_dynamic_render_probe($method, $data);
-        if (isset($data['page_seo']['is_active']) && (int)$data['page_seo']['is_active'] === 0) {
-            show_404();
-            return;
+        // Inactive SEO row must not blank the storefront (theme_page_seo.json on server).
+        if (isset($data['page_seo']['is_active']) && (int) $data['page_seo']['is_active'] === 0) {
+            $data['page_seo'] = array();
         }
         $logoForHints = $this->resolve_storefront_header_logo_url_for_preload($data);
         $this->emit_storefront_logo_origin_hint_headers($logoForHints);
-        $html = $this->load->view($this->resolve_webshop_view_path($method), $data, true);
+        $viewPath = $this->resolve_webshop_view_path($method);
+        $viewFile = VIEWPATH . str_replace('/', DIRECTORY_SEPARATOR, $viewPath) . '.php';
+        if (!is_file($viewFile)) {
+            log_message('error', 'Webshop view file missing path=' . $viewPath . ' file=' . $viewFile);
+            $this->output->set_output($this->render_storefront_view_failure_page(
+                'Theme view file is missing on the server.',
+                'Expected: application/views/' . $viewPath . '.php — redeploy the full webshopapi package (including plane_vanila_theme).'
+            ));
+            return;
+        }
+        $html = $this->load->view($viewPath, $data, true);
+        if (!is_string($html) || trim($html) === '') {
+            log_message('error', 'Webshop view rendered empty path=' . $viewPath . ' file=' . $viewFile);
+            $this->output->set_output($this->render_storefront_view_failure_page(
+                'Homepage rendered empty output.',
+                'Check application/logs on the server for PHP errors. Ensure plane_vanila_theme views are deployed and PHP is 8.0+.'
+            ));
+            return;
+        }
         $html = $this->inject_storefront_logo_preload_into_head($html, $data, $method);
         $html = $this->inject_page_seo($html, $data['page_seo'], $data, $method);
+        if (!is_string($html) || trim($html) === '') {
+            log_message('error', 'Webshop SEO inject returned empty path=' . $viewPath);
+            $this->output->set_output($this->render_storefront_view_failure_page(
+                'Page HTML was lost during SEO processing.',
+                'See application/logs. Try removing or fixing application/cache/theme_page_seo.json on the server.'
+            ));
+            return;
+        }
         $this->output->set_output($html);
     }
 
@@ -1131,8 +1177,8 @@ XSL;
 
     private function inject_page_seo($html, $page_seo, array $data = [], $view_method = '')
     {
-        if (!is_string($html)) {
-            return $html;
+        if (!is_string($html) || $html === '') {
+            return is_string($html) ? $html : '';
         }
         if (!is_array($page_seo)) {
             $page_seo = [];
@@ -1147,7 +1193,10 @@ XSL;
         if ($metaTitle !== '') {
             $safeTitle = htmlspecialchars($metaTitle, ENT_QUOTES, 'UTF-8');
             if (preg_match('/<title[^>]*>.*?<\/title>/is', $html)) {
-                $html = preg_replace('/<title[^>]*>.*?<\/title>/is', '<title>' . $safeTitle . '</title>', $html, 1);
+                $replaced = preg_replace('/<title[^>]*>.*?<\/title>/is', '<title>' . $safeTitle . '</title>', $html, 1);
+                if ($replaced !== null) {
+                    $html = $replaced;
+                }
                 $titleUpdated = true;
             }
         }
@@ -1167,7 +1216,10 @@ XSL;
         }
 
         if ($seoBlock !== '' && stripos($html, '</head>') !== false) {
-            $html = preg_replace('/<\/head>/i', $seoBlock . "\n</head>", $html, 1);
+            $replaced = preg_replace('/<\/head>/i', $seoBlock . "\n</head>", $html, 1);
+            if ($replaced !== null) {
+                $html = $replaced;
+            }
         }
 
         $ws = isset($data['webshop_settings']) && is_object($data['webshop_settings'])
@@ -1222,6 +1274,9 @@ XSL;
 
     private function inject_global_head_metadata($html, array $page_seo, array $data, $view_method, $ws)
     {
+        if (!is_string($html) || $html === '') {
+            return is_string($html) ? $html : '';
+        }
         $ext = $this->get_seo_extended_settings();
         $this->load->helper('url');
 
@@ -1300,9 +1355,16 @@ XSL;
             $ogImage = html_entity_decode(trim($ogm[1]), ENT_QUOTES, 'UTF-8');
         }
 
-        $html = preg_replace('/<link\s+[^>]*\brel\s*=\s*["\']canonical["\'][^>]*>/i', '', $html);
-        $html = preg_replace('/<meta\s+[^>]*\bname\s*=\s*["\']robots["\'][^>]*>/i', '', $html);
-        $html = preg_replace('/<meta\s+[^>]*\bproperty\s*=\s*["\']og:[a-z_:]+["\'][^>]*>/i', '', $html);
+        foreach (array(
+            '/<link\s+[^>]*\brel\s*=\s*["\']canonical["\'][^>]*>/i',
+            '/<meta\s+[^>]*\bname\s*=\s*["\']robots["\'][^>]*>/i',
+            '/<meta\s+[^>]*\bproperty\s*=\s*["\']og:[a-z_:]+["\'][^>]*>/i',
+        ) as $pattern) {
+            $replaced = preg_replace($pattern, '', $html);
+            if ($replaced !== null) {
+                $html = $replaced;
+            }
+        }
 
         $block = "\n<!--seo:elintom-->\n";
         $block .= '<link rel="canonical" href="' . htmlspecialchars($canonical, ENT_QUOTES, 'UTF-8') . '">' . "\n";
@@ -1423,7 +1485,8 @@ XSL;
         $block .= "<!--/seo:elintom-->\n";
 
         if (stripos($html, '</head>') !== false) {
-            return preg_replace('/<\/head>/i', $block . '</head>', $html, 1);
+            $replaced = preg_replace('/<\/head>/i', $block . '</head>', $html, 1);
+            return ($replaced !== null) ? $replaced : $html;
         }
         return $html;
     }

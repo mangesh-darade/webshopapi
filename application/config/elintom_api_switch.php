@@ -49,6 +49,19 @@ $elintom_switch_profiles = array(
         'theme_view_folder'                  => 'gulfpharmacy_theme',
         'theme_assets_directory'             => 'gulfpharmacy_theme',
     ),
+    'gulfpharmacy_production' => array(
+        'api_base_url'                       => 'https://testingpos.elintpos.in/',
+        'api_private_key'                    => '3e8676ed23c627117437c7e6a1bbd6e9',
+        'ssl_verify'                         => true,
+        'ssl_ca_bundle'                      => '',
+        'media_uploads_base_url'             => 'https://testingpos.elintpos.in/assets/mdata/localhost/uploads/',
+        'customer_assets_folder'             => 'localhost',
+        'mdata_include_http_host_segment'    => false,
+        'media_use_http_host'                => false,
+        'webshop_theme'                      => 'gulfpharmacy',
+        'theme_view_folder'                  => 'gulfpharmacy_theme',
+        'theme_assets_directory'             => 'gulfpharmacy_theme',
+    ),
 );
 
 $elintom_active_profile = 'gulfpharmacy_testing';
@@ -59,8 +72,11 @@ switch ($detected_host_for_api) {
         $elintom_active_profile = 'vanila_testing';
         break;
 
-    case 'webshop':
     case 'webshop.elintpos.in':
+        $elintom_active_profile = 'gulfpharmacy_production';
+        break;
+
+    case 'webshop':
         $elintom_active_profile = 'gulfpharmacy_testing';
         break;
 
