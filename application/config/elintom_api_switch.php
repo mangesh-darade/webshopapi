@@ -60,7 +60,7 @@ switch ($detected_host_for_api) {
     case 'localhost':
         // vanila_local = http://localhost/ElintOm/ (set api_privatekey in ElintOm to match switch key)
         // vanila_testing = https://testingpos.elintpos.in/ (deploy order_pricing_helper.php there)
-        $elintom_active_profile = 'vanila_testing';
+        $elintom_active_profile = 'gulfpharmacy_production';
         break;
 
     case 'webshop.elintpos.in':
