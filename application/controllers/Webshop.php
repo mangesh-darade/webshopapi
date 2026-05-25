@@ -773,7 +773,7 @@ XSL;
 
     public function _remap($method, $params = [])
     {
-        if ($method !== '_remap' && method_exists($this, $method)) {
+        if ($method !== '_remap' && method_exists($this, $method) && $this->method_has_enough_uri_params($method, $params)) {
             return call_user_func_array([$this, $method], $params);
         }
 
@@ -786,6 +786,35 @@ XSL;
         }
 
         show_404();
+    }
+
+    /**
+     * URI segment count must satisfy required controller method parameters.
+     * Prevents /webshop/page (legacy custom page route) from calling page() with zero args.
+     *
+     * @param string $method
+     * @param array  $params
+     * @return bool
+     */
+    private function method_has_enough_uri_params($method, $params)
+    {
+        if (!method_exists($this, $method)) {
+            return false;
+        }
+        try {
+            $ref = new ReflectionMethod($this, $method);
+        } catch (ReflectionException $e) {
+            return !empty($params);
+        }
+
+        $required = 0;
+        foreach ($ref->getParameters() as $parameter) {
+            if (!$parameter->isOptional()) {
+                $required++;
+            }
+        }
+
+        return count($params) >= $required;
     }
 
     private function render_dynamic_cms_slug_page($method)
@@ -1664,9 +1693,15 @@ XSL;
             $this->load_view("service_off", $this->data);
         } else {
             $this->data['home_page_cms'] = $this->webshop_model->home_page_data();
+            $activeTheme = isset($this->webshop_settings->webshop_theme) ? (string) $this->webshop_settings->webshop_theme : '';
+            $cmsOnlyHomeTheme = in_array($activeTheme, array('gulfpharmacy', 'nw'), true);
+            $cmsHomePublished = is_object($this->data['home_page_cms'])
+                && !empty($this->data['home_page_cms']->cms_page_found);
+            $this->data['cms_home_published'] = $cmsHomePublished;
+
             $this->data['home_section_html_block'] = '';
-            $this->data['home_has_category_grid'] = true;
-            $this->data['home_has_product_grid'] = true;
+            $this->data['home_has_category_grid'] = !$cmsOnlyHomeTheme;
+            $this->data['home_has_product_grid'] = !$cmsOnlyHomeTheme;
             $this->data['home_has_header_section'] = true;
             $this->data['home_has_footer_section'] = true;
             $this->data['cms_header_sections_html'] = '';
@@ -1676,49 +1711,38 @@ XSL;
             $this->data['home_category_grid_title'] = '';
             $this->data['home_product_grid_title'] = '';
             $cmsSections = array();
-            if (is_object($this->data['home_page_cms'])) {
+
+            if ($cmsHomePublished) {
                 $this->data['page_title'] = isset($this->data['home_page_cms']->page_title) ? $this->data['home_page_cms']->page_title : '';
                 $this->data['meta_tags'] = $this->resolve_cms_page_head_meta($this->data['home_page_cms']);
                 $this->data['home_has_header_section'] = isset($this->data['home_page_cms']->show_header) ? (bool) $this->data['home_page_cms']->show_header : true;
                 $this->data['home_has_footer_section'] = isset($this->data['home_page_cms']->show_footer) ? (bool) $this->data['home_page_cms']->show_footer : true;
-                // CMS-managed home should be section-driven: no category/product blocks unless mapped by CMS sections.
-                $this->data['home_has_category_grid'] = false;
-                $this->data['home_has_product_grid'] = false;
                 $this->data['cms_header_sections_html'] = '';
                 $this->data['cms_footer_sections_html'] = '';
                 $this->data['page_banner_image_url'] = isset($this->data['home_page_cms']->page_banner_image_url) ? (string) $this->data['home_page_cms']->page_banner_image_url : '';
                 $this->data['page_logo_image_url'] = isset($this->data['home_page_cms']->page_logo_image_url) ? (string) $this->data['home_page_cms']->page_logo_image_url : '';
                 $cmsSections = isset($this->data['home_page_cms']->sections) && is_array($this->data['home_page_cms']->sections)
                     ? $this->data['home_page_cms']->sections : array();
+                // CMS plane themes: body comes only from mapped sections (no legacy catalog strips).
+                $this->data['home_has_category_grid'] = false;
+                $this->data['home_has_product_grid'] = false;
                 $this->apply_cms_sections_to_view_data($cmsSections, true);
                 $pageBodyHtml = isset($this->data['home_page_cms']->page_text)
                     ? trim((string) $this->data['home_page_cms']->page_text)
                     : '';
                 $bodyForRender = $this->filter_body_sections($cmsSections);
                 $localBodyHtml = trim($this->webshop_section_engine->render_components($bodyForRender, $this->data));
-                // Keep API body HTML, but also append locally rendered dynamic components.
-                // This ensures newly mapped CMS sections (e.g. product_carousel) are not hidden
-                // when API still returns a non-empty page_text.
-                $composedHomeHtml = '';
-                if ($pageBodyHtml !== '') {
-                    $composedHomeHtml .= $pageBodyHtml;
-                }
-                if ($localBodyHtml !== '') {
-                    $composedHomeHtml .= ($composedHomeHtml !== '' ? "\n" : '') . $localBodyHtml;
-                }
+                $composedHomeHtml = function_exists('webshop_compose_cms_body_html')
+                    ? webshop_compose_cms_body_html($pageBodyHtml, $localBodyHtml, $cmsSections)
+                    : trim($pageBodyHtml . ($pageBodyHtml !== '' && $localBodyHtml !== '' ? "\n" : '') . $localBodyHtml);
                 if ($composedHomeHtml !== '') {
                     $this->data['home_section_html_block'] = $composedHomeHtml;
-                    $this->data['home_has_category_grid'] = false;
-                    $this->data['home_has_product_grid'] = false;
                 }
-                // Neither API nor local produced body; suppress duplicate legacy strip when storefront catalog is empty.
-                if ($pageBodyHtml === '' && $localBodyHtml === ''
-                    && $this->cms_section_list_includes_types($bodyForRender, array('category_grid', 'category_carousel'))
-                    && empty($this->data['main_categories'])) {
-                    $this->data['home_has_category_grid'] = false;
-                }
+            } elseif ($cmsOnlyHomeTheme) {
+                $this->data['page_title'] = '';
+            } elseif (!$cmsOnlyHomeTheme) {
+                // Legacy themes without a CMS home still use catalog strips until migrated.
             }
-            $activeTheme = isset($this->webshop_settings->webshop_theme) ? (string) $this->webshop_settings->webshop_theme : '';
             // Gulf homepage uses CMS sections and custom blocks; skip heavy legacy payload fetches.
             if ($activeTheme !== 'gulfpharmacy') {
                 $this->data['themeSections'] = $themeSections = $this->webshop_model->get_theme_sections($this->webshop_settings->home_page);
@@ -1733,9 +1757,7 @@ XSL;
                 $this->data['recent_viewed'] = array();
             }
             $this->data['website_setting'] = $this->webshop_model->get_website_setting();
-            if (in_array($activeTheme, array('gulfpharmacy', 'nw'), true)) {
-                $this->ensure_plane_theme_home_catalog_data($cmsSections);
-            }
+            // Legacy catalog fallback removed for plane_vanila CMS themes — home content is section-driven only.
             $theme = $this->input->get('theme');
             if ($theme) {
                 $this->webshop_model->setTheme($theme);
@@ -1788,18 +1810,32 @@ XSL;
      */
     private function ensure_plane_theme_home_catalog_data(array $cmsSections)
     {
-        // When CMS returned rendered HTML (sections + page_text), never stack legacy strips — avoids duplicate Featured/Product carousel.
         $block = isset($this->data['home_section_html_block']) ? trim((string) $this->data['home_section_html_block']) : '';
-        if ($block !== '') {
+        $hasCatSec = $this->cms_section_list_includes_types($cmsSections, array('category_grid', 'category_carousel'));
+        $hasProdSec = $this->cms_section_list_includes_types($cmsSections, array('product_grid', 'product_carousel'));
+        $cmsCatalogMapped = $hasCatSec || $hasProdSec;
+        $cmsCatalogRendered = $block !== '' && (
+            strpos($block, 'home-cms-section--category_grid') !== false
+            || strpos($block, 'home-cms-section--category_carousel') !== false
+            || strpos($block, 'home-cms-section--product_grid') !== false
+            || strpos($block, 'home-cms-section--product_carousel') !== false
+            || strpos($block, 'dynamic-product-grid') !== false
+            || strpos($block, 'gp-category-grid') !== false
+        );
+        // When CMS returned body HTML and catalog blocks actually rendered, do not stack legacy strips.
+        if ($block !== '' && (!$cmsCatalogMapped || $cmsCatalogRendered)) {
             return;
+        }
+        // Mapped catalog sections that produced no HTML (empty API rows, missing local DB config) → legacy fallback.
+        if ($cmsCatalogMapped && !$cmsCatalogRendered) {
+            $hasCatSec = false;
+            $hasProdSec = false;
         }
         $mainCats = isset($this->data['main_categories']) && is_array($this->data['main_categories'])
             ? $this->data['main_categories'] : array();
-        $hasCatSec = $this->cms_section_list_includes_types($cmsSections, array('category_grid', 'category_carousel'));
         if (!$hasCatSec && !empty($mainCats)) {
             $this->data['home_has_category_grid'] = true;
         }
-        $hasProdSec = $this->cms_section_list_includes_types($cmsSections, array('product_grid', 'product_carousel'));
         if (!$hasProdSec) {
             $this->data['home_has_product_grid'] = true;
         }
@@ -2066,13 +2102,9 @@ XSL;
         $pageBodyHtml = isset($cmsPage->page_text) ? trim((string) $cmsPage->page_text) : '';
         $bodyForRender = $this->filter_body_sections($sections);
         $localBodyHtml = trim($this->webshop_section_engine->render_components($bodyForRender, $this->data));
-        $composedBodyHtml = '';
-        if ($pageBodyHtml !== '') {
-            $composedBodyHtml .= $pageBodyHtml;
-        }
-        if ($localBodyHtml !== '') {
-            $composedBodyHtml .= ($composedBodyHtml !== '' ? "\n" : '') . $localBodyHtml;
-        }
+        $composedBodyHtml = function_exists('webshop_compose_cms_body_html')
+            ? webshop_compose_cms_body_html($pageBodyHtml, $localBodyHtml, $sections)
+            : trim($pageBodyHtml . ($pageBodyHtml !== '' && $localBodyHtml !== '' ? "\n" : '') . $localBodyHtml);
         if ($composedBodyHtml !== '') {
             $this->data['home_section_html_block'] = $composedCmsHtml . $composedBodyHtml;
             $this->data['home_has_category_grid'] = false;
@@ -2154,13 +2186,9 @@ XSL;
         $pageBodyHtml = isset($cmsPage->page_text) ? trim((string) $cmsPage->page_text) : '';
         $bodyForRender = $this->filter_body_sections($sections);
         $localBodyHtml = trim($this->webshop_section_engine->render_components($bodyForRender, $this->data));
-        $combinedBodyHtml = '';
-        if ($pageBodyHtml !== '') {
-            $combinedBodyHtml .= $pageBodyHtml;
-        }
-        if ($localBodyHtml !== '') {
-            $combinedBodyHtml .= ($combinedBodyHtml !== '' ? "\n" : '') . $localBodyHtml;
-        }
+        $combinedBodyHtml = function_exists('webshop_compose_cms_body_html')
+            ? webshop_compose_cms_body_html($pageBodyHtml, $localBodyHtml, $sections)
+            : trim($pageBodyHtml . ($pageBodyHtml !== '' && $localBodyHtml !== '' ? "\n" : '') . $localBodyHtml);
         if ($combinedBodyHtml !== '') {
             $this->data['home_section_html_block'] = $combinedBodyHtml;
             $this->data['home_has_category_grid'] = false;

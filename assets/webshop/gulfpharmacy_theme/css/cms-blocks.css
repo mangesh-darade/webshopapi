@@ -3,6 +3,17 @@
 .home-cms-section{display:block;width:100%}
 .home-cms-section--category_grid,
 .home-cms-section--category_carousel{padding-bottom:8px}
+.home-cms-section--category_grid .gp-cg-grid,
+.home-cms-section--category_carousel .gp-cg-grid{justify-content:start}
+.home-cms-section--category_grid .category-grid-section,
+.home-cms-section--category_carousel .category-grid-section{width:100%}
+.home-cms-body .section--body .section h2.section-title--ruled,
+.home-cms-body .section--body .section h2.section-title{
+  display:flex;
+  width:100%;
+  justify-content:center;
+  text-align:center;
+}
 .home-cms-section--html_block + .home-cms-section--html_block,
 .home-cms-section--category_grid + .home-cms-section--html_block{margin-top:0}
 

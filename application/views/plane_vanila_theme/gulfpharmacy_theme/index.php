@@ -1,7 +1,7 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 <?php
 $isDynamic = !empty($is_dynamic_cms_page);
-$isCmsHome = isset($home_page_cms) && is_object($home_page_cms);
+$isCmsHome = isset($home_page_cms) && is_object($home_page_cms) && !empty($home_page_cms->cms_page_found);
 $dynamicBanner = isset($page_banner_image_url) ? trim((string) $page_banner_image_url) : '';
 $cmsBodyHtml = isset($cms_body_html) ? (string) $cms_body_html : '';
 $_gpS  = isset($Settings) && is_object($Settings) ? $Settings : new stdClass();
@@ -30,10 +30,17 @@ if (empty($_banner_items) && !empty($this->data['website_setting'])) {
 }
 if (!empty($_banner_items)) {
     foreach ($_banner_items as $item) {
-        $fk = isset($item->fields) ? strtolower(trim((string) $item->fields)) : '';
-        if ($fk === 'banner_image' && !empty($item->value)) {
-            $storeBanner = $item->value;
-            break;
+        $fk = function_exists('webshop_ws_row_field_key')
+            ? webshop_ws_row_field_key($item)
+            : (isset($item->fields) ? strtolower(trim((string) $item->fields)) : '');
+        if ($fk === 'banner_image') {
+            $bv = function_exists('webshop_ws_row_value_string')
+                ? webshop_ws_row_value_string($item)
+                : (isset($item->value) ? trim((string) $item->value) : '');
+            if ($bv !== '') {
+                $storeBanner = $bv;
+                break;
+            }
         }
     }
 }
@@ -50,8 +57,10 @@ if ($isDynamic) {
 } elseif ($isCmsHome) {
     /* API unavailable — stub home_page_cms: keep legacy store banner fallback */
     $banner_image = $dynamicBanner !== '' ? $dynamicBanner : $storeBanner;
-} else {
+} elseif (!isset($home_has_category_grid) || $home_has_category_grid) {
     $banner_image = $storeBanner;
+} else {
+    $banner_image = '';
 }
 
 $_gp_logo_url = '';
@@ -84,7 +93,7 @@ $bodyHtml = '';
 if (!empty($home_section_html_block)) { $bodyHtml = (string) $home_section_html_block; }
 elseif (!empty($cmsBodyHtml)) { $bodyHtml = $cmsBodyHtml; }
 elseif ($isCmsHome && !empty($home_page_cms->page_text)) { $bodyHtml = (string) $home_page_cms->page_text; }
-elseif (!empty($legacyWelcome['page_text'])) { $bodyHtml = (string) $legacyWelcome['page_text']; }
+elseif ((!isset($home_has_category_grid) || $home_has_category_grid) && !empty($legacyWelcome['page_text'])) { $bodyHtml = (string) $legacyWelcome['page_text']; }
 
 $cmsBodyEmbeddedAssets = '';
 if ($bodyHtml !== '') {
@@ -223,10 +232,10 @@ if ($bodyHtml !== '') {
             </section>
         <?php endif; ?>
 
-        <?php if (!$isDynamic && !empty($legacyCert['page_text'])): ?>
+        <?php if ($isCmsHome && !$isDynamic && !empty($legacyCert['page_text'])): ?>
             <section class="section"><div class="panel"><?= $this->load->view('plane_vanila_theme/gulfpharmacy_theme/components/html_block', array('config' => array('content' => $legacyCert['page_text']), 'uploads' => $uploads), true) ?></div></section>
         <?php endif; ?>
-        <?php if (!$isDynamic && !empty($legacyUpdates['page_text'])): ?>
+        <?php if ($isCmsHome && !$isDynamic && !empty($legacyUpdates['page_text'])): ?>
             <section class="section"><div class="panel"><?= $this->load->view('plane_vanila_theme/gulfpharmacy_theme/components/html_block', array('config' => array('content' => $legacyUpdates['page_text']), 'uploads' => $uploads), true) ?></div></section>
         <?php endif; ?>
     </main>

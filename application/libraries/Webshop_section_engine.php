@@ -39,7 +39,6 @@ class Webshop_section_engine
             $patch['home_section_html_block'] = '';
         }
 
-        $htmlBlocks = array();
         foreach ($sections as $section) {
             $sec = is_object($section) ? (array) $section : (is_array($section) ? $section : array());
             $type = $this->normalize_section_type($sec);
@@ -66,20 +65,7 @@ class Webshop_section_engine
                 }
                 continue;
             }
-            if ($type === 'html_block') {
-                $merged = $this->merged_html_block_cfg($sec);
-                $chunk = isset($merged['content']) ? trim((string) $merged['content']) : '';
-                if ($chunk === '' && isset($merged['html'])) {
-                    $chunk = trim((string) $merged['html']);
-                }
-                if ($chunk !== '') {
-                    $htmlBlocks[] = $chunk;
-                }
-            }
-        }
-
-        if (!empty($htmlBlocks)) {
-            $patch['home_section_html_block'] = implode("\n", $htmlBlocks);
+            // html_block content is rendered only in render_components(), not here.
         }
 
         return $patch;
@@ -391,10 +377,18 @@ class Webshop_section_engine
         if (empty($items)) {
             $items = $this->fetch_categories_for_section_config($cfg);
         }
+        $cols = isset($cfg['columns_desktop']) ? (int) $cfg['columns_desktop'] : 4;
+        if ($cols < 1) {
+            $cols = 4;
+        }
         return array(
             'title' => isset($cfg['title']) && trim((string) $cfg['title']) !== '' ? (string) $cfg['title'] : '',
-            'columns_desktop' => isset($cfg['columns_desktop']) ? (int) $cfg['columns_desktop'] : 4,
+            'columns_desktop' => $cols,
             'items' => $items,
+            'config' => array(
+                'title' => isset($cfg['title']) ? (string) $cfg['title'] : '',
+                'columns_desktop' => $cols,
+            ),
         );
     }
 

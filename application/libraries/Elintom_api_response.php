@@ -176,6 +176,22 @@ class Elintom_api_response {
      * @param array $categoriesRaw
      * @return array
      */
+    /**
+     * JSON objects under categories.main decode as stdClass; treat as a list for normalization.
+     *
+     * @param mixed $bucket
+     * @return array
+     */
+    private function category_bucket_to_list($bucket) {
+        if ($bucket === null) {
+            return array();
+        }
+        if (is_object($bucket)) {
+            $bucket = (array) $bucket;
+        }
+        return is_array($bucket) ? $bucket : array();
+    }
+
     private function collect_category_rows_for_normalization(array $categoriesRaw) {
         $rows = array();
         $seen = array();
@@ -204,8 +220,8 @@ class Elintom_api_response {
             return $rows;
         }
 
-        if (isset($categoriesRaw['main']) && is_array($categoriesRaw['main'])) {
-            foreach ($categoriesRaw['main'] as $row) {
+        if (isset($categoriesRaw['main'])) {
+            foreach ($this->category_bucket_to_list($categoriesRaw['main']) as $row) {
                 $push($row);
             }
         }
@@ -221,8 +237,7 @@ class Elintom_api_response {
             if (!$isParentBucket) {
                 continue;
             }
-            $inner = is_object($v) ? (array) $v : $v;
-            foreach ($inner as $row) {
+            foreach ($this->category_bucket_to_list($v) as $row) {
                 $push($row);
             }
         }

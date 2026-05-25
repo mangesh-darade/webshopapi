@@ -111,7 +111,7 @@ class Elintom_api_client {
     public function get_settings() {
         $res = $this->post('getsettings');
         if ($res && isset($res->status) && strtoupper((string) $res->status) === 'SUCCESS') {
-            return $res;
+            return $this->_filter_storefront_settings_payload($res);
         }
         // Fallback: ElintOm Api3::eshop → getsettings (MY_Controller path). Same auth key.
         $legacy = $this->legacy_post('getsettings');
@@ -128,9 +128,29 @@ class Elintom_api_client {
                 ? $flat->website_setting_sections
                 : (object) array('header' => array(), 'footer' => array());
             $this->last_error      = null;
-            return $out;
+            return $this->_filter_storefront_settings_payload($out);
         }
         return $res !== null ? $res : $legacy;
+    }
+
+    /**
+     * Client-side defense: only is_active === 1 header/footer rows reach the storefront.
+     *
+     * @param object $res getsettings SUCCESS payload
+     * @return object
+     */
+    protected function _filter_storefront_settings_payload($res) {
+        if (!$res || !is_object($res)) {
+            return $res;
+        }
+        $this->CI->load->helper('webshop_helper');
+        if (isset($res->website_setting_sections)) {
+            $res->website_setting_sections = webshop_filter_website_setting_sections_object($res->website_setting_sections);
+        }
+        if (isset($res->website_setting) && is_array($res->website_setting)) {
+            $res->website_setting = webshop_filter_active_website_setting_rows($res->website_setting);
+        }
+        return $res;
     }
 
     public function get_next_reference() {

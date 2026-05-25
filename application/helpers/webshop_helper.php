@@ -277,6 +277,85 @@ function webshop_normalize_html_media_urls($html, $uploads_base) {
 }
 
 /**
+ * True when html_block body repeats the configured title (e.g. title "Category" and content "Category").
+ *
+ * @param string $content
+ * @param string $title
+ * @return bool
+ */
+/**
+ * True when API page body is the same markup already produced by render_components().
+ *
+ * @param string $pageBodyHtml
+ * @param string $localBodyHtml
+ * @return bool
+ */
+function webshop_cms_page_body_duplicates_section_render($pageBodyHtml, $localBodyHtml)
+{
+    $pageBodyHtml = trim((string) $pageBodyHtml);
+    $localBodyHtml = trim((string) $localBodyHtml);
+    if ($pageBodyHtml === '' || $localBodyHtml === '') {
+        return false;
+    }
+    if ($pageBodyHtml === $localBodyHtml) {
+        return true;
+    }
+    $flags = defined('ENT_HTML5') ? (ENT_QUOTES | ENT_HTML5) : ENT_QUOTES;
+    $plainPage = trim(html_entity_decode(strip_tags($pageBodyHtml), $flags, 'UTF-8'));
+    $plainLocal = trim(html_entity_decode(strip_tags($localBodyHtml), $flags, 'UTF-8'));
+    if ($plainPage === '' || $plainLocal === '') {
+        return false;
+    }
+    if ($plainPage === $plainLocal) {
+        return true;
+    }
+    if (strpos($plainLocal, $plainPage) !== false) {
+        return true;
+    }
+    return strpos($localBodyHtml, $pageBodyHtml) !== false;
+}
+
+/**
+ * Merge optional page-level HTML with rendered CMS sections (no duplicate aggregate body).
+ *
+ * @param string $pageBodyHtml
+ * @param string $localBodyHtml
+ * @param array  $sections
+ * @return string
+ */
+function webshop_compose_cms_body_html($pageBodyHtml, $localBodyHtml, $sections = array())
+{
+    $pageBodyHtml = trim((string) $pageBodyHtml);
+    $localBodyHtml = trim((string) $localBodyHtml);
+    if ($localBodyHtml !== '' && !empty($sections) && is_array($sections)
+        && function_exists('webshop_cms_page_body_duplicates_section_render')
+        && webshop_cms_page_body_duplicates_section_render($pageBodyHtml, $localBodyHtml)) {
+        $pageBodyHtml = '';
+    }
+    $out = '';
+    if ($pageBodyHtml !== '') {
+        $out = $pageBodyHtml;
+    }
+    if ($localBodyHtml !== '') {
+        $out .= ($out !== '' ? "\n" : '') . $localBodyHtml;
+    }
+    return $out;
+}
+
+function webshop_cms_html_content_redundant_with_title($content, $title)
+{
+    $title = trim((string) $title);
+    if ($title === '') {
+        return false;
+    }
+    $plain = trim(html_entity_decode(strip_tags((string) $content), ENT_QUOTES, 'UTF-8'));
+    if ($plain === '') {
+        return false;
+    }
+    return strcasecmp($plain, $title) === 0;
+}
+
+/**
  * Decode entity-encoded CMS HTML (common when JSON/API stores escaped tags) then normalize media URLs.
  *
  * @param string $html
@@ -1995,6 +2074,321 @@ if (!function_exists('webshop_ws_row_icons_string')) {
     }
 }
 
+if (!function_exists('webshop_ws_row_is_active')) {
+    /**
+     * Storefront header/footer row is active only when is_active === 1 (strict).
+     * Rows with no is_active property are treated as active for legacy API payloads.
+     *
+     * @param mixed $item
+     * @return bool
+     */
+    function webshop_ws_row_is_active($item) {
+        $row = is_object($item) ? $item : (object) (array) $item;
+        $found = false;
+        $raw = null;
+        foreach (array('is_active', 'Is_active', 'IS_ACTIVE', 'active', 'Active') as $k) {
+            if (!property_exists($row, $k) && !isset($row->$k)) {
+                continue;
+            }
+            $found = true;
+            $raw = $row->$k;
+            break;
+        }
+        if (!$found) {
+            return true;
+        }
+        if ($raw === true || $raw === 'true') {
+            return true;
+        }
+        return ((int) $raw) === 1;
+    }
+}
+
+if (!function_exists('webshop_filter_active_setting_section_rows')) {
+    /**
+     * Normalize section row list and keep only is_active === 1 rows.
+     *
+     * @param mixed $rows
+     * @return array<int, mixed>
+     */
+    function webshop_filter_active_setting_section_rows($rows) {
+        $list = webshop_normalize_setting_section_row_list($rows);
+        $out = array();
+        foreach ($list as $item) {
+            if (webshop_ws_row_is_active($item)) {
+                $out[] = $item;
+            }
+        }
+        return $out;
+    }
+}
+
+if (!function_exists('webshop_filter_active_website_setting_rows')) {
+    /**
+     * @param array<int, mixed> $items
+     * @return array<int, mixed>
+     */
+    function webshop_filter_active_website_setting_rows($items) {
+        if (!is_array($items)) {
+            return array();
+        }
+        $out = array();
+        foreach ($items as $item) {
+            if (webshop_ws_row_is_active($item)) {
+                $out[] = $item;
+            }
+        }
+        return $out;
+    }
+}
+
+if (!function_exists('webshop_filter_website_setting_sections_object')) {
+    /**
+     * Defense in depth: strip inactive rows from getsettings website_setting_sections.
+     *
+     * @param mixed $sections header/footer object or array
+     * @return object { header: array, footer: array }
+     */
+    function webshop_filter_website_setting_sections_object($sections) {
+        $wrap = is_object($sections) ? $sections : (object) (is_array($sections) ? $sections : array());
+        $header = isset($wrap->header) ? $wrap->header : array();
+        $footer = isset($wrap->footer) ? $wrap->footer : array();
+        return (object) array(
+            'header' => webshop_filter_active_setting_section_rows($header),
+            'footer' => webshop_filter_active_setting_section_rows($footer),
+        );
+    }
+}
+
+if (!function_exists('webshop_clear_elintom_settings_cache')) {
+    /**
+     * Drop session getsettings cache so the next request refetches ElintOm (after CMS admin save).
+     */
+    function webshop_clear_elintom_settings_cache() {
+        if (!function_exists('get_instance')) {
+            return;
+        }
+        $CI = get_instance();
+        if (isset($CI->session)) {
+            $CI->session->unset_userdata('elintom_cache_getsettings');
+        }
+    }
+}
+
+if (!function_exists('webshop_storefront_preset_field_keys')) {
+    /**
+     * Known Storefront field_key presets (admin should use these — reduces typos).
+     *
+     * @return array<int, string>
+     */
+    function webshop_storefront_preset_field_keys() {
+        return array(
+            'logo_image', 'banner_image', 'favicon',
+            'announcement_bar', 'top_bar_html', 'phone_strip',
+            'about_us', 'contact_us', 'privacy_policy', 'terms_and_conditions',
+            'phone', 'mobile', 'hotline', 'email', 'address',
+            'media_facebook_link', 'media_instagram_link', 'media_twitter_link',
+            'media_linkedin_link', 'media_youtube_link', 'media_tiktok_link',
+        );
+    }
+}
+
+if (!function_exists('webshop_footer_row_has_semantic_fallback')) {
+    /**
+     * True when empty value may be filled from POS/biller Settings (phone, address, about, email).
+     *
+     * @param string $field_key
+     * @param string $label
+     * @return bool
+     */
+    function webshop_footer_row_has_semantic_fallback($field_key, $label = '') {
+        $hint = strtolower(trim((string) $field_key . ' ' . (string) $label));
+        if ($hint === '') {
+            return false;
+        }
+        return (bool) preg_match(
+            '/phone|tel|mobile|hotline|whatsapp|fax|call|address|location|visit|office|branch|about|intro|company|story|mission|email|e-mail|mail|support|contact/i',
+            $hint
+        );
+    }
+}
+
+if (!function_exists('webshop_storefront_default_link_for_field_key')) {
+    /**
+     * Internal webshop URL when VALUE is empty but field_key is a known CMS/static slug.
+     *
+     * @param string $field_key
+     * @return string Absolute URL or empty
+     */
+    function webshop_storefront_default_link_for_field_key($field_key) {
+        $fk = strtolower(trim((string) $field_key));
+        $fk = preg_replace('/[^a-z0-9_\-]/', '', str_replace('-', '_', $fk));
+        static $map = array(
+            'about_us' => 'about_us',
+            'aboutus' => 'about_us',
+            'about_uss' => 'about_us',
+            'contact_us' => 'contact_us',
+            'contactus' => 'contact_us',
+            'privacy_policy' => 'privacy_policy',
+            'privacypolicy' => 'privacy_policy',
+            'terms_and_conditions' => 'terms_and_conditions',
+            'terms_conditions' => 'terms_and_conditions',
+            'terms' => 'terms_and_conditions',
+        );
+        if (!isset($map[$fk])) {
+            return '';
+        }
+        return base_url('webshop/' . $map[$fk]);
+    }
+}
+
+if (!function_exists('webshop_storefront_resolve_row_display_value')) {
+    /**
+     * Apply default internal links for known page field keys when value is empty.
+     *
+     * @param string $field_key
+     * @param string $value
+     * @return string
+     */
+    function webshop_storefront_resolve_row_display_value($field_key, $value) {
+        $val = trim((string) $value);
+        if ($val !== '') {
+            return $val;
+        }
+        $link = webshop_storefront_default_link_for_field_key($field_key);
+        return $link !== '' ? $link : '';
+    }
+}
+
+if (!function_exists('webshop_footer_content_row_should_display')) {
+    /**
+     * Skip empty unknown footer columns (no value, no POS fallback semantics).
+     *
+     * @param array<string, mixed> $row field_key, label, value, …
+     * @return bool
+     */
+    function webshop_footer_content_row_should_display(array $row) {
+        $val = isset($row['value']) ? trim((string) $row['value']) : '';
+        if ($val !== '') {
+            return true;
+        }
+        $fk = isset($row['field_key']) ? (string) $row['field_key'] : '';
+        $lab = isset($row['label']) ? (string) $row['label'] : '';
+        return webshop_footer_row_has_semantic_fallback($fk, $lab);
+    }
+}
+
+if (!function_exists('webshop_header_row_is_structural_field')) {
+    /**
+     * Header rows handled elsewhere (logo, banner, favicon, social) — not display strips.
+     *
+     * @param string $field_key
+     * @return bool
+     */
+    function webshop_header_row_is_structural_field($field_key) {
+        $fk = strtolower(trim((string) $field_key));
+        if ($fk === '') {
+            return true;
+        }
+        if (webshop_footer_row_is_header_only_field($fk)) {
+            return true;
+        }
+        if (function_exists('webshop_footer_row_is_social_field') && webshop_footer_row_is_social_field($fk)) {
+            return true;
+        }
+        return false;
+    }
+}
+
+if (!function_exists('webshop_header_slot_kind_for_field_key')) {
+    /**
+     * Map admin field_key to header strip placement.
+     *
+     * @param string $field_key
+     * @return string announcement|top_html|phone|''
+     */
+    function webshop_header_slot_kind_for_field_key($field_key) {
+        $fk = strtolower(trim((string) $field_key));
+        if ($fk === 'announcement_bar' || preg_match('/^(header_)?announcement|promo_bar|top_notice$/', $fk)) {
+            return 'announcement';
+        }
+        if ($fk === 'top_bar_html' || preg_match('/^(header|top)_(html|notice|message)$/', $fk)) {
+            return 'top_html';
+        }
+        if ($fk === 'phone_strip' || preg_match('/^(header|top)_(phone|tel|hotline)$/', $fk)) {
+            return 'phone';
+        }
+        return '';
+    }
+}
+
+if (!function_exists('webshop_header_slot_kind_resolve')) {
+    /**
+     * Resolve strip kind; unknown keys with content render as top_html (CMS custom header text).
+     *
+     * @param string $field_key
+     * @param string $value       Resolved display value
+     * @return string announcement|top_html|phone|''
+     */
+    function webshop_header_slot_kind_resolve($field_key, $value = '') {
+        $kind = webshop_header_slot_kind_for_field_key($field_key);
+        if ($kind !== '') {
+            return $kind;
+        }
+        if (trim((string) $value) !== '') {
+            return 'top_html';
+        }
+        return '';
+    }
+}
+
+if (!function_exists('webshop_header_gather_display_slots')) {
+    /**
+     * Active HEADER rows for storefront strips (announcement / HTML bar / phone), sorted.
+     *
+     * @return array{announcement: array<int, array>, top_html: array<int, array>, phone: array<int, array>}
+     */
+    function webshop_header_gather_display_slots() {
+        $slots = array(
+            'announcement' => array(),
+            'top_html'     => array(),
+            'phone'        => array(),
+        );
+        foreach (webshop_website_setting_section_rows('header') as $item) {
+            $fk = webshop_ws_row_field_key($item);
+            if ($fk === '' || webshop_header_row_is_structural_field($fk)) {
+                continue;
+            }
+            $val = webshop_storefront_resolve_row_display_value($fk, webshop_ws_row_value_string($item));
+            $kind = webshop_header_slot_kind_resolve($fk, $val);
+            if ($kind === '') {
+                continue;
+            }
+            if (trim($val) === '' && $kind !== 'phone') {
+                continue;
+            }
+            $row = array(
+                'field_key'  => $fk,
+                'label'      => webshop_ws_row_label_string($item, $fk),
+                'value'      => $val,
+                'sort_order' => webshop_ws_row_sort_order($item),
+            );
+            $slots[$kind][] = $row;
+        }
+        foreach (array_keys($slots) as $k) {
+            usort($slots[$k], function ($a, $b) {
+                $sa = isset($a['sort_order']) ? (int) $a['sort_order'] : 0;
+                $sb = isset($b['sort_order']) ? (int) $b['sort_order'] : 0;
+                if ($sa !== $sb) {
+                    return $sa - $sb;
+                }
+                return strcmp(isset($a['field_key']) ? $a['field_key'] : '', isset($b['field_key']) ? $b['field_key'] : '');
+            });
+        }
+        return $slots;
+    }
+}
+
 if (!function_exists('webshop_ws_website_setting_bundles')) {
     /**
      * Rows from getsettings ($api_website_setting) plus controller view data when present.
@@ -2008,10 +2402,10 @@ if (!function_exists('webshop_ws_website_setting_bundles')) {
         }
         $CI = get_instance();
         if (isset($CI->api_website_setting) && is_array($CI->api_website_setting)) {
-            $bundles[] = $CI->api_website_setting;
+            $bundles[] = webshop_filter_active_website_setting_rows($CI->api_website_setting);
         }
         if (isset($CI->data['website_setting']) && is_array($CI->data['website_setting'])) {
-            $bundles[] = $CI->data['website_setting'];
+            $bundles[] = webshop_filter_active_website_setting_rows($CI->data['website_setting']);
         }
         return $bundles;
     }
@@ -2143,7 +2537,17 @@ if (!function_exists('webshop_website_setting_section_rows')) {
         } elseif (is_object($wrap)) {
             $rows = isset($wrap->$section) ? $wrap->$section : array();
         }
-        return webshop_normalize_setting_section_row_list($rows);
+        $normalized = webshop_normalize_setting_section_row_list($rows);
+        $out = array();
+        foreach ($normalized as $item) {
+            if (webshop_ws_row_is_active($item)) {
+                $out[] = $item;
+            }
+        }
+        usort($out, function ($a, $b) {
+            return webshop_ws_row_sort_order($a) - webshop_ws_row_sort_order($b);
+        });
+        return $out;
     }
 }
 
@@ -2162,11 +2566,12 @@ if (!function_exists('webshop_website_setting_lookup_row_in_section')) {
         }
         foreach (webshop_website_setting_section_rows($section) as $item) {
             $f = webshop_ws_row_field_key($item);
-            if ($f === $field_key) {
-                $v = webshop_ws_row_value_string($item);
-                if ($v !== '') {
-                    return is_object($item) ? $item : (object) (array) $item;
-                }
+            if ($f !== $field_key) {
+                continue;
+            }
+            $v = webshop_storefront_resolve_row_display_value($f, webshop_ws_row_value_string($item));
+            if ($v !== '' || in_array($f, array('logo_image', 'banner_image', 'favicon'), true)) {
+                return is_object($item) ? $item : (object) (array) $item;
             }
         }
         return null;
@@ -2191,8 +2596,11 @@ if (!function_exists('webshop_website_setting_lookup_row')) {
                 if ($f !== $field_key) {
                     continue;
                 }
-                $v = webshop_ws_row_value_string($item);
-                if ($v !== '') {
+                if (!webshop_ws_row_is_active($item)) {
+                    continue;
+                }
+                $v = webshop_storefront_resolve_row_display_value($f, webshop_ws_row_value_string($item));
+                if ($v !== '' || in_array($f, array('logo_image', 'banner_image', 'favicon'), true)) {
                     return is_object($item) ? $item : (object) (array) $item;
                 }
             }
@@ -2341,8 +2749,11 @@ if (!function_exists('webshop_footer_identity_rows')) {
             if (!empty($normalized)) {
                 $has_sections = true;
                 foreach ($normalized as $item) {
+                    if (!webshop_ws_row_is_active($item)) {
+                        continue;
+                    }
                     $fk  = webshop_ws_row_field_key($item);
-                    $val = webshop_ws_row_value_string($item);
+                    $val = webshop_storefront_resolve_row_display_value($fk, webshop_ws_row_value_string($item));
                     $lab = webshop_ws_row_label_string($item, $fk);
 
                     if ($fk === '' && $val === '' && $lab === '') {
@@ -2391,8 +2802,7 @@ if (!function_exists('webshop_footer_identity_rows')) {
                 if (webshop_footer_row_is_header_only_field($fk)) {
                     continue;
                 }
-                $val = webshop_ws_row_value_string($item);
-                // Allow empty values here so webshop_footer_fill_row_fallbacks can backfill them from Settings
+                $val = webshop_storefront_resolve_row_display_value($fk, webshop_ws_row_value_string($item));
 
                 $seen_keys[$fk] = true;
                 $out[] = array(
@@ -2406,7 +2816,10 @@ if (!function_exists('webshop_footer_identity_rows')) {
             }
         }
 
-        return webshop_footer_fill_row_fallbacks(webshop_footer_sort_identity_rows($out));
+        $out = webshop_footer_fill_row_fallbacks(webshop_footer_sort_identity_rows($out));
+        return array_values(array_filter($out, function ($row) {
+            return is_array($row) && webshop_footer_content_row_should_display($row);
+        }));
     }
 }
 
@@ -2503,7 +2916,7 @@ if (!function_exists('webshop_footer_gather_display_rows')) {
             $row = array(
                 'field_key'   => $fk,
                 'label'       => webshop_ws_row_label_string($item, $fk),
-                'value'       => webshop_ws_row_value_string($item),
+                'value'       => webshop_storefront_resolve_row_display_value($fk, webshop_ws_row_value_string($item)),
                 'icons'       => webshop_ws_row_icons_string($item),
                 'sort_order'  => webshop_ws_row_sort_order($item),
                 'section'     => $section,
@@ -2552,7 +2965,7 @@ if (!function_exists('webshop_footer_gather_display_rows')) {
                         $social[] = array(
                             'field_key'   => $fk,
                             'label'       => webshop_ws_row_label_string($item, $fk),
-                            'value'       => webshop_ws_row_value_string($item),
+                            'value'       => webshop_storefront_resolve_row_display_value($fk, webshop_ws_row_value_string($item)),
                             'icons'       => webshop_ws_row_icons_string($item),
                             'sort_order'  => webshop_ws_row_sort_order($item),
                             'section'     => 'footer',
@@ -2567,7 +2980,7 @@ if (!function_exists('webshop_footer_gather_display_rows')) {
                 $content[] = array(
                     'field_key'   => $fk,
                     'label'       => webshop_ws_row_label_string($item, $fk),
-                    'value'       => webshop_ws_row_value_string($item),
+                    'value'       => webshop_storefront_resolve_row_display_value($fk, webshop_ws_row_value_string($item)),
                     'icons'       => webshop_ws_row_icons_string($item),
                     'sort_order'  => webshop_ws_row_sort_order($item),
                     'section'     => 'footer',
@@ -2577,6 +2990,9 @@ if (!function_exists('webshop_footer_gather_display_rows')) {
 
         $social = webshop_footer_sort_identity_rows($social);
         $content = webshop_footer_fill_row_fallbacks(webshop_footer_sort_identity_rows($content));
+        $content = array_values(array_filter($content, function ($row) {
+            return is_array($row) && webshop_footer_content_row_should_display($row);
+        }));
 
         return array('content' => $content, 'social' => $social);
     }

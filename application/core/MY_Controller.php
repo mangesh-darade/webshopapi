@@ -23,9 +23,6 @@ class MY_Controller extends CI_Controller {
             $this->Settings = (object) $api_data->pos_settings;
             $this->webshop_settings = (object) $api_data->webshop_settings;
             $this->pos_settings = (object) $api_data->pos_config;
-            $this->api_website_setting = isset($api_data->website_setting)
-                ? $api_data->website_setting
-                : array();
             $sec = isset($api_data->website_setting_sections) ? $api_data->website_setting_sections : null;
             if ($sec === null) {
                 $this->api_website_setting_sections = (object) array('header' => array(), 'footer' => array());
@@ -34,15 +31,13 @@ class MY_Controller extends CI_Controller {
             } else {
                 $this->api_website_setting_sections = is_object($sec) ? $sec : (object) array('header' => array(), 'footer' => array());
             }
-            /* footer/header may decode as JSON objects with numeric keys — normalize to row lists (do not wipe). */
-            $h_raw = isset($this->api_website_setting_sections->header) ? $this->api_website_setting_sections->header : array();
-            $f_raw = isset($this->api_website_setting_sections->footer) ? $this->api_website_setting_sections->footer : array();
-            $this->api_website_setting_sections->header = function_exists('webshop_normalize_setting_section_row_list')
-                ? webshop_normalize_setting_section_row_list($h_raw)
-                : (is_array($h_raw) ? array_values($h_raw) : array());
-            $this->api_website_setting_sections->footer = function_exists('webshop_normalize_setting_section_row_list')
-                ? webshop_normalize_setting_section_row_list($f_raw)
-                : (is_array($f_raw) ? array_values($f_raw) : array());
+            $this->load->helper('webshop_helper');
+            $this->api_website_setting_sections = webshop_filter_website_setting_sections_object($this->api_website_setting_sections);
+            if (isset($api_data->website_setting) && is_array($api_data->website_setting)) {
+                $this->api_website_setting = webshop_filter_active_website_setting_rows($api_data->website_setting);
+            } else {
+                $this->api_website_setting = isset($api_data->website_setting) ? $api_data->website_setting : array();
+            }
             $this->_normalize_settings_from_api();
             if (!isset($this->Settings->active_webshop)) {
                 $this->Settings->active_webshop = 1;

@@ -207,6 +207,11 @@ if (!isset($config['elintom_catalog_source'])) {
 /* If TRUE, will fall back to local MySQL when API is unreachable. Set to FALSE for DB-less. */
 $config['elintom_catalog_fallback_database'] = false;
 
+// CMS direct MySQL (elintom_cms_direct_db in local.php): when TRUE, read sma_pages if getcmspage HTTP fails.
+// When FALSE (default), do NOT read local DB if the API responded "CMS page not found" — admin list is source of truth.
+if (!isset($config['elintom_cms_direct_db_on_api_not_found'])) {
+    $config['elintom_cms_direct_db_on_api_not_found'] = false;
+}
 
 if (!isset($config['elintom_domain_theme_map'])) {
     $config['elintom_domain_theme_map'] = array();

@@ -12,12 +12,16 @@ $cols     = (isset($cfg['columns_desktop']) && (int)$cfg['columns_desktop'] > 0)
 $uploadsB = isset($uploads) ? rtrim($uploads, '/') . '/' : '';
 if (empty($items)) return;
 $uid = 'cg' . rand(1000, 9999);
+$cg_assets = isset($assets) ? $assets : base_url('assets/webshop/');
+$itemCount = count($items);
+$gridExtra = ($itemCount > 0 && $itemCount <= 4) ? ' gp-cg-grid--sparse' : '';
 ?>
+<link rel="stylesheet" href="<?= $cg_assets ?>gulfpharmacy_theme/css/category-grid.css">
 <section class="gp-component category-grid-section" aria-labelledby="<?= $uid ?>">
     <?php if ($title !== ''): ?>
-    <h2 class="section-title" id="<?= $uid ?>"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h2>
+    <h2 class="section-title section-title--ruled" id="<?= $uid ?>"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h2>
     <?php endif; ?>
-    <div class="gp-cg-grid gp-cg-grid-<?= $cols ?>col">
+    <div class="gp-cg-grid gp-cg-grid-<?= $cols ?>col<?= $gridExtra ?>">
         <?php foreach ($items as $cat):
             $cat    = is_object($cat) ? (array)$cat : (is_array($cat) ? $cat : array());
             $catId  = isset($cat['id'])   ? (int)$cat['id']   : 0;

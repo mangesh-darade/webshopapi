@@ -30,6 +30,15 @@ body{margin:0;font-family:Inter,system-ui,sans-serif;background:#fff;color:var(-
 .section{margin:18px 0 26px}
 .section-head{display:flex;justify-content:space-between;align-items:end;margin-bottom:12px}
 .section h2{margin:0;font-size:clamp(22px,2vw,30px);font-weight:800;color:var(--gp-primary)}
+/* CMS category_grid title from admin — full-width centered ruled heading (not left .section h2) */
+.home-cms-body .category-grid-section h2.section-title,
+.home-cms-body .category-grid-section h2.section-title--ruled{
+  display:flex;
+  width:100%;
+  justify-content:center;
+  text-align:center;
+  font-size:clamp(1.35rem,2.5vw,1.75rem);
+}
 .section p{margin:0;color:var(--gp-muted);font-size:14px}
 .panel{background:var(--gp-bg);border:1px solid var(--gp-border);border-radius:18px;padding:18px;box-shadow:0 10px 24px rgba(15,118,110,.06)}
 .panel :is(img){max-width:100%;height:auto}
@@ -54,7 +63,9 @@ body{margin:0;font-family:Inter,system-ui,sans-serif;background:#fff;color:var(-
 .section-head--ruled h2{display:flex;align-items:center;justify-content:center;gap:clamp(12px,3vw,28px);margin:0;font-size:clamp(1.35rem,2.5vw,1.75rem);font-weight:800;color:#214548}
 .section-head--ruled h2::before,.section-head--ruled h2::after{content:"";flex:1;height:2px;background:#214548;max-width:220px}
 .section--categories{padding-bottom:12px}
-.section--categories .panel--catalog{padding-bottom:8px}
+.section--categories .panel--catalog{padding-bottom:8px;text-align:left}
+.section--categories .panel--catalog .category-grid-section{width:100%}
+.section--categories .panel--catalog .gp-cg-grid{justify-content:start}
 .section--featured{margin-top:8px;padding-top:24px;border-top:1px solid var(--gp-border)}
 
 /* CMS sections inside home body */

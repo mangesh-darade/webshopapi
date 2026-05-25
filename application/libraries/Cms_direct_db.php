@@ -70,7 +70,8 @@ class Cms_direct_db {
 
         $page_id = (int) $page['id'];
         $sections = $this->load_sections($page_id);
-        $body_html = $this->render_sections_html($sections);
+        // page_text is not pre-rendered when sections exist — Webshop_section_engine renders them once.
+        $body_html = !empty($sections) ? '' : $this->render_sections_html($sections);
 
         $o = new stdClass();
         $o->page_key = ltrim($url, '/');
@@ -94,6 +95,8 @@ class Cms_direct_db {
         $o->page_description = '';
         $o->cms_loaded_from_api = true;
         $o->cms_loaded_via = 'direct_db';
+        $o->cms_page_found = true;
+        $o->id = $page_id;
 
         return $o;
     }
@@ -133,6 +136,9 @@ class Cms_direct_db {
         foreach ($sections as $section) {
             $type = isset($section['section_type']) ? strtolower((string) $section['section_type']) : '';
             $raw = isset($section['section_contain']) ? $section['section_contain'] : '';
+            if (trim((string) $raw) === '' && isset($section['config_json'])) {
+                $raw = $section['config_json'];
+            }
             $cfg = is_string($raw) && $raw !== '' ? json_decode($raw, true) : array();
             if (!is_array($cfg)) {
                 $cfg = array();

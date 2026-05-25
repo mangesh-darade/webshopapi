@@ -8,8 +8,12 @@ if ($title === '' && isset($cfg['heading'])) $title = trim((string) $cfg['headin
 $content = isset($content) ? (string)$content : '';
 if ($content === '' && isset($cfg['content'])) $content = (string)$cfg['content'];
 if ($content === '' && isset($data['content'])) $content = (string)$data['content'];
+if ($title !== '' && function_exists('webshop_cms_html_content_redundant_with_title')
+    && webshop_cms_html_content_redundant_with_title($content, $title)) {
+    $content = '';
+}
 $uploadsB = isset($uploads) ? $uploads : '';
-if (trim($content) === '') return;
+if (trim($content) === '' && $title === '') return;
 ?>
 <div class="gp-component gp-html-block cms-html-block">
     <?php if ($title !== ''): ?>

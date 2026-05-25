@@ -33,10 +33,52 @@ if ($ws_sess) {
 $user_first_name = $user_name !== '' ? trim((string) strtok($user_name, ' ')) : '';
 
 $gp_logo_lcp_hint = !empty($gp_header_logo_fetchpriority) && $logo_url !== '';
+$_gp_header_slots = function_exists('webshop_header_gather_display_slots')
+    ? webshop_header_gather_display_slots()
+    : array('announcement' => array(), 'top_html' => array(), 'phone' => array());
 ?>
 <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css">
 <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header-drawers.css">
 <header class="gp-header" id="gp-header">
+    <?php if (!empty($_gp_header_slots['announcement'])) : ?>
+    <div class="gp-header-announcement" role="region" aria-label="Store announcement">
+        <?php foreach ($_gp_header_slots['announcement'] as $_gp_ann) :
+            $_gp_ann_html = function_exists('webshop_footer_row_body_html')
+                ? webshop_footer_row_body_html((string) $_gp_ann['field_key'], (string) $_gp_ann['value'], $uploadsBase, '')
+                : nl2br(htmlspecialchars((string) $_gp_ann['value'], ENT_QUOTES, 'UTF-8'));
+        ?>
+        <div class="gp-header-announcement-item"><?= $_gp_ann_html ?></div>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+    <?php if (!empty($_gp_header_slots['top_html'])) : ?>
+    <div class="gp-header-top-html" role="region" aria-label="Header notice">
+        <?php foreach ($_gp_header_slots['top_html'] as $_gp_top) :
+            $_gp_top_html = function_exists('webshop_footer_row_body_html')
+                ? webshop_footer_row_body_html((string) $_gp_top['field_key'], (string) $_gp_top['value'], $uploadsBase, '')
+                : nl2br(htmlspecialchars((string) $_gp_top['value'], ENT_QUOTES, 'UTF-8'));
+        ?>
+        <div class="gp-header-top-html-item"><?= $_gp_top_html ?></div>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+    <?php if (!empty($_gp_header_slots['phone'])) : ?>
+    <div class="gp-header-phone-strip container" role="region" aria-label="Contact phone">
+        <?php foreach ($_gp_header_slots['phone'] as $_gp_ph) :
+            $_gp_ph_href = function_exists('webshop_footer_row_link_href')
+                ? webshop_footer_row_link_href((string) $_gp_ph['field_key'], (string) $_gp_ph['value'])
+                : '';
+            $_gp_ph_label = trim((string) $_gp_ph['label']) !== '' ? (string) $_gp_ph['label'] : 'Call us';
+            $_gp_ph_text = trim(strip_tags((string) $_gp_ph['value']));
+        ?>
+        <?php if ($_gp_ph_href !== '') : ?>
+        <a class="gp-header-phone-link" href="<?= htmlspecialchars($_gp_ph_href, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($_gp_ph_text !== '' ? $_gp_ph_text : $_gp_ph_label, ENT_QUOTES, 'UTF-8') ?></a>
+        <?php elseif ($_gp_ph_text !== '') : ?>
+        <span class="gp-header-phone-text"><?= htmlspecialchars($_gp_ph_text, ENT_QUOTES, 'UTF-8') ?></span>
+        <?php endif; ?>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
     <div class="gp-header-inner container">
         <!-- Logo -->
         <a class="gp-logo" href="<?= $webshop_url ?>">
@@ -48,15 +90,16 @@ $gp_logo_lcp_hint = !empty($gp_header_logo_fetchpriority) && $logo_url !== '';
             <?php endif; ?>
         </a>
 
-        <!-- Primary Nav -->
+        <!-- Primary Nav: published CMS Pages only (page_name from admin) -->
+        <?php if (!empty($cms_nav)): ?>
         <nav class="gp-nav" id="gp-nav" aria-label="Main navigation">
             <ul class="gp-nav-list">
-                <li><a href="<?= $webshop_url ?>" class="gp-nav-link">Home</a></li>
                 <?php foreach ($cms_nav as $np): ?>
                 <li><a href="<?= htmlspecialchars(isset($np['href']) ? $np['href'] : '', ENT_QUOTES, 'UTF-8') ?>" class="gp-nav-link"><?= htmlspecialchars(isset($np['title']) ? $np['title'] : '', ENT_QUOTES, 'UTF-8') ?></a></li>
                 <?php endforeach; ?>
             </ul>
         </nav>
+        <?php endif; ?>
 
         <!-- Header Actions -->
         <div class="gp-header-actions">
@@ -183,12 +226,9 @@ $gp_logo_lcp_hint = !empty($gp_header_logo_fetchpriority) && $logo_url !== '';
     </div>
 
     <div class="gp-drawer-body">
+        <?php if (!empty($cms_nav)): ?>
         <div class="gp-sidebar-section">
-            <h3 class="gp-sidebar-section-title">Shop</h3>
-            <a class="gp-sidebar-link" href="<?= $webshop_url ?>">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/></svg>
-                Home
-            </a>
+            <h3 class="gp-sidebar-section-title">Pages</h3>
             <?php foreach ($cms_nav as $np): ?>
             <a class="gp-sidebar-link" href="<?= htmlspecialchars(isset($np['href']) ? $np['href'] : '', ENT_QUOTES, 'UTF-8') ?>">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
@@ -196,6 +236,7 @@ $gp_logo_lcp_hint = !empty($gp_header_logo_fetchpriority) && $logo_url !== '';
             </a>
             <?php endforeach; ?>
         </div>
+        <?php endif; ?>
 
         <div class="gp-sidebar-section">
             <h3 class="gp-sidebar-section-title">My account</h3>

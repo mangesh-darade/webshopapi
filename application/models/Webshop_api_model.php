@@ -125,22 +125,51 @@ class Webshop_api_model extends CI_Model {
      * ================================================================ */
 
     public function get_settings() {
+        $CI = get_instance();
+        if (isset($CI->input) && trim((string) $CI->input->get('refresh_settings')) !== '') {
+            $CI->load->helper('webshop_helper');
+            if (function_exists('webshop_clear_elintom_settings_cache')) {
+                webshop_clear_elintom_settings_cache();
+            }
+        }
+
         $ttl = $this->_elintom_http_cache_ttl('elintom_http_cache_settings_seconds', 45);
         if ($ttl > 0) {
-            $CI = get_instance();
             if (isset($CI->session)) {
                 $row = $CI->session->userdata('elintom_cache_getsettings');
                 if (is_array($row) && isset($row['exp'], $row['blob']) && (int) $row['exp'] > time()) {
                     $cached = json_decode($row['blob']);
                     if ($cached !== null && is_object($cached)) {
-                        return $cached;
+                        return $this->_filter_storefront_settings_response($cached);
                     }
                 }
             }
         }
         $res = $this->api->get_settings();
+        $res = $this->_filter_storefront_settings_response($res);
         if ($ttl > 0 && $res && is_object($res) && isset($res->status) && strtoupper((string) $res->status) === 'SUCCESS') {
             $this->_store_settings_session_cache($res, $ttl);
+        }
+        return $res;
+    }
+
+    /**
+     * Strip inactive storefront rows from getsettings (is_active must be exactly 1).
+     *
+     * @param object|null $res
+     * @return object|null
+     */
+    protected function _filter_storefront_settings_response($res) {
+        if (!$res || !is_object($res) || !isset($res->status) || strtoupper((string) $res->status) !== 'SUCCESS') {
+            return $res;
+        }
+        $CI = get_instance();
+        $CI->load->helper('webshop_helper');
+        if (isset($res->website_setting_sections)) {
+            $res->website_setting_sections = webshop_filter_website_setting_sections_object($res->website_setting_sections);
+        }
+        if (isset($res->website_setting) && is_array($res->website_setting)) {
+            $res->website_setting = webshop_filter_active_website_setting_rows($res->website_setting);
         }
         return $res;
     }
@@ -332,7 +361,9 @@ class Webshop_api_model extends CI_Model {
         $o->page_title = '';
         $o->page_text = '';
         $o->meta_tags = '';
+        $o->sections = array();
         $o->cms_loaded_from_api = false;
+        $o->cms_page_found = false;
         $this->_home_page_data_memo = $o;
         $this->_home_page_data_memo_set = true;
         return $this->_home_page_data_memo;
@@ -350,6 +381,7 @@ class Webshop_api_model extends CI_Model {
         }
         $pages = is_array($res->pages) ? $res->pages : (array) $res->pages;
         $out = array();
+        $seenHome = false;
         foreach ($pages as $row) {
             $a = is_object($row) ? (array) $row : (is_array($row) ? $row : array());
             $url   = isset($a['url']) ? trim((string) $a['url']) : '';
@@ -359,9 +391,16 @@ class Webshop_api_model extends CI_Model {
             if ($url === '' || $title === '' || $status !== 'published') {
                 continue;
             }
+            $isHome = $this->is_cms_home_storefront_url($url);
+            if ($isHome && $seenHome) {
+                continue;
+            }
             $href = $this->map_cms_url_to_webshop_href($url);
             if ($href === '') {
                 continue;
+            }
+            if ($isHome) {
+                $seenHome = true;
             }
             $out[] = array(
                 'title' => $title,
@@ -394,10 +433,21 @@ class Webshop_api_model extends CI_Model {
         if ($url === '//') {
             $url = '/';
         }
-        if ($url === '/') {
+        if ($this->is_cms_home_storefront_url($url)) {
             return base_url('webshop');
         }
         return base_url('webshop/' . ltrim($url, '/'));
+    }
+
+    /**
+     * CMS admin home URLs that map to storefront index (webshop).
+     *
+     * @param string $cms_url
+     * @return bool
+     */
+    protected function is_cms_home_storefront_url($cms_url) {
+        $slug = strtolower(ltrim(str_replace('_', '-', (string) $cms_url), '/'));
+        return in_array($slug, array('', 'home', 'home-page'), true);
     }
 
     /**
@@ -656,10 +706,12 @@ class Webshop_api_model extends CI_Model {
             $benignMiss = stripos($msgText, 'not found') !== false;
             log_message($benignMiss ? 'debug' : 'error', $logLine);
 
-            $direct = $this->get_cms_page_content_direct_db($url_path);
-            if ($direct !== null) {
-                log_message('info', 'Webshop_api_model:get_cms_page_content direct_db ok url=' . (string) $url_path);
-                return $direct;
+            if ($this->should_use_cms_direct_db_fallback($res, $msgText)) {
+                $direct = $this->get_cms_page_content_direct_db($url_path);
+                if ($direct !== null) {
+                    log_message('info', 'Webshop_api_model:get_cms_page_content direct_db ok url=' . (string) $url_path);
+                    return $direct;
+                }
             }
             return null;
         }
@@ -801,13 +853,21 @@ class Webshop_api_model extends CI_Model {
         if ($seoTitle !== '') {
             $o->page_title = $seoTitle;
         }
-        $o->page_text = $pick_first_string(
-            array($resArr, $pageArr),
-            array('content_html', 'body_html', 'page_text', 'content', 'description', 'page_description')
-        );
-        // Direct property fallback (some JSON decoders keep nested shapes where array cast omits keys).
-        if (trim((string) $o->page_text) === '' && is_object($res) && isset($res->content_html) && trim((string) $res->content_html) !== '') {
-            $o->page_text = trim((string) $res->content_html);
+        $hasRenderableSections = !empty($o->sections) && is_array($o->sections);
+        if ($hasRenderableSections) {
+            // getcmspage content_html / body_html is buildLayoutSections() output — same as section render.
+            $o->page_text = $pick_first_string(
+                array($pageArr),
+                array('page_text', 'content', 'description', 'page_description')
+            );
+        } else {
+            $o->page_text = $pick_first_string(
+                array($resArr, $pageArr),
+                array('content_html', 'body_html', 'page_text', 'content', 'description', 'page_description')
+            );
+            if (trim((string) $o->page_text) === '' && is_object($res) && isset($res->content_html) && trim((string) $res->content_html) !== '') {
+                $o->page_text = trim((string) $res->content_html);
+            }
         }
         $o->header_html = $pick_first_string(array($resArr, $pageArr), array('header_html', 'header', 'header_content'));
         $o->footer_html = $pick_first_string(array($resArr, $pageArr), array('footer_html', 'footer', 'footer_content'));
@@ -833,59 +893,11 @@ class Webshop_api_model extends CI_Model {
             array($resArr, $pageArr),
             array('short_description', 'excerpt', 'strapline')
         );
-        // Fallback: build static page body from mapped html_block sections.
-        if ($o->page_text === '' && !empty($o->sections) && is_array($o->sections)) {
-            $chunks = array();
-            foreach ($o->sections as $section) {
-                $sec = is_object($section) ? (array) $section : (is_array($section) ? $section : array());
-                $type = isset($sec['section_type']) ? strtolower(trim((string) $sec['section_type'])) : '';
-                if ($type === '' && isset($sec['section_name'])) {
-                    $type = strtolower(trim((string) $sec['section_name']));
-                }
-                if ($type !== 'html_block') {
-                    // Some old payloads store raw HTML even for non-html_block typed sections.
-                    $rawDirect = $pick_first_string(array($sec), array('html', 'content', 'section_html', 'section_contain'));
-                    if ($rawDirect !== '' && strpos(trim($rawDirect), '<') !== false) {
-                        $chunks[] = $rawDirect;
-                    }
-                    continue;
-                }
-                $cfg = array();
-                if (isset($sec['config_json']) && is_array($sec['config_json'])) {
-                    $cfg = $sec['config_json'];
-                } elseif (isset($sec['config_json']) && is_object($sec['config_json'])) {
-                    $cfg = (array) $sec['config_json'];
-                } elseif (isset($sec['config_json']) && is_string($sec['config_json']) && trim($sec['config_json']) !== '') {
-                    $decoded = json_decode($sec['config_json'], true);
-                    if (is_array($decoded)) {
-                        $cfg = $decoded;
-                    } else {
-                        $scalar = json_decode($sec['config_json']);
-                        if (is_string($scalar)) {
-                            $cfg['content'] = $scalar;
-                        } else {
-                            $cj = trim((string) $sec['config_json']);
-                            if ($cj !== '' && isset($cj[0]) && $cj[0] !== '{' && $cj[0] !== '[') {
-                                $cfg['content'] = (string) $sec['config_json'];
-                            }
-                        }
-                    }
-                }
-                if (isset($cfg['content']) && trim((string) $cfg['content']) !== '') {
-                    $chunks[] = (string) $cfg['content'];
-                }
-                if (isset($cfg['html']) && trim((string) $cfg['html']) !== '') {
-                    $chunks[] = (string) $cfg['html'];
-                }
-                if (empty($cfg) && isset($sec['section_contain']) && is_string($sec['section_contain']) && trim($sec['section_contain']) !== '') {
-                    $chunks[] = (string) $sec['section_contain'];
-                }
-            }
-            if (!empty($chunks)) {
-                $o->page_text = implode("\n", $chunks);
-            }
-        }
+        // Do not copy html_block section HTML into page_text when sections[] is present:
+        // the storefront renders sections via Webshop_section_engine::render_components().
+        // Merging section HTML into page_text caused duplicate blocks (e.g. "Category" twice).
         $o->cms_loaded_from_api = true;
+        $o->cms_page_found = true;
         return $o;
     }
 
@@ -911,6 +923,7 @@ class Webshop_api_model extends CI_Model {
 
     /**
      * Fallback when getcmspage HTTP fails (remote 500, wrong API host, etc.).
+     * Skipped when ElintOm API explicitly says the page does not exist (empty CMS admin list).
      *
      * @param string $url_path
      * @return stdClass|null
@@ -926,6 +939,30 @@ class Webshop_api_model extends CI_Model {
             return null;
         }
         return $CI->cms_direct_db->get_page_by_url($url_path);
+    }
+
+    /**
+     * Use local sma_pages only when API did not definitively say the page is missing.
+     *
+     * @param object|null $res
+     * @param string      $msgText
+     * @return bool
+     */
+    protected function should_use_cms_direct_db_fallback($res, $msgText) {
+        $this->config->load('elintom_api', true);
+        if (!(bool) $this->config->item('elintom_cms_direct_db', 'elintom_api')) {
+            return false;
+        }
+        $msgText = strtolower(trim((string) $msgText));
+        $apiResponded = ($res !== null && is_object($res) && isset($res->status));
+        $pageMissing = $apiResponded && (
+            stripos($msgText, 'not found') !== false
+            || stripos($msgText, 'page not found') !== false
+        );
+        if ($pageMissing && !(bool) $this->config->item('elintom_cms_direct_db_on_api_not_found', 'elintom_api')) {
+            return false;
+        }
+        return true;
     }
 
     /**
