@@ -41,7 +41,7 @@ $_gp_header_slots = function_exists('webshop_header_gather_display_slots')
     ? webshop_header_gather_display_slots()
     : array('announcement' => array(), 'top_html' => array(), 'phone' => array());
 ?>
-<link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css?ver=20260525g">
+<link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css?ver=20260526f">
 <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header-drawers.css">
 <header class="gp-header" id="gp-header">
     <?php if (!empty($_gp_header_slots['announcement'])) : ?>

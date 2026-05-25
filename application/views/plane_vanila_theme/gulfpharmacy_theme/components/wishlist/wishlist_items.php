@@ -17,7 +17,7 @@ $wlPlaceholder = webshop_no_image_src($uploadsBase, $thumbsBase);
 $wl_assets = isset($assets) ? $assets : base_url('assets/webshop/');
 $wl_assets = rtrim((string) $wl_assets, '/') . '/';
 $wl_count = isset($wishlist_count) ? (int) $wishlist_count : count($wl_display);
-$_wl_js_ver = isset($_wl_js_ver) ? (string) $_wl_js_ver : '20260525d';
+$_wl_js_ver = isset($_wl_js_ver) ? (string) $_wl_js_ver : '20260526g';
 ?>
 <div class="wl-shell">
     <div class="wl-inner">
@@ -30,7 +30,7 @@ $_wl_js_ver = isset($_wl_js_ver) ? (string) $_wl_js_ver : '20260525d';
             <h1 class="wl-title">My Wishlist</h1>
             <p class="wl-subtitle">Save your favorite products and quickly add them to your cart.</p>
             <?php if ($wl_count > 0): ?>
-            <p class="wl-count-pill" id="wlCountPill"><span aria-hidden="true">♥</span> <?= (int) $wl_count ?> <?= $wl_count === 1 ? 'item' : 'items' ?> saved</p>
+            <p class="wl-count-pill" id="wlCountPill"><span class="wl-count-heart" aria-hidden="true">&#9829;</span> <?= (int) $wl_count ?> <?= $wl_count === 1 ? 'item' : 'items' ?> saved</p>
             <?php endif; ?>
         </header>
 
@@ -157,5 +157,9 @@ $_wl_js_ver = isset($_wl_js_ver) ? (string) $_wl_js_ver : '20260525d';
 })();
 </script>
 <?php endif; ?>
+<?php if (function_exists('webshop_csrf_pair')): ?>
+<script>window.GP_CSRF=<?= json_encode(webshop_csrf_pair(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+<?php endif; ?>
+<script src="<?= htmlspecialchars($wl_assets, ENT_QUOTES, 'UTF-8') ?>gulfpharmacy_theme/js/webshop-csrf.js?ver=<?= htmlspecialchars($_wl_js_ver, ENT_QUOTES, 'UTF-8') ?>"></script>
 <script defer src="<?= htmlspecialchars($wl_assets, ENT_QUOTES, 'UTF-8') ?>gulfpharmacy_theme/js/header-drawers.js?ver=<?= htmlspecialchars($_wl_js_ver, ENT_QUOTES, 'UTF-8') ?>"></script>
 <script defer src="<?= htmlspecialchars($wl_assets, ENT_QUOTES, 'UTF-8') ?>gulfpharmacy_theme/js/wishlist.js?ver=<?= htmlspecialchars($_wl_js_ver, ENT_QUOTES, 'UTF-8') ?>"></script>

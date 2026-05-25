@@ -6,7 +6,7 @@ $_shop_name = isset($Settings->site_name) ? $Settings->site_name : 'Webshop';
 $_pv_page_title = 'My Wishlist | ' . $_shop_name;
 $_pv_page_robots = 'noindex';
 $_pv_page_body_class = 'wl-page';
-$_wl_js_ver = '20260520c';
+$_wl_js_ver = '20260526g';
 
 $wl_assets = isset($assets) ? $assets : base_url('assets/webshop/');
 $wl_assets = rtrim((string) $wl_assets, '/') . '/';
@@ -42,7 +42,7 @@ if (is_file($_wl_tl_open)) {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= htmlspecialchars($wl_assets, ENT_QUOTES, 'UTF-8') ?>gulfpharmacy_theme/css/common.css">
-    <link rel="stylesheet" href="<?= htmlspecialchars($wl_assets, ENT_QUOTES, 'UTF-8') ?>gulfpharmacy_theme/css/header.css">
+    <link rel="stylesheet" href="<?= htmlspecialchars($wl_assets, ENT_QUOTES, 'UTF-8') ?>gulfpharmacy_theme/css/header.css?ver=20260526f">
     <link rel="stylesheet" href="<?= htmlspecialchars($wl_assets, ENT_QUOTES, 'UTF-8') ?>gulfpharmacy_theme/css/header-drawers.css">
     <link rel="stylesheet" href="<?= htmlspecialchars($wl_assets, ENT_QUOTES, 'UTF-8') ?>gulfpharmacy_theme/css/components.css">
     <link rel="stylesheet" href="<?= htmlspecialchars($wl_assets, ENT_QUOTES, 'UTF-8') ?>gulfpharmacy_theme/css/wishlist.css?ver=<?= htmlspecialchars($_wl_js_ver, ENT_QUOTES, 'UTF-8') ?>">

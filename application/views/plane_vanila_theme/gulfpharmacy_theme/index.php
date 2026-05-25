@@ -123,7 +123,7 @@ if ($bodyHtml !== '') {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/common.css">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css">
+    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css?ver=20260526f">
     <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/cms-blocks.css">
     <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/index-home.css">
     <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/components.css">

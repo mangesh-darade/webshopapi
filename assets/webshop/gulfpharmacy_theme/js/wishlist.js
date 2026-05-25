@@ -3,7 +3,6 @@
 
     var ctx = window.GP_WISHLIST_CTX || {};
     var endpoint = typeof ctx.request_url === 'string' ? ctx.request_url : '';
-    var cartUrl = typeof ctx.cart_url === 'string' ? ctx.cart_url : '';
 
     function showToast(msg) {
         var el = document.getElementById('wlToast');
@@ -50,26 +49,40 @@
                 pill.style.display = 'none';
             } else {
                 pill.style.display = '';
-                pill.innerHTML = '<span aria-hidden="true">♥</span> ' + n + (n === 1 ? ' item' : ' items') + ' saved';
+                pill.innerHTML = '<span class="wl-count-heart" aria-hidden="true">&#9829;</span> ' + n + (n === 1 ? ' item' : ' items') + ' saved';
             }
         }
     }
 
-    function removeFromWishlist(productId) {
-        if (!confirm('Remove this item from your wishlist?')) {
+    function findWishlistCard(btn) {
+        if (!btn) {
+            return null;
+        }
+        return btn.closest('.wl-card');
+    }
+
+    function removeFromWishlist(btn) {
+        if (!btn || !confirm('Remove this item from your wishlist?')) {
             return;
         }
         if (!endpoint) {
+            showToast('Unable to remove item. Please try again.');
             return;
         }
-        postAction({
+        var productId = parseInt(btn.getAttribute('data-wishlist-remove'), 10) || 0;
+        var variantId = parseInt(btn.getAttribute('data-variant-id'), 10) || 0;
+        var card = findWishlistCard(btn);
+        var payload = {
             action: 'remove_from_wishlist',
             product_id: productId
-        })
+        };
+        if (variantId > 0) {
+            payload.variant_id = variantId;
+        }
+        postAction(payload)
             .then(function (text) {
                 var data = parseResponse(text);
                 if (data && data.status === 'SUCCESS') {
-                    var card = document.getElementById('wishlist-item-' + productId);
                     if (card) {
                         card.classList.add('is-removing');
                         setTimeout(function () {
@@ -80,33 +93,52 @@
                             } else {
                                 updateBadges(remaining);
                             }
+                            var grid = document.getElementById('wlGrid');
                             if (remaining === 0) {
                                 window.location.reload();
+                            } else if (grid && remaining === 1) {
+                                grid.classList.add('wl-grid--single');
                             }
                         }, 280);
+                    } else {
+                        window.location.reload();
                     }
                     showToast('Removed from wishlist');
                     return;
                 }
-                showToast('Could not remove item. Please try again.');
+                if (data && data.code === 'NOT_LOGGED_IN' && ctx.login_url) {
+                    window.location.href = ctx.login_url + '?return_page=' + encodeURIComponent(window.location.href);
+                    return;
+                }
+                showToast((data && data.message) ? data.message : 'Could not remove item. Please try again.');
             })
             .catch(function () {
                 showToast('Could not remove item. Please try again.');
             });
     }
 
-    function addToCart(btn, productId) {
-        if (!endpoint) {
+    function addToCart(btn) {
+        if (!endpoint || !btn) {
             return;
         }
+        var productId = parseInt(btn.getAttribute('data-wishlist-add'), 10) || 0;
+        var variantId = parseInt(btn.getAttribute('data-variant-id'), 10) || 0;
         var original = btn.textContent;
         btn.disabled = true;
         btn.textContent = 'Adding…';
-        postAction({
+        var payload = {
             action: 'add_to_cart',
             product_id: productId,
-            quantity: 1
-        })
+            quantity: 1,
+            product_price: Number(btn.getAttribute('data-product-price')) || 0,
+            price: Number(btn.getAttribute('data-product-price')) || 0
+        };
+        if (variantId > 0) {
+            payload.variant_id = variantId;
+            payload.variant_price = Number(btn.getAttribute('data-variant-price')) || 0;
+            payload.variant_unit_quantity = Number(btn.getAttribute('data-variant-unit-quantity')) || 1;
+        }
+        postAction(payload)
             .then(function (text) {
                 var data = parseResponse(text);
                 btn.disabled = false;
@@ -134,13 +166,13 @@
         var rm = e.target.closest('[data-wishlist-remove]');
         if (rm) {
             e.preventDefault();
-            removeFromWishlist(rm.getAttribute('data-wishlist-remove'));
+            removeFromWishlist(rm);
             return;
         }
         var ac = e.target.closest('[data-wishlist-add]');
         if (ac) {
             e.preventDefault();
-            addToCart(ac, ac.getAttribute('data-wishlist-add'));
+            addToCart(ac);
         }
     });
 
