@@ -194,4 +194,4 @@ $cv_cart_flash = function_exists('webshop_checkout_flash_error_message')
     'request_url' => base_url('webshop/webshop_request'),
     'currency'    => isset($Settings->symbol) ? (string) $Settings->symbol : '$',
 ), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
-<script defer src="<?= $cv_assets ?>gulfpharmacy_theme/js/cart.js"></script>
+<script defer src="<?= webshop_theme_assets_url('js/cart.js') ?>"></script>

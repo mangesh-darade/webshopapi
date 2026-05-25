@@ -160,6 +160,6 @@ $_wl_js_ver = isset($_wl_js_ver) ? (string) $_wl_js_ver : '20260526g';
 <?php if (function_exists('webshop_csrf_pair')): ?>
 <script>window.GP_CSRF=<?= json_encode(webshop_csrf_pair(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
 <?php endif; ?>
-<script src="<?= htmlspecialchars($wl_assets, ENT_QUOTES, 'UTF-8') ?>gulfpharmacy_theme/js/webshop-csrf.js?ver=<?= htmlspecialchars($_wl_js_ver, ENT_QUOTES, 'UTF-8') ?>"></script>
-<script defer src="<?= htmlspecialchars($wl_assets, ENT_QUOTES, 'UTF-8') ?>gulfpharmacy_theme/js/header-drawers.js?ver=<?= htmlspecialchars($_wl_js_ver, ENT_QUOTES, 'UTF-8') ?>"></script>
-<script defer src="<?= htmlspecialchars($wl_assets, ENT_QUOTES, 'UTF-8') ?>gulfpharmacy_theme/js/wishlist.js?ver=<?= htmlspecialchars($_wl_js_ver, ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="<?= htmlspecialchars(webshop_theme_assets_url('js/webshop-csrf.js?ver=' . $_wl_js_ver), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script defer src="<?= htmlspecialchars(webshop_theme_assets_url('js/header-drawers.js?ver=' . $_wl_js_ver), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script defer src="<?= htmlspecialchars(webshop_theme_assets_url('js/wishlist.js?ver=' . $_wl_js_ver), ENT_QUOTES, 'UTF-8') ?>"></script>

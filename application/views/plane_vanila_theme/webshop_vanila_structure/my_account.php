@@ -65,11 +65,11 @@ $pw_status    = isset($password_status) ? (string) $password_status : '';
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/common.css">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header-drawers.css">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/components.css">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/my-account.css">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/common.css') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/header.css') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/header-drawers.css') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/components.css') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/my-account.css') ?>">
     <?php if (function_exists('webshop_csrf_pair')): ?>
     <script>window.GP_CSRF=<?= json_encode(webshop_csrf_pair(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
     <?php endif; ?>
@@ -553,9 +553,9 @@ $pw_status    = isset($password_status) ? (string) $password_status : '';
     ),
 ), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
 <?php $_ma_js_ver = '20260520a'; ?>
-<script src="<?= $assets ?>gulfpharmacy_theme/js/webshop-csrf.js?ver=<?= $_ma_js_ver ?>"></script>
-<script src="<?= $assets ?>gulfpharmacy_theme/js/header-drawers.js?ver=<?= $_ma_js_ver ?>"></script>
-<script src="<?= $assets ?>gulfpharmacy_theme/js/my-account.js?ver=<?= $_ma_js_ver ?>"></script>
+<script src="<?= webshop_theme_assets_url('js/webshop-csrf.js?ver=<?= $_ma_js_ver ?>') ?>"></script>
+<script src="<?= webshop_theme_assets_url('js/header-drawers.js?ver=<?= $_ma_js_ver ?>') ?>"></script>
+<script src="<?= webshop_theme_assets_url('js/my-account.js?ver=<?= $_ma_js_ver ?>') ?>"></script>
 
 </body>
 </html>

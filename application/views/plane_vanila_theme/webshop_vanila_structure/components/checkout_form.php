@@ -127,7 +127,7 @@ $checkout_submit_token = function_exists('webshop_checkout_submit_token')
     ? webshop_checkout_submit_token()
     : md5(date('Y-m-d H'));
 ?>
-<link rel="stylesheet" href="<?= $co_assets ?>gulfpharmacy_theme/css/checkout-form.css">
+<link rel="stylesheet" href="<?= webshop_theme_assets_url('css/checkout-form.css') ?>">
 <div id="checkoutFlashHost">
 <?php if ($checkout_flash_err !== ''): ?>
 <div class="checkout-flash-error" id="checkoutFlashError" role="alert"><?= html_escape($checkout_flash_err, ENT_QUOTES, 'UTF-8') ?></div>
@@ -580,4 +580,4 @@ $checkout_submit_token = function_exists('webshop_checkout_submit_token')
 
     </form>
 </div><!-- /.checkout-container -->
-<script defer src="<?= $co_assets ?>gulfpharmacy_theme/js/checkout-form.js?ver=20260526i"></script>
+<script defer src="<?= webshop_theme_assets_url('js/checkout-form.js?ver=20260526i') ?>"></script>

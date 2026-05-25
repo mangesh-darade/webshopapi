@@ -14,10 +14,10 @@ $theme = (isset($webshop_settings) && is_object($webshop_settings) && isset($web
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Your Cart | <?= isset($Settings->site_name) ? html_escape($Settings->site_name) : 'Webshop' ?></title>
     <?= isset($meta_tags) ? $meta_tags : '' ?>
-    <link rel="preload" href="<?= $assets ?>gulfpharmacy_theme/css/common.css" as="style">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/common.css">
-    <link rel="preload" href="<?= $assets ?>gulfpharmacy_theme/css/cart.css" as="style">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/cart.css">
+    <link rel="preload" href="<?= webshop_theme_assets_url('css/common.css') ?>" as="style">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/common.css') ?>">
+    <link rel="preload" href="<?= webshop_theme_assets_url('css/cart.css') ?>" as="style">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/cart.css') ?>">
     <style>
     .cart-page-main{min-height:40vh}
     .cart-container{max-width:1200px;margin:40px auto;padding:0 20px;font-family:Inter,system-ui,sans-serif}
@@ -28,7 +28,7 @@ $theme = (isset($webshop_settings) && is_object($webshop_settings) && isset($web
 <div class="gp-site-wrapper">
     <?php
     if ($theme === 'nw' || $theme === 'gulfpharmacy') {
-        require_once(VIEWPATH . 'plane_vanila_theme/' . $theme . '_theme/header.php');
+        require_once webshop_plane_vanila_view_file('header');
     } else {
         if (is_file(VIEWPATH . 'webshop/header.php')) {
             require_once(VIEWPATH . 'webshop/header.php');
@@ -42,7 +42,7 @@ $theme = (isset($webshop_settings) && is_object($webshop_settings) && isset($web
 
     <?php
     if ($theme === 'nw' || $theme === 'gulfpharmacy') {
-        require_once(VIEWPATH . 'plane_vanila_theme/' . $theme . '_theme/footer.php');
+        require_once webshop_plane_vanila_view_file('footer');
     } else {
         if (is_file(VIEWPATH . 'webshop/footer.php')) {
             require_once(VIEWPATH . 'webshop/footer.php');

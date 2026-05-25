@@ -18,7 +18,7 @@ $itemCount = count($items);
 /* ≤4 items: fixed column width, left-packed (see .gp-cg-grid--sparse in category-grid.css). */
 $gridExtra = ($itemCount > 0 && $itemCount <= 4) ? ' gp-cg-grid--sparse' : '';
 ?>
-<link rel="stylesheet" href="<?= $cg_assets ?>gulfpharmacy_theme/css/category-grid.css">
+<link rel="stylesheet" href="<?= webshop_theme_assets_url('css/category-grid.css') ?>">
 <section class="gp-component category-grid-section gp-category-grid-section" aria-labelledby="<?= $uid ?>">
     <?php if ($title !== ''): ?>
     <h2 class="section-title section-title--ruled gp-category-section-title" id="<?= $uid ?>"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h2>

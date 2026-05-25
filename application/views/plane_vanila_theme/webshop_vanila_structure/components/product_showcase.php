@@ -57,11 +57,11 @@ $ariaLandmark = $showInnerHeading ? 'aria-labelledby="product-showcase-heading"'
         <?php endif; ?>
 
         <?php if ($showCarousel): ?>
-            <?= $this->load->view('plane_vanila_theme/gulfpharmacy_theme/components/product_carousel', $_ps_pass, true) ?>
+            <?= $this->load->view(webshop_plane_vanila_view('components/product_carousel'), $_ps_pass, true) ?>
         <?php endif; ?>
 
         <?php if ($showGrid): ?>
-            <?= $this->load->view('plane_vanila_theme/gulfpharmacy_theme/components/product_grid', $_ps_pass, true) ?>
+            <?= $this->load->view(webshop_plane_vanila_view('components/product_grid'), $_ps_pass, true) ?>
         <?php endif; ?>
     </div>
 </section>

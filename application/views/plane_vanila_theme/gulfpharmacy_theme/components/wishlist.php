@@ -3,4 +3,4 @@
  * Wishlist component entry — delegates to wishlist_items partial.
  */
 $CI =& get_instance();
-$CI->load->view('plane_vanila_theme/gulfpharmacy_theme/components/wishlist/wishlist_items', get_defined_vars());
+$CI->load->view(webshop_plane_vanila_view('components/wishlist/wishlist_items'), get_defined_vars());

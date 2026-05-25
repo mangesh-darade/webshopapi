@@ -11,7 +11,7 @@ $flash_err = $CI->session->flashdata('error');
 $toast_err = $CI->session->flashdata('toast_error');
 ?>
 
-<link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/login-form.css">
+<link rel="stylesheet" href="<?= webshop_theme_assets_url('css/login-form.css') ?>">
 <div class="login-container">
     <div class="login-card">
         <div class="login-header">

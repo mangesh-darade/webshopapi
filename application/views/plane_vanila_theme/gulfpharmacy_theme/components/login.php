@@ -3,8 +3,6 @@
 /**
  * Login Page Shell (Reusable Component)
  */
-$theme = (isset($webshop_settings) && is_object($webshop_settings) && isset($webshop_settings->webshop_theme))
-    ? (string) $webshop_settings->webshop_theme : 'gulfpharmacy';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -14,34 +12,17 @@ $theme = (isset($webshop_settings) && is_object($webshop_settings) && isset($web
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sign In | <?= isset($Settings->site_name) ? html_escape($Settings->site_name) : 'Webshop' ?></title>
     <?= isset($meta_tags) ? $meta_tags : '' ?>
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/common.css">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/common.css') ?>">
 </head>
 <body>
 <div class="gp-site-wrapper">
-    <?php
-    if ($theme === 'nw' || $theme === 'gulfpharmacy') {
-        require_once(VIEWPATH . 'plane_vanila_theme/' . $theme . '_theme/header.php');
-    } else {
-        if (is_file(VIEWPATH . 'webshop/header.php')) {
-            require_once(VIEWPATH . 'webshop/header.php');
-        }
-    }
-    ?>
+    <?php require_once webshop_plane_vanila_view_file('header'); ?>
 
     <main class="login-page-main">
-        <?php $this->load->view('plane_vanila_theme/gulfpharmacy_theme/components/login_form', $this->data); ?>
+        <?php $this->load->view(webshop_plane_vanila_view('components/login_form'), $this->data); ?>
     </main>
 
-    <?php
-    if ($theme === 'nw' || $theme === 'gulfpharmacy') {
-        require_once(VIEWPATH . 'plane_vanila_theme/' . $theme . '_theme/footer.php');
-    } else {
-        if (is_file(VIEWPATH . 'webshop/footer.php')) {
-            require_once(VIEWPATH . 'webshop/footer.php');
-        }
-    }
-    ?>
+    <?php require_once webshop_plane_vanila_view_file('footer'); ?>
 </div>
 </body>
 </html>
-

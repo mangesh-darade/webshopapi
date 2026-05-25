@@ -15,7 +15,7 @@ $reg_email    = $CI->session->flashdata('reg_email');
 $reg_phone    = $CI->session->flashdata('reg_phone');
 ?>
 
-<link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/register-form.css">
+<link rel="stylesheet" href="<?= webshop_theme_assets_url('css/register-form.css') ?>">
 <div class="register-container">
     <div class="register-card">
         <div class="register-header">
@@ -117,4 +117,4 @@ $reg_phone    = $CI->session->flashdata('reg_phone');
         </div>
     </div>
 </div>
-<script defer src="<?= $assets ?>gulfpharmacy_theme/js/register-form.js"></script>
+<script defer src="<?= webshop_theme_assets_url('js/register-form.js') ?>"></script>

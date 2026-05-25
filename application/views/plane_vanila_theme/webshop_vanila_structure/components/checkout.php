@@ -14,7 +14,7 @@ $theme = (isset($webshop_settings) && is_object($webshop_settings) && isset($web
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Checkout | <?= isset($Settings->site_name) ? html_escape($Settings->site_name) : 'Webshop' ?></title>
     <?= isset($meta_tags) ? $meta_tags : '' ?>
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/common.css">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/common.css') ?>">
     <?php if (function_exists('webshop_csrf_pair')): ?>
     <script>window.GP_CSRF=<?= json_encode(webshop_csrf_pair(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
     <?php endif; ?>
@@ -23,7 +23,7 @@ $theme = (isset($webshop_settings) && is_object($webshop_settings) && isset($web
 <div class="gp-site-wrapper">
     <?php
     if ($theme === 'nw' || $theme === 'gulfpharmacy') {
-        require_once(VIEWPATH . 'plane_vanila_theme/' . $theme . '_theme/header.php');
+        require_once webshop_plane_vanila_view_file('header');
     } else {
         // Fallback for other themes
         if (is_file(VIEWPATH . 'webshop/header.php')) {
@@ -33,12 +33,12 @@ $theme = (isset($webshop_settings) && is_object($webshop_settings) && isset($web
     ?>
 
     <main class="checkout-page-main">
-        <?php $this->load->view('plane_vanila_theme/gulfpharmacy_theme/components/checkout_form', $this->data); ?>
+        <?php $this->load->view(webshop_plane_vanila_view('components/checkout_form'), $this->data); ?>
     </main>
 
     <?php
     if ($theme === 'nw' || $theme === 'gulfpharmacy') {
-        require_once(VIEWPATH . 'plane_vanila_theme/' . $theme . '_theme/footer.php');
+        require_once webshop_plane_vanila_view_file('footer');
     } else {
         // Fallback for other themes
         if (is_file(VIEWPATH . 'webshop/footer.php')) {

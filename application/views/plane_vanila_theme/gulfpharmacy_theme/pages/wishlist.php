@@ -10,7 +10,7 @@ $_wl_js_ver = '20260526g';
 
 $wl_assets = isset($assets) ? $assets : base_url('assets/webshop/');
 $wl_assets = rtrim((string) $wl_assets, '/') . '/';
-$_wl_gp_root = APPPATH . 'views/plane_vanila_theme/gulfpharmacy_theme/';
+$_wl_gp_root = webshop_plane_vanila_views_apppath();
 $CI =& get_instance();
 
 $wishlist_items = isset($wishlist['items']) && is_array($wishlist['items']) ? $wishlist['items'] : array();
@@ -25,7 +25,7 @@ if (is_file($_wl_tl_open)) {
     require_once $_wl_tl_open;
     ?>
 <main class="pv-main-content wl-page-main">
-    <?php $CI->load->view('plane_vanila_theme/gulfpharmacy_theme/components/wishlist/wishlist_items', get_defined_vars()); ?>
+    <?php $CI->load->view(webshop_plane_vanila_view('components/wishlist/wishlist_items'), get_defined_vars()); ?>
 </main>
 <?php
     require_once APPPATH . 'views/plane_vanila_theme/theme_loader/page_close.php';
@@ -41,11 +41,11 @@ if (is_file($_wl_tl_open)) {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= htmlspecialchars($wl_assets, ENT_QUOTES, 'UTF-8') ?>gulfpharmacy_theme/css/common.css">
-    <link rel="stylesheet" href="<?= htmlspecialchars($wl_assets, ENT_QUOTES, 'UTF-8') ?>gulfpharmacy_theme/css/header.css?ver=20260526f">
-    <link rel="stylesheet" href="<?= htmlspecialchars($wl_assets, ENT_QUOTES, 'UTF-8') ?>gulfpharmacy_theme/css/header-drawers.css">
-    <link rel="stylesheet" href="<?= htmlspecialchars($wl_assets, ENT_QUOTES, 'UTF-8') ?>gulfpharmacy_theme/css/components.css">
-    <link rel="stylesheet" href="<?= htmlspecialchars($wl_assets, ENT_QUOTES, 'UTF-8') ?>gulfpharmacy_theme/css/wishlist.css?ver=<?= htmlspecialchars($_wl_js_ver, ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(webshop_theme_assets_url('css/common.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(webshop_theme_assets_url('css/header.css?ver=20260526f'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(webshop_theme_assets_url('css/header-drawers.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(webshop_theme_assets_url('css/components.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(webshop_theme_assets_url('css/wishlist.css?ver=' . $_wl_js_ver), ENT_QUOTES, 'UTF-8') ?>">
     <?php if (function_exists('webshop_csrf_pair')): ?>
     <script>window.GP_CSRF=<?= json_encode(webshop_csrf_pair(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
     <?php endif; ?>
@@ -58,7 +58,7 @@ if (is_file($_wl_gp_root . 'header.php')) {
 }
 ?>
 <main class="wl-page-main">
-    <?php $CI->load->view('plane_vanila_theme/gulfpharmacy_theme/components/wishlist/wishlist_items', get_defined_vars()); ?>
+    <?php $CI->load->view(webshop_plane_vanila_view('components/wishlist/wishlist_items'), get_defined_vars()); ?>
 </main>
 <?php
 if (is_file($_wl_gp_root . 'footer.php')) {

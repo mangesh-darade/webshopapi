@@ -35,34 +35,10 @@ $elintom_switch_profiles = array(
         'mdata_include_http_host_segment' => false,
         'media_use_http_host'             => false,
         'webshop_theme'                   => 'gulfpharmacy',
-        'theme_view_folder'               => 'gulfpharmacy_theme',
-        'theme_assets_directory'          => 'gulfpharmacy_theme',
+        'theme_view_folder'               => 'webshop_vanila_structure',
+        'theme_assets_directory'          => 'webshop_vanila_structure',
     ),
-    /* Local WAMP: orders hit your machine’s ElintOm (with variant_price fixes). Switch back to vanila_testing for remote POS. */
-    'vanila_local' => array(
-        'api_base_url'                    => 'http://localhost/ElintOm/',
-        'api_private_key'                 => '3e8676ed23c627117437c7e6a1bbd6e9',
-        'ssl_verify'                      => false,
-        'ssl_ca_bundle'                   => '',
-        'media_uploads_base_url'          => 'http://localhost/ElintOm/assets/mdata/localhost/uploads/',
-        'customer_assets_folder'          => 'localhost',
-        'mdata_include_http_host_segment' => false,
-        'media_use_http_host'             => false,
-        'webshop_theme'                   => 'gulfpharmacy',
-        'theme_view_folder'               => 'gulfpharmacy_theme',
-        'theme_assets_directory'          => 'gulfpharmacy_theme',
-    ),
-    'gulfpharmacy_testing' => array(
-        'api_base_url'                       => 'https://testingpos.elintpos.in/',
-        'api_private_key'                    => '3e8676ed23c627117437c7e6a1bbd6e9',
-        'media_uploads_base_url'             => 'https://testingpos.elintpos.in/assets/mdata/localhost/uploads/',
-        'customer_assets_folder'             => 'localhost',
-        'mdata_include_http_host_segment'    => false,
-        'media_use_http_host'                => false,
-        'webshop_theme'                      => 'gulfpharmacy',
-        'theme_view_folder'                  => 'gulfpharmacy_theme',
-        'theme_assets_directory'             => 'gulfpharmacy_theme',
-    ),
+   
     'gulfpharmacy_production' => array(
         'api_base_url'                       => 'https://testingpos.elintpos.in/',
         'api_private_key'                    => '3e8676ed23c627117437c7e6a1bbd6e9',
@@ -78,10 +54,9 @@ $elintom_switch_profiles = array(
     ),
 );
 
-$elintom_active_profile = 'gulfpharmacy_testing';
+$elintom_active_profile = 'vanila_testing';
 
 switch ($detected_host_for_api) {
-    case '127.0.0.1':
     case 'localhost':
         // vanila_local = http://localhost/ElintOm/ (set api_privatekey in ElintOm to match switch key)
         // vanila_testing = https://testingpos.elintpos.in/ (deploy order_pricing_helper.php there)
@@ -91,13 +66,8 @@ switch ($detected_host_for_api) {
     case 'webshop.elintpos.in':
         $elintom_active_profile = 'gulfpharmacy_production';
         break;
-
-    case 'webshop':
-        $elintom_active_profile = 'gulfpharmacy_testing';
-        break;
-
     default:
-        $elintom_active_profile = 'gulfpharmacy_testing';
+        $elintom_active_profile = 'vanila_testing';
         break;
 }
 

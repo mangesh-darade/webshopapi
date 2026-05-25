@@ -35,16 +35,16 @@ $os_preload_logo = function_exists('webshop_resolve_header_logo_url')
     <?php if ($os_preload_logo !== ''): ?>
     <link rel="preload" as="image" href="<?= htmlspecialchars($os_preload_logo, ENT_QUOTES, 'UTF-8') ?>" fetchpriority="high">
     <?php endif; ?>
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/common.css">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/payment-declined.css">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/common.css') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/header.css') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/payment-declined.css') ?>">
 </head>
 <body>
 <div class="pd-shell">
     <?php if ($theme === 'nw' || $theme === 'gulfpharmacy'): ?>
         <?php
         $gp_header_logo_fetchpriority = ($os_preload_logo !== '');
-        require_once(VIEWPATH . 'plane_vanila_theme/' . $theme . '_theme/header.php');
+        require_once webshop_plane_vanila_view_file('header');
         unset($gp_header_logo_fetchpriority);
         ?>
     <?php endif; ?>
@@ -65,7 +65,7 @@ $os_preload_logo = function_exists('webshop_resolve_header_logo_url')
     </main>
 
     <?php if ($theme === 'nw' || $theme === 'gulfpharmacy'): ?>
-        <?php require_once(VIEWPATH . 'plane_vanila_theme/' . $theme . '_theme/footer.php'); ?>
+        <?php require_once webshop_plane_vanila_view_file('footer'); ?>
     <?php endif; ?>
 </div>
 </body>

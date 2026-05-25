@@ -21,8 +21,8 @@ $_pc_wl_lookup = function_exists('webshop_view_wishlist_lookup')
     ? webshop_view_wishlist_lookup(isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : null)
     : (isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : array());
 ?>
-<link rel="stylesheet" href="<?= $pc_assets ?>gulfpharmacy_theme/css/product-carousel.css?ver=20260526a">
-<link rel="stylesheet" href="<?= $pc_assets ?>gulfpharmacy_theme/css/wishlist-fav.css?ver=20260526a">
+<link rel="stylesheet" href="<?= webshop_theme_assets_url('css/product-carousel.css?ver=20260526a') ?>">
+<link rel="stylesheet" href="<?= webshop_theme_assets_url('css/wishlist-fav.css?ver=20260526a') ?>">
 <section class="gp-component dynamic-product-carousel">
     <?php if ($title !== ''): ?>
     <h2 class="cms-pc-title"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h2>
@@ -83,7 +83,7 @@ $_pc_wl_lookup = function_exists('webshop_view_wishlist_lookup')
                         </div>
                         <?php endif; ?>
                         </a>
-                        <?php $CI =& get_instance(); $CI->load->view('plane_vanila_theme/gulfpharmacy_theme/components/wishlist_card_button', array(
+                        <?php $CI =& get_instance(); $CI->load->view(webshop_plane_vanila_view('components/wishlist_card_button'), array(
                             'product_id'      => $pId,
                             'variant_id'      => isset($_pcVid) ? $_pcVid : 0,
                             'wishlist_lookup' => $_pc_wl_lookup,
@@ -119,4 +119,4 @@ $_pc_wl_lookup = function_exists('webshop_view_wishlist_lookup')
         </button>
     </div>
 </section>
-<script defer src="<?= $pc_assets ?>gulfpharmacy_theme/js/product-carousel.js"></script>
+<script defer src="<?= webshop_theme_assets_url('js/product-carousel.js') ?>"></script>

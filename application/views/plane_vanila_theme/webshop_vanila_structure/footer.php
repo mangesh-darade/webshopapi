@@ -33,11 +33,11 @@ $_gp_footer_styles_in_head = !empty($gp_footer_styles_in_head);
 <?php if (function_exists('webshop_async_stylesheet_tag')): ?>
 <?= webshop_async_stylesheet_tag($_gp_assets . 'css/techmarket-font-awesome.css') ?>
 
-<?= webshop_async_stylesheet_tag($_gp_assets . 'gulfpharmacy_theme/css/components.css') ?>
+<?= webshop_async_stylesheet_tag(webshop_theme_assets_url('css/components.css')) ?>
 
 <?php else: ?>
 <link rel="stylesheet" href="<?= htmlspecialchars($_gp_assets, ENT_QUOTES, 'UTF-8') ?>css/techmarket-font-awesome.css">
-<link rel="stylesheet" href="<?= htmlspecialchars($_gp_assets, ENT_QUOTES, 'UTF-8') ?>gulfpharmacy_theme/css/components.css">
+<link rel="stylesheet" href="<?= htmlspecialchars(webshop_theme_assets_url('css/components.css'), ENT_QUOTES, 'UTF-8') ?>">
 <?php endif; ?>
 <?php endif; ?>
 <footer class="gp-footer">
@@ -151,4 +151,4 @@ $_gp_logged_in = function_exists('webshop_is_customer_logged_in')
     'is_logged_in'    => (bool) $_gp_logged_in,
     'wishlist_lookup' => $_gp_wl_lookup,
 ), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>);</script>
-<script defer src="<?= htmlspecialchars($_gp_assets, ENT_QUOTES, 'UTF-8') ?>gulfpharmacy_theme/js/webshop-csrf.js?ver=20260526c"></script>
+<script defer src="<?= htmlspecialchars(webshop_theme_assets_url('js/webshop-csrf.js?ver=20260526c'), ENT_QUOTES, 'UTF-8') ?>"></script>

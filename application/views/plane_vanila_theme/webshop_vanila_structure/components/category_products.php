@@ -130,16 +130,16 @@ if (!empty($products)) {
     <?php if ($_cp_lcp_img !== ''): ?>
     <link rel="preload" as="image" href="<?= htmlspecialchars($_cp_lcp_img, ENT_QUOTES, 'UTF-8') ?>" fetchpriority="high">
     <?php endif; ?>
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/common.css">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css?ver=20260525g">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/category-products.css?ver=20260526a">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/wishlist-fav.css?ver=20260526a">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/common.css') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/header.css?ver=20260525g') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/category-products.css?ver=20260526a') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/wishlist-fav.css?ver=20260526a') ?>">
 </head>
 <body>
 <div class="gp-site-wrapper cp-shell">
     <?php
     if ($theme === 'nw' || $theme === 'gulfpharmacy') {
-        require_once(VIEWPATH . 'plane_vanila_theme/' . $theme . '_theme/header.php');
+        require_once webshop_plane_vanila_view_file('header');
     } elseif (is_file(VIEWPATH . 'webshop/header.php')) {
         require_once(VIEWPATH . 'webshop/header.php');
     }
@@ -271,7 +271,7 @@ if (!empty($products)) {
                                 </a>
                                 <?php
                                 $CI =& get_instance();
-                                $CI->load->view('plane_vanila_theme/gulfpharmacy_theme/components/wishlist_card_button', array(
+                                $CI->load->view(webshop_plane_vanila_view('components/wishlist_card_button'), array(
                                     'product_id'      => $itemId,
                                     'variant_id'      => $listVariantId,
                                     'wishlist_lookup' => $_cp_wl_lookup,
@@ -383,7 +383,7 @@ if (!empty($products)) {
 
     <?php
     if ($theme === 'nw' || $theme === 'gulfpharmacy') {
-        require_once(VIEWPATH . 'plane_vanila_theme/' . $theme . '_theme/footer.php');
+        require_once webshop_plane_vanila_view_file('footer');
     } elseif (is_file(VIEWPATH . 'webshop/footer.php')) {
         require_once(VIEWPATH . 'webshop/footer.php');
     }
@@ -482,6 +482,6 @@ $_cp_assets = isset($assets) ? $assets : base_url('assets/webshop/');
     'is_logged_in'     => (bool) $_cp_logged_in,
     'wishlist_lookup'  => $_cp_wl_lookup,
 ), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
-<script defer src="<?= $_cp_assets ?>gulfpharmacy_theme/js/webshop-csrf.js?ver=20260526c"></script>
+<script defer src="<?= webshop_theme_assets_url('js/webshop-csrf.js?ver=20260526c') ?>"></script>
 </body>
 </html>

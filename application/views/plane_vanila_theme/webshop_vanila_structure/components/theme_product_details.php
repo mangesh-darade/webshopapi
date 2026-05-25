@@ -79,8 +79,8 @@ if (empty($gallery)) {
 }
 $pd_assets = isset($assets) ? $assets : base_url('assets/webshop/');
 ?>
-<link rel="stylesheet" href="<?= $pd_assets ?>gulfpharmacy_theme/css/theme-product-details.css?ver=20260526e">
-<link rel="stylesheet" href="<?= $pd_assets ?>gulfpharmacy_theme/css/wishlist-fav.css?ver=20260526e">
+<link rel="stylesheet" href="<?= webshop_theme_assets_url('css/theme-product-details.css?ver=20260526e') ?>">
+<link rel="stylesheet" href="<?= webshop_theme_assets_url('css/wishlist-fav.css?ver=20260526e') ?>">
 
 <div class="pd-wrap<?= $pdInStock ? '' : ' pd-wrap--oos'; ?>">
   <div class="pd-main">
@@ -224,7 +224,7 @@ $pd_assets = isset($assets) ? $assets : base_url('assets/webshop/');
 </div>
 <?php $_pd_csrf = function_exists('webshop_csrf_pair') ? webshop_csrf_pair() : array('name' => '', 'hash' => ''); ?>
 <script>window.GP_CSRF=<?= json_encode($_pd_csrf, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
-<script src="<?= $pd_assets ?>gulfpharmacy_theme/js/webshop-csrf.js?ver=20260526c"></script>
+<script src="<?= webshop_theme_assets_url('js/webshop-csrf.js?ver=20260526c') ?>"></script>
 <script>window.GP_PD_CTX=<?= json_encode(array(
     'no_image_src'        => $noImgSrc,
     'base_url'            => base_url('webshop/'),
@@ -242,4 +242,4 @@ $pd_assets = isset($assets) ? $assets : base_url('assets/webshop/');
         ? webshop_view_wishlist_lookup(isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : null)
         : (isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : array()),
 ), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
-<script defer src="<?= $pd_assets ?>gulfpharmacy_theme/js/theme-product-details.js?ver=20260526h"></script>
+<script defer src="<?= webshop_theme_assets_url('js/theme-product-details.js?ver=20260526h') ?>"></script>

@@ -3059,10 +3059,9 @@ if (!function_exists('webshop_plane_vanila_theme_folder')) {
     /**
      * Active plane_vanila_theme directory (from elintom_api_switch or auto-detect on disk).
      *
-     * Priority: $CI->data → elintom_theme_view_folder config → existing VIEW folder matching host
-     * → {webshop_theme}_theme → gulfpharmacy_theme.
+     * Priority: $CI->data → elintom_theme_view_folder (elintom_api_switch) → host folder on disk.
      *
-     * @return string e.g. gulfpharmacy_theme_new
+     * @return string e.g. webshop_vanila_structure
      */
     function webshop_plane_vanila_theme_folder() {
         $CI =& get_instance();
@@ -3096,17 +3095,21 @@ if (!function_exists('webshop_plane_vanila_theme_folder')) {
         if ($theme === 'nw') {
             return 'nw_theme';
         }
-        if ($theme === 'gulfpharmacy') {
-            return 'gulfpharmacy_theme';
-        }
         if ($theme !== '') {
+            $assets_from_switch = trim((string) $CI->config->item('elintom_theme_assets_directory', 'elintom_api'));
+            if ($assets_from_switch !== '') {
+                $safeAssets = preg_replace('/[^a-zA-Z0-9_.-]/', '', $assets_from_switch);
+                if ($safeAssets !== '' && is_dir(VIEWPATH . 'plane_vanila_theme' . DIRECTORY_SEPARATOR . $safeAssets)) {
+                    return $safeAssets;
+                }
+            }
             $guess = preg_replace('/[^a-zA-Z0-9_.-]/', '', $theme . '_theme');
             $guessDir = VIEWPATH . 'plane_vanila_theme' . DIRECTORY_SEPARATOR . $guess;
             if (is_dir($guessDir)) {
                 return $guess;
             }
         }
-        return 'gulfpharmacy_theme';
+        return $host !== '' ? $host : 'default';
     }
 }
 
@@ -3151,7 +3154,23 @@ if (!function_exists('webshop_plane_vanila_view_file')) {
      * @return string
      */
     function webshop_plane_vanila_view_file($relative = '') {
-        return VIEWPATH . webshop_plane_vanila_view($relative) . '.php';
+        $rel = ltrim(str_replace('\\', '/', (string) $relative), '/');
+        if (substr($rel, -4) === '.php') {
+            $rel = substr($rel, 0, -4);
+        }
+        return VIEWPATH . webshop_plane_vanila_view($rel) . '.php';
+    }
+}
+
+if (!function_exists('webshop_plane_vanila_views_apppath')) {
+    /**
+     * Absolute APPPATH to active plane_vanila_theme folder (trailing slash).
+     *
+     * @return string
+     */
+    function webshop_plane_vanila_views_apppath() {
+        $folder = webshop_plane_vanila_theme_folder();
+        return APPPATH . 'views/plane_vanila_theme/' . $folder . '/';
     }
 }
 
@@ -3196,7 +3215,7 @@ if (!function_exists('webshop_theme_assets_url')) {
             : rtrim(base_url('assets/webshop/'), '/') . '/';
         $dir = function_exists('webshop_theme_assets_directory_name')
             ? webshop_theme_assets_directory_name()
-            : 'gulfpharmacy_theme';
+            : webshop_plane_vanila_theme_folder();
         $rel = ltrim(str_replace('\\', '/', (string) $relative), '/');
         return $rel !== '' ? $base . $dir . '/' . $rel : $base . $dir . '/';
     }

@@ -35,4 +35,4 @@ $webshop  = base_url('webshop');
         <?php endif; ?>
     </div>
 </div>
-<link rel="stylesheet" href="<?= isset($assets) ? $assets : base_url('assets/webshop/') ?>gulfpharmacy_theme/css/components.css">
+<link rel="stylesheet" href="<?= isset($assets) ? $assets : base_url('assets/webshop/') ?><?= webshop_theme_assets_url('css/components.css') ?>">

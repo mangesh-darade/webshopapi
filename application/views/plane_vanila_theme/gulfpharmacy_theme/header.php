@@ -41,8 +41,8 @@ $_gp_header_slots = function_exists('webshop_header_gather_display_slots')
     ? webshop_header_gather_display_slots()
     : array('announcement' => array(), 'top_html' => array(), 'phone' => array());
 ?>
-<link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css?ver=20260526f">
-<link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header-drawers.css">
+<link rel="stylesheet" href="<?= webshop_theme_assets_url('css/header.css?ver=20260526f') ?>">
+<link rel="stylesheet" href="<?= webshop_theme_assets_url('css/header-drawers.css') ?>">
 <header class="gp-header" id="gp-header">
     <?php if (!empty($_gp_header_slots['announcement'])) : ?>
     <div class="gp-header-announcement" role="region" aria-label="Store announcement">
@@ -304,5 +304,5 @@ $_gp_header_slots = function_exists('webshop_header_gather_display_slots')
     'user_name'       => $user_name,
     'user_first_name' => $user_first_name,
 ), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
-<script defer src="<?= $assets ?>gulfpharmacy_theme/js/header.js"></script>
-<script defer src="<?= $assets ?>gulfpharmacy_theme/js/header-drawers.js"></script>
+<script defer src="<?= webshop_theme_assets_url('js/header.js') ?>"></script>
+<script defer src="<?= webshop_theme_assets_url('js/header-drawers.js') ?>"></script>

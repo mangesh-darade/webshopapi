@@ -664,9 +664,9 @@ class Webshop_section_engine
                     return $themePath;
                 }
             }
-        } elseif ($theme !== 'default') {
+        } elseif ($theme !== 'default' && function_exists('webshop_plane_vanila_view')) {
             foreach ($candidateBasenames as $basename) {
-                $themePath = 'plane_vanila_theme/' . $theme . '_theme/components/' . $basename;
+                $themePath = webshop_plane_vanila_view('components/' . $basename);
                 if (is_file(VIEWPATH . $themePath . '.php')) {
                     return $themePath;
                 }

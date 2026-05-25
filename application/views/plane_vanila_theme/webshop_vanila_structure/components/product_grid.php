@@ -22,8 +22,8 @@ $_pg_wl_lookup = function_exists('webshop_view_wishlist_lookup')
     ? webshop_view_wishlist_lookup(isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : null)
     : (isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : array());
 ?>
-<link rel="stylesheet" href="<?= $pg_assets ?>gulfpharmacy_theme/css/product-grid.css?ver=20260526a">
-<link rel="stylesheet" href="<?= $pg_assets ?>gulfpharmacy_theme/css/wishlist-fav.css?ver=20260526a">
+<link rel="stylesheet" href="<?= webshop_theme_assets_url('css/product-grid.css?ver=20260526a') ?>">
+<link rel="stylesheet" href="<?= webshop_theme_assets_url('css/wishlist-fav.css?ver=20260526a') ?>">
 <section class="gp-component dynamic-product-grid" aria-labelledby="<?= $uid ?>">
     <?php if ($title !== ''): ?>
     <h2 class="cms-pg-title" id="<?= $uid ?>"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h2>
@@ -86,7 +86,7 @@ $_pg_wl_lookup = function_exists('webshop_view_wishlist_lookup')
                 <span class="gp-product-badge">Sale</span>
                 <?php endif; ?>
                 </a>
-                <?php $CI =& get_instance(); $CI->load->view('plane_vanila_theme/gulfpharmacy_theme/components/wishlist_card_button', array(
+                <?php $CI =& get_instance(); $CI->load->view(webshop_plane_vanila_view('components/wishlist_card_button'), array(
                     'product_id'      => $pId,
                     'variant_id'      => isset($_pgVid) ? $_pgVid : 0,
                     'wishlist_lookup' => $_pg_wl_lookup,

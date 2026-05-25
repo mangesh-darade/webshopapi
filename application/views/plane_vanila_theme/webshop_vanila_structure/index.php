@@ -122,12 +122,12 @@ if ($bodyHtml !== '') {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/common.css">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css?ver=20260526f">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/cms-blocks.css">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/index-home.css">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/components.css">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/wishlist-fav.css?ver=20260526a">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/common.css') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/header.css?ver=20260526f') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/cms-blocks.css') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/index-home.css') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/components.css') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/wishlist-fav.css?ver=20260526a') ?>">
     <?php if (function_exists('webshop_async_stylesheet_tag')): ?>
     <?= webshop_async_stylesheet_tag($assets . 'css/techmarket-font-awesome.css') ?>
 
@@ -141,7 +141,7 @@ if ($bodyHtml !== '') {
 <div class="home-shell">
     <?php
     $gp_header_logo_fetchpriority = ($_gp_logo_url !== '' && !$hasHeroBanner);
-    require_once(VIEWPATH . 'plane_vanila_theme/gulfpharmacy_theme/header.php');
+    require_once webshop_plane_vanila_view_file('header');
     unset($gp_header_logo_fetchpriority);
     ?>
 
@@ -202,7 +202,7 @@ if ($bodyHtml !== '') {
                     <h2><?= htmlspecialchars($catGridTitle, ENT_QUOTES, 'UTF-8') ?></h2>
                 </div>
                 <div class="panel panel--catalog">
-                    <?= $this->load->view('plane_vanila_theme/gulfpharmacy_theme/components/category_grid', array(
+                    <?= $this->load->view(webshop_plane_vanila_view('components/category_grid'), array(
                         'items' => $catItems,
                         'uploads' => $uploads,
                         'thumbs' => $thumbs,
@@ -220,7 +220,7 @@ if ($bodyHtml !== '') {
                 </div>
                 <?php endif; ?>
                 <div class="panel panel--featured">
-                    <?= $this->load->view('plane_vanila_theme/gulfpharmacy_theme/components/product_showcase', array(
+                    <?= $this->load->view(webshop_plane_vanila_view('components/product_showcase'), array(
                         'items' => $home_product_grid_items,
                         'uploads' => $uploads,
                         'thumbs' => $thumbs,
@@ -234,17 +234,17 @@ if ($bodyHtml !== '') {
         <?php endif; ?>
 
         <?php if ($isCmsHome && !$isDynamic && !empty($legacyCert['page_text'])): ?>
-            <section class="section"><div class="panel"><?= $this->load->view('plane_vanila_theme/gulfpharmacy_theme/components/html_block', array('config' => array('content' => $legacyCert['page_text']), 'uploads' => $uploads), true) ?></div></section>
+            <section class="section"><div class="panel"><?= $this->load->view(webshop_plane_vanila_view('components/html_block'), array('config' => array('content' => $legacyCert['page_text']), 'uploads' => $uploads), true) ?></div></section>
         <?php endif; ?>
         <?php if ($isCmsHome && !$isDynamic && !empty($legacyUpdates['page_text'])): ?>
-            <section class="section"><div class="panel"><?= $this->load->view('plane_vanila_theme/gulfpharmacy_theme/components/html_block', array('config' => array('content' => $legacyUpdates['page_text']), 'uploads' => $uploads), true) ?></div></section>
+            <section class="section"><div class="panel"><?= $this->load->view(webshop_plane_vanila_view('components/html_block'), array('config' => array('content' => $legacyUpdates['page_text']), 'uploads' => $uploads), true) ?></div></section>
         <?php endif; ?>
     </main>
 
-    <?php $gp_footer_styles_in_head = true; require_once(VIEWPATH . 'plane_vanila_theme/gulfpharmacy_theme/footer.php'); ?>
+    <?php $gp_footer_styles_in_head = true; require_once webshop_plane_vanila_view_file('footer'); ?>
 </div>
-<script defer src="<?= $assets ?>gulfpharmacy_theme/js/main.js?ver=200406"></script>
-<script defer src="<?= $assets ?>gulfpharmacy_theme/js/index.js"></script>
+<script defer src="<?= webshop_theme_assets_url('js/main.js?ver=200406') ?>"></script>
+<script defer src="<?= webshop_theme_assets_url('js/index.js') ?>"></script>
 <script>window.GP_INDEX_CTX=<?= json_encode(array('baseUrl' => base_url('webshop'), 'assets' => $assets), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;const baseUrl=window.GP_INDEX_CTX.baseUrl;const assets=window.GP_INDEX_CTX.assets;</script>
 </body>
 </html>

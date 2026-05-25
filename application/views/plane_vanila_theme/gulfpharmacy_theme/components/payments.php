@@ -23,15 +23,15 @@ $payCurrencyIso = isset($payment_currency_iso) ? trim((string) $payment_currency
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Payment | <?= htmlspecialchars($shopName, ENT_QUOTES, 'UTF-8') ?></title>
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/common.css">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/payments.css">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/common.css') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/header.css') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/payments.css') ?>">
 </head>
 <body>
 <div class="pay-shell">
     <?php
     if ($theme === 'nw' || $theme === 'gulfpharmacy') {
-        require_once(VIEWPATH . 'plane_vanila_theme/' . $theme . '_theme/header.php');
+        require_once webshop_plane_vanila_view_file('header');
     }
     ?>
 
@@ -133,10 +133,10 @@ $payCurrencyIso = isset($payment_currency_iso) ? trim((string) $payment_currency
 
     <?php
     if ($theme === 'nw' || $theme === 'gulfpharmacy') {
-        require_once(VIEWPATH . 'plane_vanila_theme/' . $theme . '_theme/footer.php');
+        require_once webshop_plane_vanila_view_file('footer');
     }
     ?>
 </div>
-<script defer src="<?= $assets ?>gulfpharmacy_theme/js/payments.js"></script>
+<script defer src="<?= webshop_theme_assets_url('js/payments.js') ?>"></script>
 </body>
 </html>

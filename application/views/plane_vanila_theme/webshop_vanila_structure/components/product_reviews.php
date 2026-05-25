@@ -21,15 +21,15 @@ $err_class = function ($field) use ($error_field) {
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Product Reviews | <?= html_escape($name) ?></title>
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/common.css">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/header.css">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/product-reviews.css">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/common.css') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/header.css') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/product-reviews.css') ?>">
 </head>
 <body>
 <div class="gp-site-wrapper">
     <?php
     if ($theme === 'nw' || $theme === 'gulfpharmacy') {
-        require_once(VIEWPATH . 'plane_vanila_theme/' . $theme . '_theme/header.php');
+        require_once webshop_plane_vanila_view_file('header');
     }
     ?>
     <main class="pr-main">
@@ -111,10 +111,10 @@ $err_class = function ($field) use ($error_field) {
     </main>
     <?php
     if ($theme === 'nw' || $theme === 'gulfpharmacy') {
-        require_once(VIEWPATH . 'plane_vanila_theme/' . $theme . '_theme/footer.php');
+        require_once webshop_plane_vanila_view_file('footer');
     }
     ?>
 </div>
-<script defer src="<?= $assets ?>gulfpharmacy_theme/js/product-reviews.js"></script>
+<script defer src="<?= webshop_theme_assets_url('js/product-reviews.js') ?>"></script>
 </body>
 </html>

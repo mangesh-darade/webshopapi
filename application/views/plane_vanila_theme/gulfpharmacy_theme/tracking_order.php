@@ -89,8 +89,8 @@ $assets_fn = function_exists('webshop_theme_assets_url') ? 'webshop_theme_assets
     <link rel="stylesheet" href="<?= htmlspecialchars(webshop_theme_assets_url('css/header.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(webshop_theme_assets_url('css/tracking-order.css'), ENT_QUOTES, 'UTF-8') ?>">
     <?php else: ?>
-    <link rel="stylesheet" href="<?= htmlspecialchars($assets . 'gulfpharmacy_theme/css/common.css', ENT_QUOTES, 'UTF-8') ?>">
-    <link rel="stylesheet" href="<?= htmlspecialchars($assets . 'gulfpharmacy_theme/css/tracking-order.css', ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(webshop_theme_assets_url('css/common.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(webshop_theme_assets_url('css/tracking-order.css'), ENT_QUOTES, 'UTF-8') ?>">
     <?php endif; ?>
     <link rel="icon" type="image/x-icon" href="<?= isset($uploads) ? htmlspecialchars($uploads . 'webshop/herbinn_favicon.ico', ENT_QUOTES, 'UTF-8') : '' ?>">
 </head>
@@ -249,7 +249,7 @@ $assets_fn = function_exists('webshop_theme_assets_url') ? 'webshop_theme_assets
         csrf_hash: <?= json_encode($this->security->get_csrf_hash(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>
     };
 </script>
-<script defer src="<?= $assets_fn ? htmlspecialchars(webshop_theme_assets_url('js/tracking-order.js'), ENT_QUOTES, 'UTF-8') : htmlspecialchars($assets . 'gulfpharmacy_theme/js/tracking-order.js', ENT_QUOTES, 'UTF-8') ?>"></script>
+<script defer src="<?= $assets_fn ? htmlspecialchars(webshop_theme_assets_url('js/tracking-order.js'), ENT_QUOTES, 'UTF-8') : htmlspecialchars(webshop_theme_assets_url('js/tracking-order.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <?php endif; ?>
 
 </body>

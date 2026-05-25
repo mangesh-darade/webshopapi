@@ -147,11 +147,11 @@ if (count($tax_rates_used) === 1) {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/common.css">
-    <link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/checkout-page.css">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/common.css') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/checkout-page.css') ?>">
 </head>
 <body class="pv-checkout-page">
-<?php require_once(VIEWPATH . 'plane_vanila_theme/gulfpharmacy_theme/header.php'); ?>
+<?php require_once webshop_plane_vanila_view_file('header'); ?>
 <main class="pv-main">
     <div class="container">
         <nav class="pv-breadcrumb">
@@ -553,11 +553,11 @@ if (count($tax_rates_used) === 1) {
         </div>
     </div>
 </main>
-<?php require_once(VIEWPATH . 'plane_vanila_theme/gulfpharmacy_theme/footer.php'); ?>
-<script src="<?= $assets ?>gulfpharmacy_theme/js/main.js"></script>
-<script src="<?= $assets ?>gulfpharmacy_theme/js/jquery.validate.min.js"></script>
+<?php require_once webshop_plane_vanila_view_file('footer'); ?>
+<script src="<?= webshop_theme_assets_url('js/main.js') ?>"></script>
+<script src="<?= webshop_theme_assets_url('js/jquery.validate.min.js') ?>"></script>
 <script src="<?= $assets ?>custom_js/common.js"></script>
-<script src="<?= $assets ?>gulfpharmacy_theme/js/checkout.js"></script>
-<script type="module" src="<?= $assets ?>gulfpharmacy_theme/js/common.js"></script>
+<script src="<?= webshop_theme_assets_url('js/checkout.js') ?>"></script>
+<script type="module" src="<?= webshop_theme_assets_url('js/common.js') ?>"></script>
 </body>
 </html>

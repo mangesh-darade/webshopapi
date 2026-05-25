@@ -15,7 +15,7 @@ if ($imgFile !== '') {
 $bgColor  = isset($cfg['bg_color']) && $cfg['bg_color'] !== '' ? $cfg['bg_color'] : 'linear-gradient(135deg,#214548 0%,#2f6366 100%)';
 $textColor = isset($cfg['text_color']) && $cfg['text_color'] !== '' ? $cfg['text_color'] : '#ffffff';
 ?>
-<link rel="stylesheet" href="<?= $assets ?>gulfpharmacy_theme/css/components.css">
+<link rel="stylesheet" href="<?= webshop_theme_assets_url('css/components.css') ?>">
 <div class="gp-component gp-banner-section" style="background:<?= $bgColor ?>;color:<?= $textColor ?>;">
     <?php if ($imgSrc !== ''): ?>
     <img src="<?= $imgSrc ?>" alt="<?= $title ?>" class="gp-banner-bg-img" loading="lazy">
