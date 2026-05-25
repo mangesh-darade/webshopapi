@@ -1,0 +1,85 @@
+/* Gulf Pharmacy home (index) — uses tokens from common.css */
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,sans-serif;background:#fff;color:var(--gp-text)}
+/* One continuous white surface (banner + main); avoids gray strip vs white panel mismatch */
+.home-shell{min-height:100vh;background:#fff}
+.home-container{max-width:1360px;margin:0 auto;padding:0 20px}
+.home-flash{margin:16px 0;padding:12px 14px;border-radius:10px;background:#ecfeff;border:1px solid #bae6fd;color:#075985}
+/* Hero: .hero-inner matches .home-container width/padding */
+.hero{position:relative;margin:0;padding:0;background:transparent;box-shadow:none}
+.hero-inner{max-width:1360px;margin:0 auto;padding:12px 20px 0}
+.hero-inner img{width:100%;max-width:100%;height:auto;display:block;border-radius:14px;box-shadow:none}
+.hero + .home-container{padding-top:4px}
+.home-micro-tagline{margin:20px auto 6px;max-width:56rem;padding:0 8px;text-align:center;font-size:clamp(1.05rem,2.1vw,1.35rem);font-weight:800;line-height:1.35;color:#0f172a;letter-spacing:-.02em}
+/* Merge content blocks into the same white canvas (no nested “card” behind banner) */
+.home-container > .section{margin:14px 0 22px}
+.home-container .panel{background:transparent;border:0;box-shadow:none;border-radius:0;padding:14px 0}
+.home-container .panel.panel--body{padding-top:8px;padding-bottom:8px}
+.home-container .section-head{margin-bottom:10px}
+.hero-overlay{position:absolute;inset:0;background:linear-gradient(90deg,rgba(8,34,57,.75),rgba(8,34,57,.15));display:flex;align-items:center}
+.hero-content{padding:32px 36px;max-width:620px;color:#fff}
+.hero h1{margin:0 0 8px;font-size:clamp(28px,4vw,52px);font-weight:800;line-height:1.1}
+.hero p{margin:0 0 20px;font-size:17px;opacity:.95}
+.hero-actions{display:flex;gap:12px;flex-wrap:wrap}
+.btn-main,.btn-alt{padding:12px 22px;border-radius:12px;text-decoration:none;font-weight:700}
+.btn-main{background:var(--gp-accent);color:#fff}
+.btn-alt{background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.4)}
+.trust-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:0 0 24px}
+.trust-item{background:var(--gp-bg);border:1px solid var(--gp-border);border-radius:14px;padding:14px 16px;box-shadow:0 6px 16px rgba(15,118,110,.06);font-size:13px}
+.trust-item strong{display:block;color:var(--gp-primary);font-size:14px;margin-bottom:4px}
+.section{margin:18px 0 26px}
+.section-head{display:flex;justify-content:space-between;align-items:end;margin-bottom:12px}
+.section h2{margin:0;font-size:clamp(22px,2vw,30px);font-weight:800;color:var(--gp-primary)}
+/* CMS category_grid title from admin — full-width centered ruled heading (not left .section h2) */
+.home-cms-body .category-grid-section h2.section-title,
+.home-cms-body .category-grid-section h2.section-title--ruled{
+  display:flex;
+  width:100%;
+  justify-content:center;
+  text-align:center;
+  font-size:clamp(1.35rem,2.5vw,1.75rem);
+}
+.section p{margin:0;color:var(--gp-muted);font-size:14px}
+.panel{background:var(--gp-bg);border:1px solid var(--gp-border);border-radius:18px;padding:18px;box-shadow:0 10px 24px rgba(15,118,110,.06)}
+.panel :is(img){max-width:100%;height:auto}
+.panel .gp-cms-section img,.panel .gp-body-content img{border-radius:12px}
+.section .gp-section{padding:0}
+.section .container{max-width:none;padding:0}
+.section .gp-section-title{font-size:28px}
+.section .gp-section-divider{margin:10px auto 18px}
+.section .gp-cat-card,.section .gp-pc-card,.section .gp-grid-card{transition:transform .25s,box-shadow .25s}
+.section .gp-cat-card:hover,.section .gp-pc-card:hover,.section .gp-grid-card:hover{transform:translateY(-4px);box-shadow:0 16px 24px rgba(15,118,110,.14)}
+@media(max-width:992px){.trust-strip{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:700px){.home-container{padding:0 12px}.hero-inner{padding:10px 12px 0}.hero-inner img{border-radius:12px}.hero-content{padding:20px}.trust-strip{grid-template-columns:1fr}}
+
+/* CMS static pages (about-us, test, etc.) when body is empty or API failed */
+.gp-cms-page-head{max-width:720px;margin:0 auto;padding:8px 0 24px;text-align:center}
+.gp-cms-page-title{margin:0 0 12px;font-size:clamp(1.5rem,3vw,2rem);font-weight:800;color:#214548}
+.gp-cms-empty-notice{margin:0;font-size:0.95rem;line-height:1.65;color:var(--gp-muted)}
+.gp-cms-empty-notice code{font-size:0.88em;background:#f1f5f9;padding:2px 6px;border-radius:4px}
+
+/* Section headings with horizontal rules (legacy + CMS) */
+.section-head--ruled{display:block;width:100%;margin:0 0 20px;text-align:center}
+.section-head--ruled h2{display:flex;align-items:center;justify-content:center;gap:clamp(12px,3vw,28px);margin:0;font-size:clamp(1.35rem,2.5vw,1.75rem);font-weight:800;color:#214548}
+.section-head--ruled h2::before,.section-head--ruled h2::after{content:"";flex:1;height:2px;background:#214548;max-width:220px}
+.section--categories{padding-bottom:12px}
+.section--categories .panel--catalog{padding-bottom:8px;text-align:left}
+.section--categories .panel--catalog .category-grid-section{width:100%}
+.section--categories .panel--catalog .gp-cg-grid{justify-content:start}
+.section--featured{margin-top:8px;padding-top:24px;border-top:1px solid var(--gp-border)}
+
+/* CMS sections inside home body */
+.home-cms-body .home-cms-section{width:100%}
+.home-cms-body .home-cms-section--category_grid,
+.home-cms-body .home-cms-section--category_carousel{margin-bottom:4px}
+.home-cms-body .home-cms-section--html_block:not(:last-child){margin-bottom:20px}
+.home-cms-body .gp-html-block:not(.gp-home-support-band){max-width:100%}
+.home-cms-body .gp-html-block:not(.gp-home-support-band) p{line-height:1.7;color:#374151}
+
+/* Tighten gap between category block and support band when both are CMS sections */
+.home-cms-section--category_grid + .home-cms-section--html_block,
+.home-cms-section--category_carousel + .home-cms-section--html_block{
+  margin-top:28px;
+  padding-top:28px;
+  border-top:1px solid var(--gp-border);
+}
