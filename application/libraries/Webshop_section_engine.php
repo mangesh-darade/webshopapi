@@ -270,6 +270,8 @@ class Webshop_section_engine
             'Settings',
             'uploads',
             'thumbs',
+            'categories',
+            'main_categories',
             'Customer_assets',
             'plane_vanila_theme_folder',
             'plane_vanila_view_prefix',
@@ -351,6 +353,9 @@ class Webshop_section_engine
     {
         $cfg = $this->decode_config($config);
         $items = isset($seed['products']) && is_array($seed['products']) ? $seed['products'] : array();
+        if (empty($items) && isset($seed['items']) && is_array($seed['items'])) {
+            $items = $seed['items'];
+        }
         if (empty($items)) {
             $items = $this->fetch_products_for_section_config($cfg);
         }
@@ -363,10 +368,15 @@ class Webshop_section_engine
             && method_exists($this->CI->webshop_model, 'enrich_product_list_items_with_variants')) {
             $items = $this->CI->webshop_model->enrich_product_list_items_with_variants($items);
         }
+        $cols = isset($cfg['columns_desktop']) ? (int) $cfg['columns_desktop'] : 4;
+        if ($cols < 1) {
+            $cols = 4;
+        }
         return array(
             'title' => isset($cfg['title']) && trim((string) $cfg['title']) !== '' ? (string) $cfg['title'] : '',
-            'products_per_page' => isset($cfg['products_per_page']) ? (int) $cfg['products_per_page'] : 8,
-            'columns_desktop' => isset($cfg['columns_desktop']) ? (int) $cfg['columns_desktop'] : 4,
+            'products_per_page' => $this->resolve_catalog_fetch_limit($cfg),
+            'columns_desktop' => $cols,
+            'config' => $cfg,
             'items' => $items,
         );
     }
@@ -511,6 +521,10 @@ class Webshop_section_engine
         if (!in_array($type, array('category_grid', 'category_carousel', 'product_grid', 'product_carousel'), true)) {
             return true;
         }
+        // Product sections always render (empty-state message) so CMS pages are not blank.
+        if (in_array($type, array('product_grid', 'product_carousel'), true)) {
+            return true;
+        }
         $items = isset($sectionData['items']) && is_array($sectionData['items']) ? $sectionData['items'] : array();
         foreach ($items as $item) {
             $row = is_array($item) ? $item : (array) $item;
@@ -537,6 +551,53 @@ class Webshop_section_engine
     }
 
     /**
+     * ElintOm CMS admin saves `limit`; seeds may use `products_per_page`.
+     *
+     * @param array $cfg
+     * @return int
+     */
+    private function resolve_catalog_fetch_limit(array $cfg)
+    {
+        foreach (array('products_per_page', 'limit', 'per_page') as $key) {
+            if (isset($cfg[$key]) && (int) $cfg[$key] > 0) {
+                return (int) $cfg[$key];
+            }
+        }
+        return 12;
+    }
+
+    /**
+     * Numeric product ids from CMS section_contain (admin may store products / product_ids).
+     *
+     * @param array $cfg
+     * @return array<int,int>
+     */
+    private function resolve_product_ids_from_section_config(array $cfg)
+    {
+        $ids = array();
+        foreach (array('product_ids', 'products', 'selected_products', 'section_products') as $key) {
+            if (empty($cfg[$key]) || !is_array($cfg[$key])) {
+                continue;
+            }
+            foreach ($cfg[$key] as $entry) {
+                if (is_numeric($entry)) {
+                    $pid = (int) $entry;
+                } elseif (is_array($entry)) {
+                    $pid = isset($entry['id']) ? (int) $entry['id'] : (isset($entry['product_id']) ? (int) $entry['product_id'] : 0);
+                } elseif (is_object($entry)) {
+                    $pid = isset($entry->id) ? (int) $entry->id : (isset($entry->product_id) ? (int) $entry->product_id : 0);
+                } else {
+                    $pid = 0;
+                }
+                if ($pid > 0) {
+                    $ids[$pid] = $pid;
+                }
+            }
+        }
+        return array_values($ids);
+    }
+
+    /**
      * @param array $cfg
      * @return array
      */
@@ -545,34 +606,119 @@ class Webshop_section_engine
         if (!isset($this->CI->webshop_model)) {
             return array();
         }
-        $limit = isset($cfg['limit']) ? (int) $cfg['limit'] : 0;
-        if ($limit < 1) {
-            $limit = isset($cfg['products_per_page']) ? (int) $cfg['products_per_page'] : 0;
-        }
-        if ($limit < 1) {
-            $limit = 12;
-        }
+        $limit = $this->resolve_catalog_fetch_limit($cfg);
         $m = $this->CI->webshop_model;
+
+        $productIds = $this->resolve_product_ids_from_section_config($cfg);
+        if (!empty($productIds)) {
+            $res = $m->get_products_list('products', $productIds, false, 0, 1);
+            $items = $this->normalize_product_list_rows($res);
+            if (!empty($items)) {
+                return $items;
+            }
+        }
+
         $cid = isset($cfg['category_id']) ? $cfg['category_id'] : null;
+        if ($cid === '' || $cid === '0' || $cid === 0) {
+            $cid = null;
+        }
+
         $res = null;
         if ($cid !== null && $cid !== '') {
             $res = $m->get_products_list('category', $cid, false, $limit, 1);
-        } else {
-            $res = $m->get_products_list(null, null, false, $limit, 1);
-        }
-        if (!is_array($res) || empty($res['items'])) {
-            $tree = $m->get_categories();
-            if (is_array($tree) && !empty($tree['main'])) {
-                $firstId = key($tree['main']);
-                $res = $m->get_products_list('category', $firstId, false, $limit, 1);
+            $items = $this->normalize_product_list_rows($res);
+            if (!empty($items)) {
+                return $items;
+            }
+            if (is_numeric($cid)) {
+                $res = $m->get_products_list('category', md5((string) $cid), true, $limit, 1);
+                $items = $this->normalize_product_list_rows($res);
+                if (!empty($items)) {
+                    return $items;
+                }
             }
         }
-        if (!is_array($res) || empty($res['items'])) {
+
+        $res = $m->get_products_list(null, null, false, $limit, 1);
+        $items = $this->normalize_product_list_rows($res);
+        if (!empty($items)) {
+            return $items;
+        }
+
+        return $this->fetch_products_from_main_categories($limit);
+    }
+
+    /**
+     * @param mixed $res
+     * @return array
+     */
+    private function normalize_product_list_rows($res)
+    {
+        if (!is_array($res) || empty($res['items']) || !is_array($res['items'])) {
             return array();
         }
         $out = array();
         foreach ($res['items'] as $row) {
             $out[] = is_array($row) ? $row : (array) $row;
+        }
+        return $out;
+    }
+
+    /**
+     * Fallback when getproductslist returns no rows for "all products" (common on API-only shops).
+     *
+     * @param int $limit
+     * @return array
+     */
+    private function fetch_products_from_main_categories($limit)
+    {
+        if (!isset($this->CI->webshop_model)) {
+            return array();
+        }
+        $limit = max(1, (int) $limit);
+        $m = $this->CI->webshop_model;
+        $tree = $m->get_categories();
+        if (!is_array($tree) || empty($tree['main']) || !is_array($tree['main'])) {
+            return array();
+        }
+
+        $out = array();
+        $seen = array();
+        foreach ($tree['main'] as $cidKey => $row) {
+            if (count($out) >= $limit) {
+                break;
+            }
+            $cid = 0;
+            if (is_object($row)) {
+                $cid = isset($row->id) ? (int) $row->id : 0;
+            } elseif (is_array($row)) {
+                $cid = isset($row['id']) ? (int) $row['id'] : 0;
+            }
+            if ($cid < 1 && is_numeric($cidKey)) {
+                $cid = (int) $cidKey;
+            }
+            if ($cid < 1) {
+                continue;
+            }
+            $list = $m->get_products_list('category', md5((string) $cid), true, $limit, 1);
+            if (empty($list['items'])) {
+                $list = $m->get_products_list('category', $cid, false, $limit, 1);
+            }
+            if (!is_array($list) || empty($list['items'])) {
+                continue;
+            }
+            foreach ($list['items'] as $p) {
+                $a = is_array($p) ? $p : (array) $p;
+                $pid = isset($a['id']) ? (int) $a['id'] : (isset($a['product_id']) ? (int) $a['product_id'] : 0);
+                if ($pid < 1 || isset($seen[$pid])) {
+                    continue;
+                }
+                $seen[$pid] = true;
+                $out[] = $a;
+                if (count($out) >= $limit) {
+                    break 2;
+                }
+            }
         }
         return $out;
     }
@@ -702,6 +848,10 @@ class Webshop_section_engine
         $aliases = array(
             'html_component' => 'html_block',
             'htmlcomponent' => 'html_block',
+            'product_grid_component' => 'product_grid',
+            'productgrid' => 'product_grid',
+            'product_carousel_component' => 'product_carousel',
+            'productcarousel' => 'product_carousel',
         );
         return isset($aliases[$type]) ? $aliases[$type] : $type;
     }

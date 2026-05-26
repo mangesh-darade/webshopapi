@@ -1,0 +1,48 @@
+/* Cart component (.cart-*, .summary-row, .empty-cart-*) — tokens from common.css :root */
+.cart-container{font-family:'Inter',system-ui,sans-serif;max-width:1200px;margin:40px auto;padding:0 20px}
+.cart-title{font-size:2rem;margin-bottom:30px;color:var(--gp-text)}
+.cart-grid{display:grid;grid-template-columns:1fr 350px;gap:30px}
+@media(max-width:992px){.cart-grid{grid-template-columns:1fr}}
+
+.cart-item-card{background:var(--gp-bg);border-radius:12px;padding:20px;margin-bottom:15px;box-shadow:0 2px 4px rgba(0,0,0,.05);display:flex;align-items:center;justify-content:space-between;gap:16px;border:1px solid var(--gp-border);position:relative;transition:opacity .2s}
+.cart-item-card--updating{opacity:.55;pointer-events:none}
+.cart-item-card .item-details{flex:1;min-width:0}
+.cart-item-card .item-name{margin:0 0 8px 0;font-size:1.1rem;font-weight:600;color:var(--gp-text);line-height:1.35}
+.cart-item-card .item-meta{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px}
+.cart-item-card .item-price-wrap{display:flex;align-items:baseline;gap:6px}
+.cart-item-card .item-price{font-weight:600;color:var(--gp-text);font-size:1rem}
+.cart-item-card .item-price-each-hint{font-size:.75rem;color:var(--gp-muted)}
+.cart-item-card .item-price-na{font-style:italic;color:var(--gp-muted)}
+.cart-item-card .item-total{font-weight:700;font-size:1.1rem;color:var(--gp-primary);white-space:nowrap;padding-right:28px}
+.cart-item-card .item-total-na{color:var(--gp-muted)}
+.cart-item-card .remove-item-btn{position:absolute;top:12px;right:12px;background:none;border:none;color:#cbd5e1;font-size:1.5rem;line-height:1;cursor:pointer;padding:4px 8px;transition:color .2s}
+.cart-item-card .remove-item-btn:hover{color:#ef4444}
+
+/* Quantity stepper — centered qty input */
+.quantity-control{display:inline-flex;align-items:stretch;border:1px solid var(--gp-border);border-radius:8px;overflow:hidden;background:var(--gp-bg);flex-shrink:0}
+.qty-btn{display:flex;align-items:center;justify-content:center;width:40px;min-width:40px;height:40px;border:none;background:var(--gp-page-bg);color:var(--gp-text);font-size:1.25rem;font-weight:500;line-height:1;cursor:pointer;padding:0;transition:background .15s,color .15s}
+.qty-btn:hover{background:var(--gp-border)}
+.qty-btn:active{background:var(--gp-primary);color:#fff}
+.qty-btn:disabled{opacity:.45;cursor:not-allowed}
+.qty-input{width:52px;min-width:52px;height:40px;border:none;border-left:1px solid var(--gp-border);border-right:1px solid var(--gp-border);background:var(--gp-bg);color:var(--gp-text);font-size:1rem;font-weight:600;text-align:center;padding:0;margin:0;-moz-appearance:textfield;appearance:textfield}
+.qty-input::-webkit-outer-spin-button,
+.qty-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+
+.cart-summary-sidebar .summary-card{background:var(--gp-page-bg);border-radius:16px;padding:25px;border:1px solid var(--gp-border);position:sticky;top:20px}
+.cart-summary-sidebar .summary-row{display:flex;justify-content:space-between;margin-bottom:15px;align-items:center}
+.cart-summary-sidebar .summary-row.total{margin-top:20px;padding-top:20px;border-top:2px solid var(--gp-border);font-weight:700;font-size:1.25rem;color:var(--gp-primary)}
+.cart-summary-sidebar .checkout-btn{display:block;width:100%;background:var(--gp-primary);color:#fff;text-align:center;padding:15px;border-radius:8px;text-decoration:none;font-weight:700;margin-top:25px;transition:background .2s;min-height:44px;box-sizing:border-box}
+.cart-summary-sidebar .checkout-btn:hover{background:var(--gp-primary-light)}
+.cart-guest-hint{margin-top:16px;font-size:.85rem;color:var(--gp-muted);text-align:center;line-height:1.5}
+.cart-guest-hint a{color:var(--gp-primary);font-weight:600}
+
+.empty-cart-message{text-align:center;padding:60px 20px;background:var(--gp-bg);border-radius:20px;border:1px solid var(--gp-border)}
+.empty-cart-message .empty-icon{font-size:4rem;margin-bottom:20px}
+.continue-shopping-btn{display:inline-block;background:var(--gp-text);color:#fff;padding:12px 30px;border-radius:50px;text-decoration:none;margin-top:20px;transition:background .2s}
+.continue-shopping-btn:hover{background:#000}
+
+@media(max-width:576px){
+  .cart-item-card{flex-wrap:wrap;padding:16px 44px 16px 16px}
+  .cart-item-card .item-total{width:100%;padding-right:0;padding-top:4px}
+  .cart-item-card .item-meta{width:100%}
+}

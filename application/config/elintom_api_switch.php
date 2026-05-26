@@ -52,6 +52,25 @@ $elintom_switch_profiles = array(
         'theme_view_folder'                  => 'gulfpharmacy_theme',
         'theme_assets_directory'             => 'gulfpharmacy_theme',
     ),
+
+    /*
+     * Herbinn Wellness marketing site (herbinn.com) — CMS-driven like gulfpharmacy.
+     * Set api_private_key to sma_settings.api_privatekey from herbinnmicromedicines ElintOm,
+     * or override in application/config/elintom_api.local.php.
+     */
+    'herbinnwellness_production' => array(
+        'api_base_url'                    => 'https://testingpos.elintpos.in/',
+        'api_private_key'                 => '3e8676ed23c627117437c7e6a1bbd6e9',
+        'ssl_verify'                      => false,
+        'ssl_ca_bundle'                   => '',
+        'media_uploads_base_url'          => 'https://testingpos.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/',
+        'customer_assets_folder'          => 'herbinnmicromedicines',
+        'mdata_include_http_host_segment' => false,
+        'media_use_http_host'             => false,
+        'webshop_theme'                   => 'herbinnwellness',
+        'theme_view_folder'               => 'herbinnwellness',
+        'theme_assets_directory'          => 'herbinnwellness',
+    ),
 );
 
 $elintom_active_profile = 'vanila_testing';
@@ -60,12 +79,19 @@ switch ($detected_host_for_api) {
     case 'localhost':
         // vanila_local = http://localhost/ElintOm/ (set api_privatekey in ElintOm to match switch key)
         // vanila_testing = https://testingpos.elintpos.in/ (deploy order_pricing_helper.php there)
-        $elintom_active_profile = 'gulfpharmacy_production';
+        $elintom_active_profile = 'herbinnwellness_production';
         break;
 
     case 'webshop.elintpos.in':
         $elintom_active_profile = 'gulfpharmacy_production';
         break;
+
+    case 'herbinn.com':
+    case 'www.herbinn.com':
+    case 'herbinnmicromedicines.elintpos.in':
+        $elintom_active_profile = 'herbinnwellness_production';
+        break;
+
     default:
         $elintom_active_profile = 'vanila_testing';
         break;

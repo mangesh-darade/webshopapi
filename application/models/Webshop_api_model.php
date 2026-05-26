@@ -62,6 +62,15 @@ class Webshop_api_model extends CI_Model {
         return $this->api_mode || !$this->has_local_db();
     }
 
+    /**
+     * Public check for controllers (PLP/PDP fast paths).
+     *
+     * @return bool
+     */
+    public function uses_elintom_catalog_api() {
+        return $this->use_elintom_api_catalogue();
+    }
+
     public function get_api_client() {
         return $this->api;
     }
@@ -1623,7 +1632,12 @@ class Webshop_api_model extends CI_Model {
      * @param array $items
      * @return array
      */
-    public function enrich_product_list_items_with_variants(array $items) {
+    /**
+     * @param array $items
+     * @param bool  $plp_light When true, skip per-product detail API fetches on category/search grids (major perf win).
+     * @return array
+     */
+    public function enrich_product_list_items_with_variants(array $items, $plp_light = false) {
         if ($items === array()) {
             return $items;
         }
@@ -1644,6 +1658,9 @@ class Webshop_api_model extends CI_Model {
             }
             if (!$needs_full && isset($row['type']) && strtolower((string) $row['type']) === 'variable' && $variants === array()) {
                 $needs_full = true;
+            }
+            if ($needs_full && $plp_light) {
+                $needs_full = false;
             }
             if ($needs_full && $pid > 0) {
                 $full = $this->resolve_product_row_by_id($pid);
@@ -1764,8 +1781,9 @@ class Webshop_api_model extends CI_Model {
                     if ($this->elintom_response->products_list_item_count($normalized) > 0) {
                         if ($by === 'category' && !empty($normalized['items'])) {
                             $catId = (!$hash && is_numeric($byid)) ? (int) $byid : 0;
+                            $plpLight = ($by === 'category' || $by === 'products');
                             $normalized['items'] = $this->enrich_product_list_items_with_stock($normalized['items'], $catId);
-                            $normalized['items'] = $this->enrich_product_list_items_with_variants($normalized['items']);
+                            $normalized['items'] = $this->enrich_product_list_items_with_variants($normalized['items'], $plpLight);
                         }
                         return $normalized;
                     }
@@ -1778,8 +1796,9 @@ class Webshop_api_model extends CI_Model {
                 if ($legacyList !== null && $this->elintom_response->products_list_item_count($legacyList) > 0) {
                     if (!empty($legacyList['items'])) {
                         $catId = (!$hash && is_numeric($byid)) ? (int) $byid : 0;
+                        $plpLight = ($by === 'category');
                         $legacyList['items'] = $this->enrich_product_list_items_with_stock($legacyList['items'], $catId);
-                        $legacyList['items'] = $this->enrich_product_list_items_with_variants($legacyList['items']);
+                        $legacyList['items'] = $this->enrich_product_list_items_with_variants($legacyList['items'], $plpLight);
                     }
                     return $legacyList;
                 }

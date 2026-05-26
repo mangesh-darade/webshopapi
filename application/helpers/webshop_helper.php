@@ -3162,6 +3162,144 @@ if (!function_exists('webshop_plane_vanila_view_file')) {
     }
 }
 
+if (!function_exists('webshop_render_wishlist_card_button')) {
+    /**
+     * Heart button for PLP/carousel cards (avoids CodeIgniter load->view per product in a grid).
+     *
+     * @param int         $product_id
+     * @param int         $variant_id
+     * @param array|null  $wishlist_lookup
+     * @param string      $extra_class
+     * @return void
+     */
+    function webshop_render_wishlist_card_button($product_id, $variant_id = 0, $wishlist_lookup = null, $extra_class = '') {
+        $product_id = (int) $product_id;
+        if ($product_id < 1) {
+            return;
+        }
+        $variant_id = (int) $variant_id;
+        $lookup = function_exists('webshop_view_wishlist_lookup')
+            ? webshop_view_wishlist_lookup(is_array($wishlist_lookup) ? $wishlist_lookup : null)
+            : (is_array($wishlist_lookup) ? $wishlist_lookup : array());
+        $logged_in = function_exists('webshop_is_customer_logged_in') ? webshop_is_customer_logged_in() : false;
+        $in_wishlist = $logged_in && function_exists('webshop_product_in_wishlist_lookup')
+            ? webshop_product_in_wishlist_lookup($lookup, $product_id, $variant_id)
+            : false;
+        $extra_class = trim((string) $extra_class);
+        $cls = 'gp-fav-btn gp-card-fav-btn'
+            . ($extra_class !== '' ? ' ' . $extra_class : '')
+            . ($in_wishlist ? ' is-saved' : '');
+        echo '<button type="button" class="' . htmlspecialchars($cls, ENT_QUOTES, 'UTF-8') . '"'
+            . ' data-wishlist-toggle data-product-id="' . $product_id . '" data-variant-id="' . $variant_id . '"'
+            . ' data-in-wishlist="' . ($in_wishlist ? '1' : '0') . '"'
+            . ' aria-pressed="' . ($in_wishlist ? 'true' : 'false') . '"'
+            . ' aria-label="' . htmlspecialchars($in_wishlist ? 'Remove from favourites' : 'Save to favourites', ENT_QUOTES, 'UTF-8') . '">'
+            . '<span class="gp-fav-btn__icon" aria-hidden="true">' . ($in_wishlist ? '♥' : '♡') . '</span>'
+            . '</button>';
+    }
+}
+
+if (!function_exists('webshop_extract_controller_view_data')) {
+    /**
+     * Make $CI->data variables available to theme partials included via require().
+     * Without this, header/footer included from webshop_require_theme_*() miss cms_nav_pages, cart counts, etc.
+     */
+    function webshop_extract_controller_view_data() {
+        if (!function_exists('get_instance')) {
+            return;
+        }
+        $CI =& get_instance();
+        if (isset($CI->data) && is_array($CI->data)) {
+            extract($CI->data, EXTR_SKIP);
+        }
+        if (isset($CI->load) && is_object($CI->load) && isset($CI->load->_ci_cached_vars) && is_array($CI->load->_ci_cached_vars)) {
+            extract($CI->load->_ci_cached_vars, EXTR_SKIP);
+        }
+    }
+}
+
+if (!function_exists('webshop_theme_storefront_stylesheets')) {
+    /**
+     * Standard CSS stack for Herbinn / plane_vanila account & checkout shells (header nav + footer grid).
+     *
+     * @param array $extra Relative paths under theme assets/css/ (optional).
+     * @return void
+     */
+    function webshop_theme_storefront_stylesheets(array $extra = array()) {
+        $ver = '20260526j';
+        $core = array(
+            'css/common.css',
+            'css/header.css',
+            'css/header-drawers.css',
+            'css/herbinn-site.css',
+            'css/herbinn-overrides.css',
+            'css/storefront-layout.css',
+            'css/components.css',
+        );
+        foreach (array_merge($core, $extra) as $rel) {
+            $rel = ltrim(str_replace('\\', '/', (string) $rel), '/');
+            if ($rel === '') {
+                continue;
+            }
+            $href = function_exists('webshop_theme_assets_url')
+                ? webshop_theme_assets_url($rel . '?ver=' . $ver)
+                : '';
+            if ($href === '') {
+                continue;
+            }
+            echo '<link rel="stylesheet" href="' . htmlspecialchars($href, ENT_QUOTES, 'UTF-8') . '">' . "\n";
+        }
+    }
+}
+
+if (!function_exists('webshop_require_theme_header')) {
+    /**
+     * Include active plane_vanila header (e.g. herbinnwellness/header.php) or legacy webshop/header.php.
+     *
+     * @return bool True when a header file was included.
+     */
+    function webshop_require_theme_header() {
+        webshop_extract_controller_view_data();
+        if (function_exists('webshop_plane_vanila_view_file')) {
+            $path = webshop_plane_vanila_view_file('header');
+            if (is_file($path)) {
+                require $path;
+                return true;
+            }
+        }
+        $legacy = VIEWPATH . 'webshop/header.php';
+        if (is_file($legacy)) {
+            require $legacy;
+            return true;
+        }
+        return false;
+    }
+}
+
+if (!function_exists('webshop_require_theme_footer')) {
+    /**
+     * Include active plane_vanila footer or legacy webshop/footer.php.
+     *
+     * @return bool True when a footer file was included.
+     */
+    function webshop_require_theme_footer() {
+        webshop_extract_controller_view_data();
+        if (function_exists('webshop_plane_vanila_view_file')) {
+            $path = webshop_plane_vanila_view_file('footer');
+            if (is_file($path)) {
+                require $path;
+                return true;
+            }
+        }
+        $legacy = VIEWPATH . 'webshop/footer.php';
+        if (is_file($legacy)) {
+            require $legacy;
+            return true;
+        }
+        return false;
+    }
+}
+
 if (!function_exists('webshop_plane_vanila_views_apppath')) {
     /**
      * Absolute APPPATH to active plane_vanila_theme folder (trailing slash).
@@ -3980,12 +4118,18 @@ if (!function_exists('webshop_api_website_setting_sections')) {
         }
         $CI = get_instance();
         
-        $api_sections = (object) array();
+        $api_sections = (object) array('header' => array(), 'footer' => array());
         if (isset($CI->api_website_setting_sections)) {
             $api_sections = (object) $CI->api_website_setting_sections;
         }
+        if (!isset($api_sections->header) || !is_array($api_sections->header)) {
+            $api_sections->header = isset($api_sections->header) ? webshop_normalize_setting_section_row_list($api_sections->header) : array();
+        }
+        if (!isset($api_sections->footer) || !is_array($api_sections->footer)) {
+            $api_sections->footer = isset($api_sections->footer) ? webshop_normalize_setting_section_row_list($api_sections->footer) : array();
+        }
 
-        // Merge local DB table if it exists
+        // Merge local DB table if it exists (optional; production webshopapi is API-only)
         if (isset($CI->db)) {
             $table = 'sma_webshop_header_footer';
             if ($CI->db->table_exists($table)) {
@@ -4396,17 +4540,63 @@ if (!function_exists('webshop_resolve_storefront_logo_image_url')) {
         if (!$row) {
             return '';
         }
-        $p = webshop_ws_row_value_string($row);
+        return webshop_resolve_storefront_media_path(webshop_ws_row_value_string($row), $uploads_base);
+    }
+}
+
+if (!function_exists('webshop_resolve_storefront_media_path')) {
+    /**
+     * Resolve logo_image / favicon value from sma_webshop_header_footer.
+     * Supports: absolute URL, assets/webshop/… theme path, images/… under active theme, ElintOm uploads path.
+     *
+     * @param string $path
+     * @param string $uploads_base
+     * @return string
+     */
+    function webshop_resolve_storefront_media_path($path, $uploads_base = '') {
+        $p = trim((string) $path);
         if ($p === '') {
             return '';
         }
         if (preg_match('#^https?://#i', $p)) {
             return $p;
         }
+        $p = str_replace('\\', '/', $p);
+        if (stripos($p, 'assets/webshop/') === 0) {
+            return rtrim(base_url(), '/') . '/' . ltrim($p, '/');
+        }
+        if (strpos($p, 'assets/') === 0) {
+            return rtrim(base_url(), '/') . '/' . ltrim($p, '/');
+        }
+        if (preg_match('#^images/|^css/|^js/#i', $p) && function_exists('webshop_theme_assets_url')) {
+            return webshop_theme_assets_url($p);
+        }
         if ($uploads_base !== '') {
             return webshop_media_src((string) $uploads_base, $p);
         }
         return '';
+    }
+}
+
+if (!function_exists('webshop_resolve_storefront_favicon_url')) {
+    /**
+     * @param string $uploads_base
+     * @return string
+     */
+    function webshop_resolve_storefront_favicon_url($uploads_base = '') {
+        $row = function_exists('webshop_website_setting_lookup_row_in_section')
+            ? webshop_website_setting_lookup_row_in_section('favicon', 'header') : null;
+        if (!$row) {
+            $row = webshop_website_setting_lookup_row('favicon');
+        }
+        if (!$row) {
+            return function_exists('webshop_theme_assets_url') ? webshop_theme_assets_url('images/favicon.png') : '';
+        }
+        $url = webshop_resolve_storefront_media_path(webshop_ws_row_value_string($row), $uploads_base);
+        if ($url !== '') {
+            return $url;
+        }
+        return function_exists('webshop_theme_assets_url') ? webshop_theme_assets_url('images/favicon.png') : '';
     }
 }
 
@@ -4959,5 +5149,317 @@ if (!function_exists('webshop_forgot_password_log')) {
             $level = 'debug';
         }
         log_message($level, '[FP_TRACE] ' . trim((string) $step) . $payload);
+    }
+}
+
+if (!function_exists('webshop_resolve_cms_path_href')) {
+    /**
+     * Turn CMS paths (/services) into webshop URLs when needed.
+     *
+     * @param string $href
+     * @param string|null $webshop_base
+     * @return string
+     */
+    function webshop_resolve_cms_path_href($href, $webshop_base = null)
+    {
+        $href = trim((string) $href);
+        if ($href === '' || $href === '#') {
+            return $href;
+        }
+        if (preg_match('#^https?://#i', $href)) {
+            return $href;
+        }
+        if ($webshop_base === null) {
+            $webshop_base = rtrim(base_url('webshop'), '/');
+        }
+        if (isset($href[0]) && $href[0] === '/') {
+            return $webshop_base . $href;
+        }
+        return $href;
+    }
+}
+
+if (!function_exists('webshop_herbinn_storefront_field_value')) {
+    /**
+     * Active row value from sma_webshop_header_footer (via getsettings website_setting_sections).
+     *
+     * @param string $section header|footer
+     * @param string $field_key
+     * @return string
+     */
+    function webshop_herbinn_storefront_field_value($section, $field_key)
+    {
+        $section = strtolower(trim((string) $section));
+        $field_key = strtolower(trim((string) $field_key));
+        if ($section === '' || $field_key === '') {
+            return '';
+        }
+        foreach (webshop_website_setting_section_rows($section) as $item) {
+            if (webshop_ws_row_field_key($item) !== $field_key) {
+                continue;
+            }
+            return trim(webshop_ws_row_value_string($item));
+        }
+        return '';
+    }
+}
+
+if (!function_exists('webshop_herbinn_header_cta_from_storefront')) {
+    /**
+     * Nav CTA from header rows header_cta_label / header_cta_href.
+     *
+     * @return array{label: string, href: string}
+     */
+    function webshop_herbinn_header_cta_from_storefront()
+    {
+        return array(
+            'label' => webshop_herbinn_storefront_field_value('header', 'header_cta_label'),
+            'href'  => webshop_herbinn_storefront_field_value('header', 'header_cta_href'),
+        );
+    }
+}
+
+if (!function_exists('webshop_herbinn_collect_footer_section_rows')) {
+    /**
+     * Footer rows from getsettings website_setting_sections.footer (+ flat website_setting fallback).
+     *
+     * @return array<int, mixed>
+     */
+    function webshop_herbinn_collect_footer_section_rows()
+    {
+        $rows = webshop_website_setting_section_rows('footer');
+        if (!empty($rows)) {
+            return $rows;
+        }
+        $out = array();
+        if (!function_exists('webshop_ws_website_setting_bundles')) {
+            return $out;
+        }
+        foreach (webshop_ws_website_setting_bundles() as $items) {
+            foreach ($items as $item) {
+                if (!webshop_ws_row_is_active($item)) {
+                    continue;
+                }
+                $fk = webshop_ws_row_field_key($item);
+                if ($fk === '' || strpos($fk, 'footer_') !== 0) {
+                    continue;
+                }
+                $row = is_object($item) ? $item : (object) (array) $item;
+                $sec = isset($row->section_type) ? strtolower(trim((string) $row->section_type)) : '';
+                if ($sec === 'header') {
+                    continue;
+                }
+                $out[] = $item;
+            }
+        }
+        usort($out, function ($a, $b) {
+            return webshop_ws_row_sort_order($a) - webshop_ws_row_sort_order($b);
+        });
+        return $out;
+    }
+}
+
+if (!function_exists('webshop_herbinn_footer_field_is_structural')) {
+    /**
+     * Footer field_key handled outside link lists (tagline, headings, certs, office).
+     *
+     * @param string $field_key
+     * @return bool
+     */
+    function webshop_herbinn_footer_field_is_structural($field_key)
+    {
+        $fk = strtolower(trim((string) $field_key));
+        if ($fk === '') {
+            return true;
+        }
+        static $exact = array(
+            'footer_tagline', 'footer_copyright', 'footer_certifications', 'footer_certifications_html',
+            'footer_office_address', 'footer_heading_company', 'footer_heading_legal',
+            'footer_heading_certifications', 'footer_heading_office',
+        );
+        if (in_array($fk, $exact, true)) {
+            return true;
+        }
+        return (strpos($fk, 'footer_heading_') === 0);
+    }
+}
+
+if (!function_exists('webshop_herbinn_footer_layout_from_storefront')) {
+    /**
+     * Four-column Herbinn footer layout from sma_webshop_header_footer (footer section).
+     * field_key conventions — see herbinnwellness_header_footer_seed.sql
+     *
+     * @return array
+     */
+    function webshop_herbinn_footer_layout_from_storefront()
+    {
+        $layout = array(
+            'tagline'              => '',
+            'copyright'            => '',
+            'headings'             => array(
+                'company'         => '',
+                'legal'           => '',
+                'certifications'  => '',
+                'office'          => '',
+            ),
+            'company_links'        => array(),
+            'legal_links'          => array(),
+            'extra_links'          => array(),
+            'misc_lines'           => array(),
+            'certifications'       => array(),
+            'certifications_html'  => '',
+            'office_address'       => '',
+            'has_data'             => false,
+        );
+
+        $company_links = array();
+        $legal_links = array();
+        $extra_links = array();
+        $misc_lines = array();
+
+        foreach (webshop_herbinn_collect_footer_section_rows() as $item) {
+            $fk = webshop_ws_row_field_key($item);
+            if ($fk === '') {
+                continue;
+            }
+            $val = trim(webshop_ws_row_value_string($item));
+            $lab = trim(webshop_ws_row_label_string($item, $fk));
+            $sort = webshop_ws_row_sort_order($item);
+            $layout['has_data'] = true;
+
+            if ($fk === 'footer_tagline') {
+                $layout['tagline'] = $val;
+                continue;
+            }
+            if ($fk === 'footer_copyright') {
+                $layout['copyright'] = $val;
+                continue;
+            }
+            if ($fk === 'footer_certifications_html') {
+                $layout['certifications_html'] = $val;
+                continue;
+            }
+            if ($fk === 'footer_certifications') {
+                if ($val !== '') {
+                    $layout['certifications'] = array_values(array_filter(array_map('trim', preg_split('/\||\r\n|\r|\n/', $val))));
+                }
+                continue;
+            }
+            if ($fk === 'footer_office_address') {
+                $layout['office_address'] = str_replace(array('\\n', '\r\n'), array("\n", "\n"), $val);
+                continue;
+            }
+            if ($fk === 'footer_heading_company') {
+                $layout['headings']['company'] = $val !== '' ? $val : $lab;
+                continue;
+            }
+            if ($fk === 'footer_heading_legal') {
+                $layout['headings']['legal'] = $val !== '' ? $val : $lab;
+                continue;
+            }
+            if ($fk === 'footer_heading_certifications') {
+                $layout['headings']['certifications'] = $val !== '' ? $val : $lab;
+                continue;
+            }
+            if ($fk === 'footer_heading_office') {
+                $layout['headings']['office'] = $val !== '' ? $val : $lab;
+                continue;
+            }
+            if (strpos($fk, 'footer_link_company_') === 0 && $lab !== '' && $val !== '') {
+                $company_links[] = array('title' => $lab, 'href' => $val, 'sort' => $sort, 'field_key' => $fk);
+                continue;
+            }
+            if (strpos($fk, 'footer_link_legal_') === 0 && $lab !== '' && $val !== '') {
+                $legal_links[] = array('title' => $lab, 'href' => $val, 'sort' => $sort, 'field_key' => $fk);
+                continue;
+            }
+            if (strpos($fk, 'footer_link_') === 0 && $lab !== '' && $val !== '') {
+                $extra_links[] = array('title' => $lab, 'href' => $val, 'sort' => $sort, 'field_key' => $fk);
+                continue;
+            }
+            if (webshop_herbinn_footer_field_is_structural($fk)) {
+                continue;
+            }
+            if ($lab !== '' && $val !== '') {
+                $extra_links[] = array('title' => $lab, 'href' => $val, 'sort' => $sort, 'field_key' => $fk);
+                continue;
+            }
+            if ($lab !== '') {
+                $misc_lines[] = array('text' => $lab, 'sort' => $sort, 'field_key' => $fk);
+            }
+        }
+
+        $sort_links = function ($a, $b) {
+            $sa = isset($a['sort']) ? (int) $a['sort'] : 0;
+            $sb = isset($b['sort']) ? (int) $b['sort'] : 0;
+            if ($sa !== $sb) {
+                return $sa - $sb;
+            }
+            return strcmp(isset($a['field_key']) ? $a['field_key'] : '', isset($b['field_key']) ? $b['field_key'] : '');
+        };
+        usort($company_links, $sort_links);
+        usort($legal_links, $sort_links);
+        foreach ($company_links as $row) {
+            $layout['company_links'][] = array('title' => $row['title'], 'href' => $row['href']);
+        }
+        foreach ($legal_links as $row) {
+            $layout['legal_links'][] = array('title' => $row['title'], 'href' => $row['href']);
+        }
+        usort($extra_links, $sort_links);
+        usort($misc_lines, $sort_links);
+        foreach ($extra_links as $row) {
+            $layout['extra_links'][] = array('title' => $row['title'], 'href' => $row['href']);
+        }
+        foreach ($misc_lines as $row) {
+            $layout['misc_lines'][] = (string) $row['text'];
+        }
+
+        if (empty($layout['company_links']) || empty($layout['legal_links'])) {
+            $cms_nav = array();
+            if (function_exists('get_instance')) {
+                $CI = get_instance();
+                if (isset($CI->data['cms_nav_pages']) && is_array($CI->data['cms_nav_pages'])) {
+                    $cms_nav = $CI->data['cms_nav_pages'];
+                }
+            }
+            $nav_company = array();
+            $nav_legal = array();
+            foreach ($cms_nav as $np) {
+                $u = isset($np['url']) ? strtolower((string) $np['url']) : '';
+                $t = isset($np['title']) ? (string) $np['title'] : '';
+                $h = isset($np['href']) ? (string) $np['href'] : '';
+                if ($t === '' || $h === '') {
+                    continue;
+                }
+                if (strpos($u, 'privacy') !== false || strpos($u, 'terms') !== false || strpos($u, 'contact') !== false || strpos($u, 'faq') !== false) {
+                    $nav_legal[] = array('title' => $t, 'href' => $h);
+                } else {
+                    $nav_company[] = array('title' => $t, 'href' => $h);
+                }
+            }
+            if (empty($layout['company_links'])) {
+                $layout['company_links'] = $nav_company;
+            }
+            if (empty($layout['legal_links'])) {
+                $layout['legal_links'] = $nav_legal;
+            }
+        }
+
+        return $layout;
+    }
+}
+
+if (!function_exists('webshop_herbinn_footer_copyright_line')) {
+    /**
+     * @param string $template From footer_copyright row; supports {year}
+     * @return string
+     */
+    function webshop_herbinn_footer_copyright_line($template)
+    {
+        $tpl = trim((string) $template);
+        if ($tpl === '') {
+            return '';
+        }
+        return str_replace('{year}', date('Y'), $tpl);
     }
 }
