@@ -45,6 +45,17 @@ class Webshop extends MY_Controller
             'payment_declined',
             'payment_cancel',
             'service_off',
+            'search_suggest',
+            'get_cart_json',
+            'mini_cart',
+            'webshop_request',
+        ), true);
+
+        $this->webshop_catalog_bootstrap = in_array((string) $this->uri->segment(2), array(
+            'category_products',
+            'product_details',
+            'product_reviews',
+            'search_products',
         ), true);
 
         $mediaBase = $this->webshop_api_model->get_media_uploads_base();
@@ -96,20 +107,35 @@ class Webshop extends MY_Controller
             }
             $this->data['main_categories'] = isset($this->data['categories']['main']) && is_array($this->data['categories']['main']) ? $this->data['categories']['main'] : [];
 
-            $this->data['webshop_pos_settings'] = $this->webshop_model->get_webshop_pos_settings();
+            if (!$this->webshop_catalog_bootstrap) {
+                $this->data['webshop_pos_settings'] = $this->webshop_model->get_webshop_pos_settings();
+            } else {
+                $this->data['webshop_pos_settings'] = new stdClass();
+            }
 
             $catidParam = $this->input->get('catid');
             $category_id = ($catidParam !== null && $catidParam !== '')
                 ? $catidParam
                 : (($this->uri->segment(2) == 'category_products' && !empty($this->uri->segment(3))) ? $this->uri->segment(3) : null);
 
-            $this->data['category_brands'] = $this->webshop_model->get_category_brands($category_id);
+            if ($this->webshop_catalog_bootstrap && $this->uri->segment(2) === 'category_products' && !empty($this->uri->segment(3))) {
+                $this->data['category_brands'] = $this->webshop_model->get_category_brands($category_id);
+                if (!empty($this->data['category_brands'])) {
+                    $this->data['brands_list'] = $this->get_brand_list($this->data['category_brands']);
+                }
+                $this->data['all_brands'] = array();
+            } elseif (!$this->webshop_catalog_bootstrap) {
+                $this->data['category_brands'] = $this->webshop_model->get_category_brands($category_id);
 
-            if (!empty($this->data['category_brands'])) {
-                $this->data['brands_list'] = $this->get_brand_list($this->data['category_brands']);
+                if (!empty($this->data['category_brands'])) {
+                    $this->data['brands_list'] = $this->get_brand_list($this->data['category_brands']);
+                }
+
+                $this->data['all_brands'] = $this->webshop_model->get_all_brands();
+            } else {
+                $this->data['category_brands'] = array();
+                $this->data['all_brands'] = array();
             }
-
-            $this->data['all_brands'] = $this->webshop_model->get_all_brands();
 
             $this->data['cart_items'] = [];
             $this->data['cart_data'] = [];
@@ -409,7 +435,7 @@ XSL;
         $this->config->load('elintom_api', true);
         $switchViewFolder = trim((string) $this->config->item('elintom_theme_view_folder', 'elintom_api'));
         $preferPlaneVanila = ($switchViewFolder !== '')
-            || in_array($theme, array('gulfpharmacy', 'nw'), true);
+            || in_array($theme, array('gulfpharmacy', 'nw', 'herbinnwellness'), true);
 
         // 2. Legacy webshop/{theme}_theme/*.php — skip when host profile uses plane_vanila_theme (CMS storefront).
         if (!$preferPlaneVanila && $theme !== '' && isset($theme_folders[$theme])) {
@@ -798,6 +824,29 @@ XSL;
      */
     private function resolve_product_rating_fields($productId, array $rowFallback = array())
     {
+        if ($rowFallback !== array()) {
+            $avgFromRow = null;
+            $cntFromRow = null;
+            if (isset($rowFallback['ratings_avarage']) && $rowFallback['ratings_avarage'] !== '' && $rowFallback['ratings_avarage'] !== null) {
+                $avgFromRow = (float) $rowFallback['ratings_avarage'];
+            } elseif (isset($rowFallback['ratings_average'])) {
+                $avgFromRow = (float) $rowFallback['ratings_average'];
+            }
+            if (isset($rowFallback['ratings_count'])) {
+                $cntFromRow = (int) $rowFallback['ratings_count'];
+            }
+            if ($avgFromRow !== null || ($cntFromRow !== null && $cntFromRow > 0)) {
+                return array(
+                    $avgFromRow !== null ? $avgFromRow : 0.0,
+                    $cntFromRow !== null ? $cntFromRow : 0,
+                );
+            }
+        }
+
+        if ($this->uses_elintom_catalog_api()) {
+            return array(0.0, 0);
+        }
+
         $ratingInfo = $this->webshop_model->get_product_rating($productId);
         $avg = 0.0;
         $cnt = 0;
@@ -819,21 +868,51 @@ XSL;
         return array($avg, $cnt);
     }
 
+    /**
+     * True when catalogue is served via ElintOm HTTP API (remote round-trips dominate TTFB).
+     *
+     * @return bool
+     */
+    private function uses_elintom_catalog_api()
+    {
+        return method_exists($this->webshop_model, 'uses_elintom_catalog_api')
+            && $this->webshop_model->uses_elintom_catalog_api();
+    }
+
     public function _remap($method, $params = [])
     {
+        // Real storefront actions (cart, your_account, wishlist, …) must run before CMS slug
+        // resolution — otherwise /webshop/your_account renders index.php with an empty CMS body.
         if ($method !== '_remap' && method_exists($this, $method) && $this->method_has_enough_uri_params($method, $params)) {
             return call_user_func_array([$this, $method], $params);
         }
 
-        // CMS slugs from ElintOm (often hyphenated) before static theme PHP files.
         if (empty($params) && $this->render_dynamic_cms_slug_page($method)) {
             return;
         }
+
         if (empty($params) && $this->render_theme_slug_page($method)) {
             return;
         }
 
         show_404();
+    }
+
+    /**
+     * True when the active host profile uses plane_vanila_theme (herbinnwellness, gulfpharmacy, …).
+     *
+     * @return bool
+     */
+    private function is_plane_vanila_storefront()
+    {
+        $this->config->load('elintom_api', true);
+        if (trim((string) $this->config->item('elintom_theme_view_folder', 'elintom_api')) !== '') {
+            return true;
+        }
+        $theme = (isset($this->webshop_settings) && is_object($this->webshop_settings) && isset($this->webshop_settings->webshop_theme))
+            ? trim((string) $this->webshop_settings->webshop_theme)
+            : '';
+        return in_array($theme, array('gulfpharmacy', 'nw', 'herbinnwellness'), true);
     }
 
     /**
@@ -871,8 +950,17 @@ XSL;
         if ($slug === '') {
             return false;
         }
-        // Keep reserved route handlers untouched.
-        if (in_array($slug, array('index', 'login', 'register', 'cart', 'checkout', 'cms_page'), true)) {
+        // Never treat a real controller method as a CMS slug (your_account, wishlist, search_suggest, …).
+        if ($slug !== '_remap' && method_exists($this, $slug)) {
+            return false;
+        }
+        // Legacy explicit block list (kept for clarity).
+        if (in_array($slug, array(
+            'index', 'login', 'register', 'cart', 'checkout', 'cms_page',
+            'wishlist', 'your_account', 'your_orders', 'your_tracking', 'your_address',
+            'logout', 'forgot_password', 'search_products', 'search_suggest', 'track_order',
+            'webshop_request', 'get_cart_json', 'mini_cart',
+        ), true)) {
             return false;
         }
 
@@ -1759,7 +1847,8 @@ XSL;
         } else {
             $this->data['home_page_cms'] = $this->webshop_model->home_page_data();
             $activeTheme = isset($this->webshop_settings->webshop_theme) ? (string) $this->webshop_settings->webshop_theme : '';
-            $cmsOnlyHomeTheme = in_array($activeTheme, array('gulfpharmacy', 'nw'), true);
+            $cmsOnlyHomeTheme = in_array($activeTheme, array('gulfpharmacy', 'nw', 'herbinnwellness'), true)
+                || $this->is_plane_vanila_storefront();
             $cmsHomePublished = is_object($this->data['home_page_cms'])
                 && !empty($this->data['home_page_cms']->cms_page_found);
             $this->data['cms_home_published'] = $cmsHomePublished;
@@ -1809,7 +1898,7 @@ XSL;
                 // Legacy themes without a CMS home still use catalog strips until migrated.
             }
             // Gulf homepage uses CMS sections and custom blocks; skip heavy legacy payload fetches.
-            if ($activeTheme !== 'gulfpharmacy') {
+            if (!in_array($activeTheme, array('gulfpharmacy', 'herbinnwellness'), true) && !$this->is_plane_vanila_storefront()) {
                 $this->data['themeSections'] = $themeSections = $this->webshop_model->get_theme_sections($this->webshop_settings->home_page);
                 $this->set_theme_sections_data($themeSections);
                 $this->data['sliders'] = $this->webshop_model->get_sliders();
@@ -2036,6 +2125,10 @@ XSL;
 
     public function products()
     {
+        // Herbinn / Gulf CMS catalog lives at /products — prefer CMS when published.
+        if ($this->is_plane_vanila_storefront() && $this->_render_cms_storefront_page('products', 'products')) {
+            return;
+        }
 
         $page = (int) $this->input->get('page', true);
         if ($page < 1) {
@@ -2199,7 +2292,7 @@ XSL;
 
         // plane_vanila CMS: home + all dynamic CMS pages use theme index (header/footer + cms body).
         // Legacy webshop/cms_page.php is only for old non-plane themes (e.g. default/orange).
-        $usePlaneVanilaIndex = in_array($activeTheme, array('gulfpharmacy', 'nw'), true)
+        $usePlaneVanilaIndex = in_array($activeTheme, array('gulfpharmacy', 'nw', 'herbinnwellness'), true)
             || trim((string) $this->config->item('elintom_theme_view_folder', 'elintom_api')) !== '';
 
         if ($activeTheme === 'restaurant') {
@@ -2300,17 +2393,29 @@ XSL;
             $this->webshop_model->set_recent_viewed_product($productId);
         }
 
-        $this->data['recent_viewed'] = $this->webshop_model->get_recent_viewed_product();
+        if (!$this->webshop_catalog_bootstrap) {
+            $this->data['recent_viewed'] = $this->webshop_model->get_recent_viewed_product();
+        } else {
+            $this->data['recent_viewed'] = array();
+        }
 
         $categoryHash = ($product['subcategory_id']) ? md5($product['subcategory_id']) : md5($product['category_id']);
-        $reletedItems = $this->webshop_model->get_products_list('category', $categoryHash, $usedHash = TRUE, 20);
-        $this->data['related_products'] = $reletedItems['items'];
+        $reletedItems = $this->webshop_model->get_products_list('category', $categoryHash, $usedHash = TRUE, 8, 1);
+        $this->data['related_products'] = (is_array($reletedItems) && isset($reletedItems['items']) && is_array($reletedItems['items']))
+            ? $reletedItems['items']
+            : array();
 
-        $productStatus = ($productId > 0) ? $this->webshop_model->productAvailable($productId) : [false, 'Product not found'];
+        $productStatus = ($productId > 0 && !$this->uses_elintom_catalog_api())
+            ? $this->webshop_model->productAvailable($productId)
+            : array(true, '');
         $this->data['product']['product_is_active'] = isset($productStatus[0]) ? $productStatus[0] : false;
         $this->data['product']['product_info_text'] = $productStatus[1];
-        $this->data['product']['category_is_active'] = $this->webshop_model->categoryActive($product['category_id']);
-        $this->data['website_setting'] = $this->webshop_model->get_website_setting();
+        $this->data['product']['category_is_active'] = $this->uses_elintom_catalog_api()
+            ? 'true'
+            : $this->webshop_model->categoryActive($product['category_id']);
+        if (empty($this->data['website_setting'])) {
+            $this->data['website_setting'] = $this->webshop_model->get_website_setting();
+        }
         $raw_settings = (isset($this->data['website_setting']) && (is_array($this->data['website_setting']) || is_object($this->data['website_setting'])))
             ? $this->data['website_setting']
             : [];
@@ -2356,7 +2461,7 @@ XSL;
         list($product['ratings_avarage'], $product['ratings_count']) = $this->resolve_product_rating_fields($product['id'], $product);
         $this->data['product'] = $product;
         $this->data['product_reviews'] = ($productId > 0)
-            ? $this->webshop_model->get_product_reviews($productId, 150)
+            ? $this->webshop_model->get_product_reviews($productId, 24)
             : array();
         if (!is_array($this->data['product_reviews'])) {
             $this->data['product_reviews'] = array();
@@ -2662,41 +2767,45 @@ XSL;
 
         $products = [];
         $specialItemsList = [];
-        $restaurantWorking = $this->webshop_model->restaurantWorking();
-        $restaurantOpen = isset($restaurantWorking['is_working']) ? $restaurantWorking['is_working'] : "true";
-        $restaurantStatusText = isset($restaurantWorking['working_flag_text']) ? $restaurantWorking['working_flag_text'] : "Open";
+        $apiCatalog = $this->uses_elintom_catalog_api();
+        $restaurantOpen = 'true';
+        $restaurantStatusText = 'Open';
+        if (!$apiCatalog) {
+            $restaurantWorking = $this->webshop_model->restaurantWorking();
+            $restaurantOpen = isset($restaurantWorking['is_working']) ? $restaurantWorking['is_working'] : 'true';
+            $restaurantStatusText = isset($restaurantWorking['working_flag_text']) ? $restaurantWorking['working_flag_text'] : 'Open';
+        }
         if (!empty($data['items'])) {
             foreach ($data['items'] as &$item) {
-                list($available, $availabilityText) = $product_available_data = $this->webshop_model->productAvailable($item['id']);
-                list($categoryActive, $categoryInfoText) = $this->webshop_model->categoryActive($item['category_id']);
-
-                $item['product_is_active'] = $available;
-                $item['product_info_text'] = $availabilityText;
-                $item['category_is_active'] = $categoryActive;
-                $item['category_info_text'] = $categoryInfoText;
+                $row = is_array($item) ? $item : (array) $item;
+                if ($apiCatalog) {
+                    $item['product_is_active'] = 'true';
+                    $item['product_info_text'] = '';
+                    $item['category_is_active'] = 'true';
+                    $item['category_info_text'] = array('All*');
+                } else {
+                    list($available, $availabilityText) = $this->webshop_model->productAvailable($row['id']);
+                    list($categoryActive, $categoryInfoText) = $this->webshop_model->categoryActive($row['category_id']);
+                    $item['product_is_active'] = $available;
+                    $item['product_info_text'] = $availabilityText;
+                    $item['category_is_active'] = $categoryActive;
+                    $item['category_info_text'] = $categoryInfoText;
+                }
                 $item['restaurant_is_active'] = $restaurantOpen;
                 $item['restaurant_status_text'] = $restaurantStatusText;
 
-                // Fetch and merge rating for the item
-                list($item['ratings_avarage'], $item['ratings_count']) = $this->resolve_product_rating_fields($item['id'], $item);
+                list($item['ratings_avarage'], $item['ratings_count']) = $this->resolve_product_rating_fields($row['id'], $row);
 
-                if (!in_array($item['id'], $specialItemsId, $strict = false)) {
+                if (!in_array($row['id'], $specialItemsId, true)) {
                     $products[] = $item;
                 } else {
                     $specialItemsList[] = $item;
                 }
             }
+            unset($item);
         }
 
-        if (!empty($products) && method_exists($this->webshop_model, 'enrich_product_list_items_with_stock')) {
-            $products = $this->webshop_model->enrich_product_list_items_with_stock(
-                $products,
-                (int) $this->data['get_category_id']
-            );
-        }
-        if (!empty($products) && method_exists($this->webshop_model, 'enrich_product_list_items_with_variants')) {
-            $products = $this->webshop_model->enrich_product_list_items_with_variants($products);
-        }
+        /* get_products_list() already enriches stock + variants for API category lists — avoid duplicate HTTP. */
         $this->data['listItems'] = $products;
 
         foreach ($specialItemsList as $key => $item1) {
@@ -2716,7 +2825,11 @@ XSL;
             ? $this->data['categories'][$gid]
             : array();
 
-        $this->data['recent_viewed'] = $this->webshop_model->get_recent_viewed_product();
+        if (!$this->webshop_catalog_bootstrap) {
+            $this->data['recent_viewed'] = $this->webshop_model->get_recent_viewed_product();
+        } else {
+            $this->data['recent_viewed'] = array();
+        }
         $categoryEntityId = (int) $this->data['get_category_id'];
         $categoryTagRows = method_exists($this->webshop_model, 'get_entity_tag_rows')
             ? $this->webshop_model->get_entity_tag_rows('category', $categoryEntityId)
@@ -2795,6 +2908,15 @@ XSL;
 
 
         // $this->data['otherItems'] = $this->webshop_model->search_other_products($keyword, $category);
+
+        if ($this->is_plane_vanila_storefront()) {
+            $kw = trim((string) $keyword);
+            $this->data['page_title'] = $kw !== '' ? ('Search: ' . $kw) : 'Search';
+            $this->data['entity_meta_title'] = $this->data['page_title'];
+            $this->data['get_category_id'] = 0;
+            $this->load_view('category_products', $this->data);
+            return;
+        }
 
         $this->load_view("search_products", $this->data);
     }
@@ -3237,7 +3359,7 @@ XSL;
             }
             unset($item);
             $this->load_view("cart", $this->data);
-        } else if ($theme == 'gulfpharmacy') {
+        } else if ($theme) {
             // $hideCategories = ['Veterinary Nutraceuticals', 'Softgel Capsules'];
             // foreach ($this->data['cart_items'] as &$item) {
             //     $idHash = md5($item['product_id']);
@@ -6094,8 +6216,8 @@ XSL;
             $this->data['password_status'] = $segment3;
         }
 
-        if ($theme === 'gulfpharmacy') {
-            $this->load_view("my_account", $this->data);
+        if ($theme === 'gulfpharmacy' || $theme === 'herbinnwellness' || $this->is_plane_vanila_storefront()) {
+            $this->load_view('my_account', $this->data);
             return;
         }
         if ($theme === 'restaurant') {
@@ -6106,8 +6228,7 @@ XSL;
             $this->load_view("nw_theme/my_account", $this->data);
             return;
         }
-        // Final fallback: Gulf Pharmacy view (closest to current default storefront).
-        $this->load_view("my_account", $this->data);
+        $this->load_view('my_account', $this->data);
     }
 
     /**
@@ -8415,14 +8536,13 @@ XSL;
             }
         }
 
-        if ($this->webshop_settings->webshop_theme == 'restaurant') {
-            $this->load_view("webshop_restaurant_t1/tracking_order", $this->data);
-        } else if ($this->webshop_settings->webshop_theme == 'nw') {
-            $this->load_view("nw_theme/tracking_order", $this->data);
-        } else if ($this->webshop_settings->webshop_theme == 'gulfpharmacy') {
-            $this->load_view("tracking_order", $this->data);
+        $theme = isset($this->webshop_settings->webshop_theme) ? (string) $this->webshop_settings->webshop_theme : '';
+        if ($theme === 'restaurant') {
+            $this->load_view('webshop_restaurant_t1/tracking_order', $this->data);
+        } elseif ($theme === 'nw' && !$this->is_plane_vanila_storefront()) {
+            $this->load_view('nw_theme/tracking_order', $this->data);
         } else {
-            $this->load_view("tracking_order", $this->data);
+            $this->load_view('tracking_order', $this->data);
         }
     }
 

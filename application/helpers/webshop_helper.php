@@ -3069,6 +3069,17 @@ if (!function_exists('webshop_plane_vanila_theme_folder')) {
             return (string) $CI->data['plane_vanila_theme_folder'];
         }
         $CI->config->load('elintom_api', true);
+        $ws = isset($CI->webshop_settings) ? $CI->webshop_settings : null;
+        if ($ws === null && isset($CI->data['webshop_settings'])) {
+            $ws = $CI->data['webshop_settings'];
+        }
+        $themeKey = (is_object($ws) && isset($ws->webshop_theme)) ? trim((string) $ws->webshop_theme) : '';
+        if ($themeKey === 'herbinnwellness') {
+            $herbinnDir = VIEWPATH . 'plane_vanila_theme' . DIRECTORY_SEPARATOR . 'herbinnwellness';
+            if (is_file($herbinnDir . DIRECTORY_SEPARATOR . 'header.php') || is_file($herbinnDir . DIRECTORY_SEPARATOR . 'index.php')) {
+                return 'herbinnwellness';
+            }
+        }
         $from_switch = trim((string) $CI->config->item('elintom_theme_view_folder', 'elintom_api'));
         if ($from_switch !== '') {
             $safe = preg_replace('/[^a-zA-Z0-9_.-]/', '', $from_switch);
@@ -3081,14 +3092,7 @@ if (!function_exists('webshop_plane_vanila_theme_folder')) {
         if (is_file($hostDir . DIRECTORY_SEPARATOR . 'header.php') || is_file($hostDir . DIRECTORY_SEPARATOR . 'index.php')) {
             return $host;
         }
-        $ws = isset($CI->webshop_settings) ? $CI->webshop_settings : null;
-        if ($ws === null && isset($CI->data['webshop_settings'])) {
-            $ws = $CI->data['webshop_settings'];
-        }
-        $theme = '';
-        if (is_object($ws) && isset($ws->webshop_theme)) {
-            $theme = trim((string) $ws->webshop_theme);
-        }
+        $theme = $themeKey;
         if ($theme === 'restaurant') {
             return 'restaurant';
         }
@@ -3199,6 +3203,25 @@ if (!function_exists('webshop_render_wishlist_card_button')) {
     }
 }
 
+if (!function_exists('webshop_theme_partial_view_data')) {
+    /**
+     * Variables for header/footer partials (same payload as the parent storefront view).
+     *
+     * @return array
+     */
+    function webshop_theme_partial_view_data() {
+        if (!function_exists('get_instance')) {
+            return array();
+        }
+        $CI =& get_instance();
+        $data = (isset($CI->data) && is_array($CI->data)) ? $CI->data : array();
+        if (isset($CI->load) && is_object($CI->load) && isset($CI->load->_ci_cached_vars) && is_array($CI->load->_ci_cached_vars)) {
+            $data = array_merge($data, $CI->load->_ci_cached_vars);
+        }
+        return $data;
+    }
+}
+
 if (!function_exists('webshop_extract_controller_view_data')) {
     /**
      * Make $CI->data variables available to theme partials included via require().
@@ -3259,17 +3282,21 @@ if (!function_exists('webshop_require_theme_header')) {
      * @return bool True when a header file was included.
      */
     function webshop_require_theme_header() {
-        webshop_extract_controller_view_data();
-        if (function_exists('webshop_plane_vanila_view_file')) {
-            $path = webshop_plane_vanila_view_file('header');
-            if (is_file($path)) {
-                require $path;
+        if (!function_exists('get_instance')) {
+            return false;
+        }
+        $CI =& get_instance();
+        $data = webshop_theme_partial_view_data();
+        if (function_exists('webshop_plane_vanila_view')) {
+            $view = webshop_plane_vanila_view('header');
+            if (is_file(VIEWPATH . str_replace('/', DIRECTORY_SEPARATOR, $view) . '.php')) {
+                $CI->load->view($view, $data, false);
                 return true;
             }
         }
-        $legacy = VIEWPATH . 'webshop/header.php';
-        if (is_file($legacy)) {
-            require $legacy;
+        $legacy = 'webshop/header';
+        if (is_file(VIEWPATH . 'webshop/header.php')) {
+            $CI->load->view($legacy, $data, false);
             return true;
         }
         return false;
@@ -3283,17 +3310,21 @@ if (!function_exists('webshop_require_theme_footer')) {
      * @return bool True when a footer file was included.
      */
     function webshop_require_theme_footer() {
-        webshop_extract_controller_view_data();
-        if (function_exists('webshop_plane_vanila_view_file')) {
-            $path = webshop_plane_vanila_view_file('footer');
-            if (is_file($path)) {
-                require $path;
+        if (!function_exists('get_instance')) {
+            return false;
+        }
+        $CI =& get_instance();
+        $data = webshop_theme_partial_view_data();
+        if (function_exists('webshop_plane_vanila_view')) {
+            $view = webshop_plane_vanila_view('footer');
+            if (is_file(VIEWPATH . str_replace('/', DIRECTORY_SEPARATOR, $view) . '.php')) {
+                $CI->load->view($view, $data, false);
                 return true;
             }
         }
-        $legacy = VIEWPATH . 'webshop/footer.php';
-        if (is_file($legacy)) {
-            require $legacy;
+        $legacy = 'webshop/footer';
+        if (is_file(VIEWPATH . 'webshop/footer.php')) {
+            $CI->load->view($legacy, $data, false);
             return true;
         }
         return false;
@@ -3324,6 +3355,17 @@ if (!function_exists('webshop_theme_assets_directory_name')) {
             return (string) $CI->data['Assets_directory_name'];
         }
         $CI->config->load('elintom_api', true);
+        $ws = isset($CI->webshop_settings) ? $CI->webshop_settings : null;
+        if ($ws === null && isset($CI->data['webshop_settings'])) {
+            $ws = $CI->data['webshop_settings'];
+        }
+        $themeKey = (is_object($ws) && isset($ws->webshop_theme)) ? trim((string) $ws->webshop_theme) : '';
+        if ($themeKey === 'herbinnwellness') {
+            $herbinnAssets = FCPATH . 'assets' . DIRECTORY_SEPARATOR . 'webshop' . DIRECTORY_SEPARATOR . 'herbinnwellness';
+            if (is_dir($herbinnAssets)) {
+                return 'herbinnwellness';
+            }
+        }
         $from_switch = trim((string) $CI->config->item('elintom_theme_assets_directory', 'elintom_api'));
         if ($from_switch !== '') {
             $safe = preg_replace('/[^a-zA-Z0-9_.-]/', '', $from_switch);

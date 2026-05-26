@@ -18,8 +18,11 @@ $has_main = !empty($_gp_footer_content) || !empty($_gp_footer_social);
 $_gp_uploads_base = '';
 if (isset($uploads) && (string) $uploads !== '') {
     $_gp_uploads_base = rtrim((string) $uploads, '/') . '/';
-} elseif (isset($this->data['uploads']) && (string) $this->data['uploads'] !== '') {
-    $_gp_uploads_base = rtrim((string) $this->data['uploads'], '/') . '/';
+} elseif (function_exists('get_instance')) {
+    $CI =& get_instance();
+    if (isset($CI->data['uploads']) && (string) $CI->data['uploads'] !== '') {
+        $_gp_uploads_base = rtrim((string) $CI->data['uploads'], '/') . '/';
+    }
 }
 
 $_gp_footer_logo = function_exists('webshop_resolve_storefront_logo_image_url')

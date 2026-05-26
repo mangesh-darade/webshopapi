@@ -35,8 +35,8 @@ $elintom_switch_profiles = array(
         'mdata_include_http_host_segment' => false,
         'media_use_http_host'             => false,
         'webshop_theme'                   => 'gulfpharmacy',
-        'theme_view_folder'               => 'webshop_vanila_structure',
-        'theme_assets_directory'          => 'webshop_vanila_structure',
+        'theme_view_folder'               => 'gulfpharmacy_theme',
+        'theme_assets_directory'          => 'gulfpharmacy_theme',
     ),
    
     'gulfpharmacy_production' => array(

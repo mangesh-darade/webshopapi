@@ -55,8 +55,10 @@ if ($_pd_lcp_img === '' && !empty($product) && is_array($product)) {
 </head>
 <body>
 <div class="gp-site-wrapper">
-    <?php 
-    if ($theme === 'nw' || $theme === 'gulfpharmacy') {
+    <?php
+    if (function_exists('webshop_require_theme_header')) {
+        webshop_require_theme_header();
+    } elseif ($theme === 'nw' || $theme === 'gulfpharmacy' || $theme === 'herbinnwellness') {
         require_once webshop_plane_vanila_view_file('header');
     } else {
         require_once(VIEWPATH . 'webshop/header.php');
@@ -67,8 +69,10 @@ if ($_pd_lcp_img === '' && !empty($product) && is_array($product)) {
         <?= $this->load->view(webshop_plane_vanila_view('components/theme_product_details'), array_merge($this->data, array('theme_variant' => $variant)), true) ?>
     </main>
 
-    <?php 
-    if ($theme === 'nw' || $theme === 'gulfpharmacy') {
+    <?php
+    if (function_exists('webshop_require_theme_footer')) {
+        webshop_require_theme_footer();
+    } elseif ($theme === 'nw' || $theme === 'gulfpharmacy' || $theme === 'herbinnwellness') {
         require_once webshop_plane_vanila_view_file('footer');
     } else {
         require_once(VIEWPATH . 'webshop/footer.php');
