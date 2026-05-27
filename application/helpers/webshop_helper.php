@@ -203,6 +203,60 @@ function webshop_fix_cms_script_hash_selectors($html)
 }
 
 /**
+ * Map legacy marketing-site image paths in CMS HTML to active theme asset URLs
+ * (assets/images/…, images/…, assets/webshop/{theme}/images/… → webshop_theme_assets_url()).
+ *
+ * @param string $html
+ * @return string
+ */
+function webshop_rewrite_cms_theme_asset_urls($html)
+{
+    if (!is_string($html) || trim($html) === '' || !function_exists('webshop_theme_assets_url')) {
+        return (string) $html;
+    }
+
+    $resolve = function ($path) {
+        $path = trim((string) $path);
+        if ($path === '' || preg_match('#^https?://#i', $path) || stripos($path, 'data:') === 0) {
+            return $path;
+        }
+        $path = str_replace('\\', '/', $path);
+        if (preg_match('#^assets/webshop/[^/]+/images/(.+)$#i', $path, $m)) {
+            return webshop_theme_assets_url('images/' . $m[1]);
+        }
+        if (preg_match('#^assets/images/(.+)$#i', $path, $m)) {
+            return webshop_theme_assets_url('images/' . $m[1]);
+        }
+        if (preg_match('#^images/(.+)$#i', $path)) {
+            return webshop_theme_assets_url($path);
+        }
+        return $path;
+    };
+
+    $html = preg_replace_callback(
+        '#(\b(?:src|href|content)\s*=\s*["\'])([^"\']+)(["\'])#i',
+        function ($m) use ($resolve) {
+            return $m[1] . $resolve($m[2]) . $m[3];
+        },
+        $html
+    );
+
+    $html = preg_replace_callback(
+        '#url\s*\(\s*["\']?([^"\')\s]+)["\']?\s*\)#i',
+        function ($m) use ($resolve) {
+            $resolved = $resolve($m[1]);
+            if ($resolved === $m[1]) {
+                return $m[0];
+            }
+            return 'url(\'' . str_replace("'", '%27', $resolved) . '\')';
+        },
+        $html
+    );
+
+    return $html;
+}
+
+/**
  * Normalize CMS HTML media links to the current uploads base.
  * Useful when API/CMS body contains hardcoded /assets/uploads/... URLs.
  *
@@ -272,6 +326,7 @@ function webshop_normalize_html_media_urls($html, $uploads_base) {
         },
         $out
     );
+    $out = webshop_rewrite_cms_theme_asset_urls($out);
     $out = webshop_rewrite_root_relative_asset_urls($out);
     return $out;
 }
@@ -3390,9 +3445,7 @@ if (!function_exists('webshop_theme_assets_url')) {
      * @return string
      */
     function webshop_theme_assets_url($relative = '') {
-        $base = function_exists('webshop_theme_assets_base_url')
-            ? webshop_theme_assets_base_url()
-            : rtrim(base_url('assets/webshop/'), '/') . '/';
+        $base = function_exists('webshop_theme_assets_base_url') ? webshop_theme_assets_base_url()  : rtrim(base_url('assets/webshop/'), '/') . '/';
         $dir = function_exists('webshop_theme_assets_directory_name')
             ? webshop_theme_assets_directory_name()
             : webshop_plane_vanila_theme_folder();

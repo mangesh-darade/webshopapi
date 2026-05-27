@@ -40,6 +40,48 @@ class Cms_direct_db {
     }
 
     /**
+     * Published pages for header nav (mirrors ElintOm Cms_model::getPublishedPages).
+     *
+     * @param array<int,string> $page_types
+     * @return array<int,array<string,mixed>>
+     */
+    public function list_published_pages(array $page_types = array('static')) {
+        if (!$this->is_ready()) {
+            return array();
+        }
+        $pages = $this->prefix . 'pages';
+        $select = array('id', 'page_name', 'page_type', 'url', 'status', 'updated_at');
+        $order = 'ORDER BY `page_name` ASC, `id` ASC';
+        if ($this->column_exists('pages', 'nav_order')) {
+            $select[] = 'nav_order';
+            $order = 'ORDER BY `nav_order` ASC, `page_name` ASC, `id` ASC';
+        }
+        $sql = 'SELECT `' . implode('`, `', $select) . "` FROM `{$pages}` WHERE `status` = 'published'";
+        if (!empty($page_types)) {
+            $types = array();
+            foreach ($page_types as $type) {
+                $type = trim((string) $type);
+                if ($type !== '') {
+                    $types[] = "'" . $this->conn->real_escape_string($type) . "'";
+                }
+            }
+            if (!empty($types)) {
+                $sql .= ' AND `page_type` IN (' . implode(',', $types) . ')';
+            }
+        }
+        $sql .= ' ' . $order;
+        $q = $this->conn->query($sql);
+        if (!$q) {
+            return array();
+        }
+        $out = array();
+        while ($row = $q->fetch_assoc()) {
+            $out[] = $row;
+        }
+        return $out;
+    }
+
+    /**
      * @param string $url_path e.g. /about-us
      * @return stdClass|null
      */
@@ -105,6 +147,14 @@ class Cms_direct_db {
         $t = $this->prefix . $base;
         $esc = $this->conn->real_escape_string($t);
         $q = $this->conn->query("SHOW TABLES LIKE '{$esc}'");
+        return $q && $q->num_rows > 0;
+    }
+
+    protected function column_exists($table_base, $column) {
+        $t = $this->prefix . $table_base;
+        $esc_t = $this->conn->real_escape_string($t);
+        $esc_c = $this->conn->real_escape_string((string) $column);
+        $q = $this->conn->query("SHOW COLUMNS FROM `{$esc_t}` LIKE '{$esc_c}'");
         return $q && $q->num_rows > 0;
     }
 

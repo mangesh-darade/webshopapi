@@ -35,6 +35,12 @@ class Webshop_api_model extends CI_Model {
     /** @var stdClass|null Memoized return value for home_page_data() */
     protected $_home_page_data_memo = null;
 
+    /** @var bool Memo guard for get_cms_nav_pages() */
+    protected $_cms_nav_pages_memo_set = false;
+
+    /** @var array<int,array{title:string,url:string,href:string,nav_order:int}>|null */
+    protected $_cms_nav_pages_memo = null;
+
     /** Last add_order() failure message for checkout flash (API or transport). */
     protected $last_order_error = '';
 
@@ -383,15 +389,35 @@ class Webshop_api_model extends CI_Model {
 
     /**
      * Header/footer CMS static pages from ElintOm CMS tables.
+     * Ordered by sma_pages.nav_order ASC (same as ElintOm cms_admin drag-order).
      *
-     * @return array<int,array{title:string,url:string,href:string}>
+     * @return array<int,array{title:string,url:string,href:string,nav_order:int}>
      */
     public function get_cms_nav_pages() {
-        $res = $this->api->get_cms_pages();
-        if (!$res || !isset($res->status) || strtoupper((string) $res->status) !== 'SUCCESS' || !isset($res->pages)) {
-            return array();
+        if ($this->_cms_nav_pages_memo_set) {
+            return $this->_cms_nav_pages_memo;
         }
-        $pages = is_array($res->pages) ? $res->pages : (array) $res->pages;
+
+        $pages = null;
+        $res = $this->api->get_cms_pages();
+        if ($res && isset($res->status) && strtoupper((string) $res->status) === 'SUCCESS' && isset($res->pages)) {
+            $pages = is_array($res->pages) ? $res->pages : (array) $res->pages;
+        }
+        if ($pages === null) {
+            $pages = $this->get_cms_nav_pages_from_direct_db();
+        }
+
+        $out = $this->build_cms_nav_pages_from_rows($pages);
+        $this->_cms_nav_pages_memo = $out;
+        $this->_cms_nav_pages_memo_set = true;
+        return $out;
+    }
+
+    /**
+     * @param array<int,mixed> $pages Rows from getcmspages or Cms_direct_db::list_published_pages()
+     * @return array<int,array{title:string,url:string,href:string,nav_order:int}>
+     */
+    protected function build_cms_nav_pages_from_rows(array $pages) {
         $out = array();
         $seenHome = false;
         foreach ($pages as $row) {
@@ -415,12 +441,59 @@ class Webshop_api_model extends CI_Model {
                 $seenHome = true;
             }
             $out[] = array(
-                'title' => $title,
-                'url'   => $url,
-                'href'  => $href,
+                'title'     => $title,
+                'url'       => $url,
+                'href'      => $href,
+                'nav_order' => isset($a['nav_order']) ? (int) $a['nav_order'] : 0,
             );
         }
-        return $out;
+        return $this->sort_cms_nav_pages($out);
+    }
+
+    /**
+     * @param array<int,array{title:string,url:string,href:string,nav_order:int}> $pages
+     * @return array<int,array{title:string,url:string,href:string,nav_order:int}>
+     */
+    protected function sort_cms_nav_pages(array $pages) {
+        usort($pages, function ($a, $b) {
+            $oa = isset($a['nav_order']) ? (int) $a['nav_order'] : 0;
+            $ob = isset($b['nav_order']) ? (int) $b['nav_order'] : 0;
+            if ($oa !== $ob) {
+                if ($oa === 0) {
+                    return 1;
+                }
+                if ($ob === 0) {
+                    return -1;
+                }
+                return $oa < $ob ? -1 : 1;
+            }
+            $ta = isset($a['title']) ? (string) $a['title'] : '';
+            $tb = isset($b['title']) ? (string) $b['title'] : '';
+            $cmp = strcasecmp($ta, $tb);
+            if ($cmp !== 0) {
+                return $cmp;
+            }
+            return strcmp(isset($a['url']) ? (string) $a['url'] : '', isset($b['url']) ? (string) $b['url'] : '');
+        });
+        return $pages;
+    }
+
+    /**
+     * Fallback nav list when getcmspages HTTP fails (requires elintom_cms_direct_db).
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    protected function get_cms_nav_pages_from_direct_db() {
+        $this->config->load('elintom_api', true);
+        if (!(bool) $this->config->item('elintom_cms_direct_db', 'elintom_api')) {
+            return array();
+        }
+        $CI =& get_instance();
+        $CI->load->library('cms_direct_db');
+        if (!isset($CI->cms_direct_db) || !$CI->cms_direct_db->is_ready()) {
+            return array();
+        }
+        return $CI->cms_direct_db->list_published_pages(array('static'));
     }
 
     /**
