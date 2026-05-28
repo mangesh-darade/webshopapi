@@ -18,7 +18,7 @@ $_pg_wl_lookup = function_exists('webshop_view_wishlist_lookup')
     : (isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : array());
 $CI =& get_instance();
 ?>
-<link rel="stylesheet" href="<?= webshop_theme_assets_url('css/product-grid.css?ver=20260526a') ?>">
+<link rel="stylesheet" href="<?= webshop_theme_assets_url('css/product-grid.css?ver=20260528c') ?>">
 <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/wishlist-fav.css?ver=20260526a') ?>">
 <section class="gp-component dynamic-product-grid" aria-labelledby="<?= $uid ?>">
     <?php if ($title !== ''): ?>
@@ -28,7 +28,7 @@ $CI =& get_instance();
         <?php foreach ($items as $p):
             $p     = is_object($p) ? (array)$p : (is_array($p) ? $p : array());
             $productImageUrl = trim((string) webshop_product_image_src($uploadsB, isset($thumbs) ? $thumbs : '', $p));
-            $productNameRaw  = isset($p['name']) ? (string) $p['name'] : '';
+            $productNameRaw  = (string) webshop_product_display_name($p);
             $productNameEsc  = htmlspecialchars($productNameRaw, ENT_QUOTES, 'UTF-8');
             $_pgSettings = isset($Settings) ? $Settings : null;
             if (function_exists('webshop_product_list_card_pricing')) {
@@ -57,12 +57,28 @@ $CI =& get_instance();
                 $hash = md5((string)(isset($p['id']) ? $p['id'] : ''));
             }
             $pId   = function_exists('webshop_product_list_item_id') ? webshop_product_list_item_id($p) : (isset($p['id']) ? (int) $p['id'] : 0);
+            $pgIsActive = true;
+            foreach (array('product_is_active', 'productAvailable', 'is_active', 'active', 'status') as $_pgActiveKey) {
+                if (!array_key_exists($_pgActiveKey, $p)) {
+                    continue;
+                }
+                $_pgActiveRaw = strtolower(trim((string) $p[$_pgActiveKey]));
+                if (in_array($_pgActiveRaw, array('0', 'false', 'no', 'inactive', 'disabled'), true)) {
+                    $pgIsActive = false;
+                } elseif (in_array($_pgActiveRaw, array('1', 'true', 'yes', 'active', 'enabled'), true)) {
+                    $pgIsActive = true;
+                }
+                break;
+            }
             $pgPurchase = function_exists('webshop_product_list_purchase_state')
-                ? webshop_product_list_purchase_state($p, true)
+                ? webshop_product_list_purchase_state($p, $pgIsActive)
                 : array('can_purchase' => true, 'label' => '', 'unavailable' => false);
             $pgUnavailable = !empty($pgPurchase['unavailable']);
             $pgStatusLabel = isset($pgPurchase['label']) ? (string) $pgPurchase['label'] : '';
             $pgCanPurchase = !empty($pgPurchase['can_purchase']);
+            $pgLimitedStock = !empty($pgPurchase['limited']);
+            $pgStockFlag = $pgUnavailable ? 'Out of stock' : ($pgLimitedStock ? 'Low stock' : 'In stock');
+            $pgStockFlagClass = $pgUnavailable ? 'gp-stock-flag--out' : ($pgLimitedStock ? 'gp-stock-flag--low' : 'gp-stock-flag--in');
             $url   = base_url('webshop/product_details/' . rawurlencode($hash));
             // Ensure URL doesn't point to ElintOm if we are in webshopapi
             if (strpos($url, '/ElintOm/') !== false && strpos($_SERVER['REQUEST_URI'], '/webshopapi/') !== false) {
@@ -72,6 +88,7 @@ $CI =& get_instance();
         <div class="gp-product-card<?= $pgUnavailable ? ' gp-product-card--unavailable' : '' ?>">
             <div class="gp-product-img-wrap">
             <a href="<?= $url ?>" class="gp-product-img-link" data-product-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>">
+                <span class="gp-stock-flag <?= $pgStockFlagClass ?>"><?= htmlspecialchars($pgStockFlag, ENT_QUOTES, 'UTF-8') ?></span>
                 <div class="gp-product-img-placeholder"<?= $productImageUrl !== '' ? ' style="display:none"' : '' ?>>
                     <div class="gp-no-image-wrap">
                         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
@@ -117,8 +134,8 @@ $CI =& get_instance();
                     <span class="gp-price-old"><?= $currency ?><?= number_format($orig, 2) ?></span>
                     <?php endif; ?>
                 </div>
-                <?php if ($pgStatusLabel !== ''): ?>
-                <p class="gp-stock-status gp-stock-status--unavailable" role="status"><?= htmlspecialchars($pgStatusLabel, ENT_QUOTES, 'UTF-8') ?></p>
+                <?php if ($pgStatusLabel !== '' && !$pgUnavailable): ?>
+                <p class="gp-stock-status<?= $pgUnavailable ? ' gp-stock-status--unavailable' : '' ?>" role="status"><?= htmlspecialchars($pgStatusLabel, ENT_QUOTES, 'UTF-8') ?></p>
                 <?php endif; ?>
                 <?php if (!$pgCanPurchase): ?>
                 <span class="gp-add-to-cart-btn is-disabled" aria-disabled="true">Add to Cart</span>

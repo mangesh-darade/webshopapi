@@ -60,7 +60,7 @@ ob_start();
                 $product = isset($wl_row['product']) && is_array($wl_row['product']) ? $wl_row['product'] : array();
                 $saved_vid = isset($wl_row['option_id']) ? (int) $wl_row['option_id'] : 0;
                 $p_id = isset($product['id']) ? (int) $product['id'] : 0;
-                $p_name = isset($product['name']) ? $product['name'] : (isset($product['product_name']) ? $product['product_name'] : 'Product');
+                $p_name = function_exists('webshop_product_display_name') ? webshop_product_display_name($product) : (isset($product['name']) ? $product['name'] : (isset($product['product_name']) ? $product['product_name'] : ''));
                 $p_hash = md5((string) $p_id);
                 $card_key = $saved_vid > 0 ? ($p_id . '_' . $saved_vid) : (string) $p_id;
                 $display = function_exists('webshop_wishlist_item_display')
@@ -117,7 +117,6 @@ ob_start();
                         <span class="wl-card-price wl-card-price--na">Price on request</span>
                         <?php endif; ?>
                     </div>
-                    <?php if ($statusLabel !== ''): ?><p class="wl-stock-status" role="status"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
                     <div class="wl-card-actions">
                         <?php if ($canPurchase): ?>
                         <button type="button" class="wl-btn wl-btn--primary" data-wishlist-add="<?= (int) $p_id ?>" data-variant-id="<?= (int) $list_vid ?>" data-product-price="<?= htmlspecialchars((string) $price, ENT_QUOTES, 'UTF-8') ?>" data-variant-price="<?= htmlspecialchars((string) $list_vprice, ENT_QUOTES, 'UTF-8') ?>" data-variant-unit-quantity="<?= htmlspecialchars((string) $list_vuq, ENT_QUOTES, 'UTF-8') ?>">Add to cart</button>

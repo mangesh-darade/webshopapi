@@ -2,7 +2,7 @@
 <?php
 $theme = (isset($webshop_settings) && is_object($webshop_settings) && isset($webshop_settings->webshop_theme))
     ? (string) $webshop_settings->webshop_theme : 'gulfpharmacy';
-$name = isset($product['name']) ? $product['name'] : 'Product';
+$name = function_exists('webshop_product_display_name') ? webshop_product_display_name($product) : (isset($product['name']) ? $product['name'] : (isset($product['product_name']) ? $product['product_name'] : ''));
 $flash_msg = $this->session->flashdata('message');
 $flash_err = $this->session->flashdata('error');
 $error_field = (string) $this->session->flashdata('error_field');

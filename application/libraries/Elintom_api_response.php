@@ -480,6 +480,9 @@ class Elintom_api_response {
     }
 
     public function normalize_product_detail_item(array $a) {
+        if (isset($a['eshop_name']) && trim((string) $a['eshop_name']) !== '') {
+            $a['name'] = trim((string) $a['eshop_name']);
+        }
         if (!isset($a['id']) && isset($a['product_id'])) {
             $a['id'] = $a['product_id'];
         }

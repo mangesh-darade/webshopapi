@@ -1737,6 +1737,30 @@ class Webshop_api_model extends CI_Model {
         }
         $stockMap = $this->_fetch_category_product_stock_map((int) $category_id);
         if ($stockMap === array()) {
+            // CMS "products by ids" sections often have no category context.
+            // Fallback: resolve each product row and derive sellable qty from detail payload.
+            foreach ($items as $i => $item) {
+                $row = is_array($item) ? $item : (array) $item;
+                if (function_exists('webshop_row_numeric_stock') && webshop_row_numeric_stock($row) !== null) {
+                    continue;
+                }
+                $pid = isset($row['id']) ? (int) $row['id'] : 0;
+                if ($pid < 1) {
+                    continue;
+                }
+                $full = $this->resolve_product_row_by_id($pid);
+                if (!is_array($full) || empty($full)) {
+                    continue;
+                }
+                $variants = function_exists('webshop_product_variants_from_row')
+                    ? webshop_product_variants_from_row($full)
+                    : array();
+                $qty = function_exists('webshop_product_display_sellable_qty')
+                    ? (float) webshop_product_display_sellable_qty($full, $variants)
+                    : 0.0;
+                $row['quantity'] = max(0.0, $qty);
+                $items[$i] = $row;
+            }
             return $items;
         }
         foreach ($items as $i => $item) {
@@ -1907,7 +1931,7 @@ class Webshop_api_model extends CI_Model {
                 if ($payload !== null) {
                     $normalized = $this->elintom_response->normalize_products_list_payload($payload, $page);
                     if ($this->elintom_response->products_list_item_count($normalized) > 0) {
-                        if ($by === 'category' && !empty($normalized['items'])) {
+                        if (($by === 'category' || $by === 'products') && !empty($normalized['items'])) {
                             $catId = (!$hash && is_numeric($byid)) ? (int) $byid : 0;
                             $plpLight = ($by === 'category' || $by === 'products');
                             $normalized['items'] = $this->enrich_product_list_items_with_stock($normalized['items'], $catId);
@@ -1935,6 +1959,10 @@ class Webshop_api_model extends CI_Model {
             if ($by === 'products' && $byid !== null && $byid !== '') {
                 $legacyByIds = $this->_get_products_list_legacy_by_ids($byid);
                 if ($legacyByIds !== null && $this->elintom_response->products_list_item_count($legacyByIds) > 0) {
+                    if (!empty($legacyByIds['items']) && is_array($legacyByIds['items'])) {
+                        $legacyByIds['items'] = $this->enrich_product_list_items_with_stock($legacyByIds['items'], 0);
+                        $legacyByIds['items'] = $this->enrich_product_list_items_with_variants($legacyByIds['items'], true);
+                    }
                     return $legacyByIds;
                 }
             }

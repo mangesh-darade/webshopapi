@@ -132,7 +132,7 @@ if (!empty($products)) {
     <?php endif; ?>
     <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/common.css') ?>">
     <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/header.css?ver=20260525g') ?>">
-    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/category-products.css?ver=20260526a') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/category-products.css?ver=20260528f') ?>">
     <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/wishlist-fav.css?ver=20260526a') ?>">
 </head>
 <body>
@@ -213,7 +213,7 @@ if (!empty($products)) {
                     $row       = is_array($item) ? $item : (array) $item;
                     $itemId    = function_exists('webshop_product_list_item_id') ? webshop_product_list_item_id($row) : (isset($row['id']) ? (int) $row['id'] : 0);
                     $hash      = $getHash($row);
-                    $name      = isset($row['name']) ? $row['name'] : (isset($row['product_name']) ? $row['product_name'] : 'Product');
+                    $name      = webshop_product_display_name($row);
                     $cardPricing = $getCardPricing($row);
                     $price     = (float) $cardPricing['price'];
                     $mrp       = (float) $cardPricing['mrp'];
@@ -257,6 +257,7 @@ if (!empty($products)) {
                     $reviewPhrase = $rCount === 0 ? 'No reviews yet' : ($rCount === 1 ? '1 review' : $rCount . ' reviews');
                     $starFill = (int) round(max(0, min(5, $rAvg)));
                     $imgFinal = ($imgSrc !== '') ? $imgSrc : $noImgSrc;
+                    $isNoImageCard = ($imgSrc === '' || $imgFinal === $noImgSrc);
                 ?>
                     <div class="pc-card<?= $unavailable ? ' pc-card--unavailable' : '' ?>">
                         <div class="pc-media">
@@ -264,7 +265,7 @@ if (!empty($products)) {
                                 <a class="pc-img-link" href="<?= $detailUrl ?>" tabindex="-1" aria-hidden="true">
                                     <img src="<?= htmlspecialchars($imgFinal, ENT_QUOTES, 'UTF-8') ?>"
                                          alt="<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>"
-                                         class="pc-product-img"
+                                         class="pc-product-img<?= $isNoImageCard ? ' pc-product-img--placeholder' : '' ?>"
                                          <?= $_cp_idx === 0 ? 'fetchpriority="high" decoding="sync"' : 'loading="lazy" decoding="async"' ?>
                                          data-fallback-src="<?= $noImgSrcAttr ?>">
                                 </a>
@@ -281,8 +282,14 @@ if (!empty($products)) {
                                     <?php if ($rxProd && !$unavailable): ?>
                                         <span class="pc-pill pc-pill-rx">Rx</span>
                                     <?php endif; ?>
+                                    <?php if (!$unavailable && !$limitedStock): ?>
+                                        <span class="pc-pill pc-pill-in">In stock</span>
+                                    <?php endif; ?>
                                     <?php if ($limitedStock && !$unavailable): ?>
                                         <span class="pc-pill pc-pill-stock">Limited stock</span>
+                                    <?php endif; ?>
+                                    <?php if ($unavailable): ?>
+                                        <span class="pc-pill pc-pill-out">Out of stock</span>
                                     <?php endif; ?>
                                 </div>
                                 <div class="pc-badges-tr">
@@ -316,7 +323,7 @@ if (!empty($products)) {
                                 <?php endif; ?>
                             </div>
 
-                            <?php if ($statusLabel !== ''): ?>
+                            <?php if ($statusLabel !== '' && !$unavailable): ?>
                                 <p class="pc-stock-status pc-stock-status--unavailable" role="status"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></p>
                             <?php elseif ($limitedStock): ?>
                                 <p class="pc-stock-status pc-stock-status--low" role="status">Only <?= (int) $stockQty ?> left in stock</p>
@@ -407,6 +414,6 @@ $_cp_assets = isset($assets) ? $assets : base_url('assets/webshop/');
 ), true) ?>
 <script defer src="<?= webshop_theme_assets_url('js/webshop-csrf.js?ver=20260526c') ?>"></script>
 <script defer src="<?= webshop_theme_assets_url('js/image-fallback.js?ver=20260528a') ?>"></script>
-<script defer src="<?= webshop_theme_assets_url('js/category-products.js?ver=20260528a') ?>"></script>
+<script defer src="<?= webshop_theme_assets_url('js/category-products.js?ver=20260528b') ?>"></script>
 </body>
 </html>

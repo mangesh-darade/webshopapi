@@ -4,6 +4,13 @@
 
     function bindImageFrames(root) {
         var scope = root || document;
+        var frames = scope.querySelectorAll('.pc-img-frame');
+        for (var f = 0; f < frames.length; f++) {
+            var frame = frames[f];
+            if (frame.querySelector('.pc-no-image')) {
+                frame.classList.remove('is-loading');
+            }
+        }
         var images = scope.querySelectorAll('.pc-product-img');
         for (var i = 0; i < images.length; i++) {
             (function (img) {
@@ -15,6 +22,9 @@
                 };
                 img.addEventListener('load', clearLoading);
                 img.addEventListener('error', clearLoading);
+                if (img.complete) {
+                    clearLoading();
+                }
             })(images[i]);
         }
     }

@@ -7,8 +7,10 @@
 .pd-thumb{border:2px solid transparent;border-radius:10px;padding:2px;cursor:pointer}
 .pd-thumb.active,.pd-thumb:hover{border-color:var(--gp-primary)}
 .pd-thumb img{width:100%;height:72px;object-fit:contain;background:#F5F7FA;border-radius:8px}
+.pd-thumb img[src*="no_image.png"]{object-fit:scale-down;padding:10px;opacity:.75;filter:grayscale(.15)}
 .pd-mainimg{min-height:460px;background:#F5F7FA;border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .pd-mainimg img{max-width:95%;max-height:430px;transition:.25s}
+.pd-mainimg img[src*="no_image.png"]{max-width:56%;max-height:56%;object-fit:contain;opacity:.75;filter:grayscale(.15)}
 .pd-mainimg:hover img{transform:scale(1.14)}
 .pd-summary{padding:22px;position:sticky;top:88px}
 .pd-head-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px 16px;margin:0 0 10px;position:relative}

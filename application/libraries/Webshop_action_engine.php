@@ -156,7 +156,7 @@ class Webshop_action_engine
 
         $product_name = '';
         if (is_array($api_product) && !empty($api_product)) {
-            foreach (array('name', 'product_name', 'title') as $nk) {
+            foreach (array('eshop_name', 'name', 'product_name', 'title') as $nk) {
                 if (!empty($api_product[$nk])) {
                     $product_name = trim((string) $api_product[$nk]);
                     break;

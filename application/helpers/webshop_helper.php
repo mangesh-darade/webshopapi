@@ -27,6 +27,101 @@ function webshop_fixup_cms_media_relative_path($path_part) {
 }
 
 /**
+ * Normalize uploads path and query from raw API/media value.
+ *
+ * @param string $uploads_base
+ * @param string $path
+ * @return array{relative:string,query:string}
+ */
+function webshop_media_normalize_relative($uploads_base, $path) {
+    $s = trim((string) $path);
+    if ($s === '') {
+        return array('relative' => '', 'query' => '');
+    }
+    $base = rtrim(str_replace('\\', '/', (string) $uploads_base), '/') . '/';
+    $base_path = (string) parse_url($base, PHP_URL_PATH);
+    $base_mdata_folder = '';
+    if ($base_path !== '' && preg_match('#/assets/mdata/([^/]+)/uploads/?$#i', str_replace('\\', '/', $base_path), $bm) && isset($bm[1])) {
+        $base_mdata_folder = (string) $bm[1];
+    }
+
+    $query = '';
+    $path_part = $s;
+    if (preg_match('#^https?://#i', $s)) {
+        $parsed = @parse_url($s);
+        $path_part = isset($parsed['path']) ? (string) $parsed['path'] : '';
+        $query = !empty($parsed['query']) ? '?' . (string) $parsed['query'] : '';
+    }
+    $path_part = str_replace('\\', '/', (string) $path_part);
+    if ($path_part === '') {
+        return array('relative' => '', 'query' => $query);
+    }
+    if (preg_match('#/assets/mdata/[^/]+/uploads/(.+)$#i', $path_part, $m) && isset($m[1]) && trim($m[1]) !== '') {
+        $path_part = $m[1];
+    } elseif (preg_match('#/ElintOm/assets/mdata/[^/]+/uploads/(.+)$#i', $path_part, $m) && isset($m[1]) && trim($m[1]) !== '') {
+        $path_part = $m[1];
+    } elseif (preg_match('#/assets/uploads/(.+)$#i', $path_part, $m) && isset($m[1]) && trim($m[1]) !== '') {
+        $path_part = $m[1];
+    } else {
+        $path_part = preg_replace('#^/?assets/mdata/[^/]+/uploads/#i', '', $path_part);
+        $path_part = preg_replace('#^/?assets/uploads/#i', '', $path_part);
+        $path_part = preg_replace('#^/?uploads/#i', '', $path_part);
+        if ($base_mdata_folder !== '') {
+            $quoted = preg_quote($base_mdata_folder, '#');
+            $path_part = preg_replace('#^/?' . $quoted . '/uploads/#i', '', $path_part);
+        }
+    }
+    $path_part = webshop_fixup_cms_media_relative_path($path_part);
+    return array('relative' => ltrim((string) $path_part, '/'), 'query' => $query);
+}
+
+/**
+ * Check whether a relative uploads media path exists in local webshopapi/ElintOm storage.
+ *
+ * @param string $uploads_base
+ * @param string $relative_path
+ * @return bool
+ */
+function webshop_media_exists_local($uploads_base, $relative_path) {
+    $rel = ltrim(str_replace('/', DIRECTORY_SEPARATOR, (string) $relative_path), DIRECTORY_SEPARATOR);
+    if ($rel === '') {
+        return false;
+    }
+
+    $base = rtrim(str_replace('\\', '/', (string) $uploads_base), '/') . '/';
+    $base_path = (string) parse_url($base, PHP_URL_PATH);
+    $tenant = '';
+    if ($base_path !== '' && preg_match('#/assets/mdata/([^/]+)/uploads/?$#i', str_replace('\\', '/', $base_path), $m) && isset($m[1])) {
+        $tenant = (string) $m[1];
+    }
+    if ($tenant === '' && function_exists('get_instance')) {
+        $CI = get_instance();
+        if ($CI && isset($CI->config)) {
+            $CI->config->load('elintom_api', true);
+            $tenant = trim((string) $CI->config->item('elintom_customer_assets_folder', 'elintom_api'));
+        }
+    }
+    if ($tenant === '') {
+        $tenant = 'localhost';
+    }
+
+    $roots = array();
+    $workspaceRoot = rtrim(str_replace('/', DIRECTORY_SEPARATOR, FCPATH), '\\/') . DIRECTORY_SEPARATOR;
+    $roots[] = $workspaceRoot . 'assets' . DIRECTORY_SEPARATOR . 'mdata' . DIRECTORY_SEPARATOR . $tenant . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR;
+
+    $parentRoot = dirname(rtrim($workspaceRoot, '\\/'));
+    $roots[] = $parentRoot . DIRECTORY_SEPARATOR . 'ElintOm' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'mdata' . DIRECTORY_SEPARATOR . $tenant . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR;
+
+    foreach ($roots as $root) {
+        $candidate = $root . $rel;
+        if (is_file($candidate)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
  * Build image URL: POS paths are relative to uploads base; some payloads return absolute URLs.
  * ElintOm/CMS may still emit legacy …/assets/uploads/… — those are mapped onto the mdata uploads
  * root ($uploads_base), i.e. …/assets/mdata/{host}/uploads/…
@@ -51,39 +146,12 @@ function webshop_media_src($uploads_base, $path) {
         $base_mdata_folder = (string) $bm[1];
     }
 
-    $query = '';
-    $path_part = $s;
-    if (preg_match('#^https?://#i', $s)) {
-        $parsed = @parse_url($s);
-        $path_part = isset($parsed['path']) ? (string) $parsed['path'] : '';
-        $query = !empty($parsed['query']) ? '?' . (string) $parsed['query'] : '';
-    }
-
-    $path_part = str_replace('\\', '/', (string) $path_part);
+    $normalized = webshop_media_normalize_relative($uploads_base, $s);
+    $path_part = isset($normalized['relative']) ? (string) $normalized['relative'] : '';
+    $query = isset($normalized['query']) ? (string) $normalized['query'] : '';
     if ($path_part === '') {
         return '';
     }
-
-    // Absolute path variants (with or without /ElintOm/ app folder in URL).
-    if (preg_match('#/assets/mdata/[^/]+/uploads/(.+)$#i', $path_part, $m) && isset($m[1]) && trim($m[1]) !== '') {
-        $path_part = $m[1];
-    } elseif (preg_match('#/ElintOm/assets/mdata/[^/]+/uploads/(.+)$#i', $path_part, $m) && isset($m[1]) && trim($m[1]) !== '') {
-        $path_part = $m[1];
-    } elseif (preg_match('#/assets/uploads/(.+)$#i', $path_part, $m) && isset($m[1]) && trim($m[1]) !== '') {
-        $path_part = $m[1];
-    } else {
-        // Relative path variants.
-        $path_part = preg_replace('#^/?assets/mdata/[^/]+/uploads/#i', '', $path_part);
-        $path_part = preg_replace('#^/?assets/uploads/#i', '', $path_part);
-        $path_part = preg_replace('#^/?uploads/#i', '', $path_part);
-        // Some records store "{hostOrTenant}/uploads/file.jpg".
-        if ($base_mdata_folder !== '') {
-            $quoted = preg_quote($base_mdata_folder, '#');
-            $path_part = preg_replace('#^/?' . $quoted . '/uploads/#i', '', $path_part);
-        }
-        // Do not strip "webshop/uploads/…" — that removes the webshop/ folder and breaks cms_pages paths.
-    }
-    $path_part = webshop_fixup_cms_media_relative_path($path_part);
     return $base . ltrim($path_part, '/') . $query;
 }
 
@@ -640,13 +708,74 @@ function webshop_variant_row_id($variant, $map_key = '') {
  */
 function webshop_variant_row_display_name($variant, $map_key = '') {
     $v = is_array($variant) ? $variant : (array) $variant;
-    foreach (array('name', 'variant_name', 'option_name', 'title', 'label', 'value') as $k) {
+    $isPlaceholder = function ($name) {
+        $n = strtolower(trim((string) $name));
+        return in_array($n, array(
+            '',
+            'test',
+            'testing',
+            'default',
+            'default option',
+            'option',
+            'variant',
+            'n/a',
+            'na'
+        ), true);
+    };
+    foreach (array('name', 'variant_name', 'option_name', 'title', 'label', 'value', 'option', 'size', 'pack_size', 'unit_name', 'uom') as $k) {
         if (!empty($v[$k]) && trim((string) $v[$k]) !== '') {
-            return trim((string) $v[$k]);
+            $candidate = trim((string) $v[$k]);
+            if (!$isPlaceholder($candidate)) {
+                return $candidate;
+            }
+        }
+    }
+    $unitQty = isset($v['unit_quantity']) && is_numeric($v['unit_quantity']) ? (float) $v['unit_quantity'] : 0.0;
+    if ($unitQty > 0) {
+        $unit = '';
+        foreach (array('unit', 'unit_name', 'uom') as $uk) {
+            if (!empty($v[$uk]) && trim((string) $v[$uk]) !== '') {
+                $unit = trim((string) $v[$uk]);
+                break;
+            }
+        }
+        if ($unit !== '') {
+            return rtrim(rtrim(number_format($unitQty, 3, '.', ''), '0'), '.') . ' ' . $unit;
         }
     }
     if (is_string($map_key) && trim($map_key) !== '' && !is_numeric($map_key)) {
-        return trim($map_key);
+        $mapLabel = trim($map_key);
+        if (!$isPlaceholder($mapLabel)) {
+            return $mapLabel;
+        }
+    }
+    return '';
+}
+
+/**
+ * Customer-facing product name:
+ * prefer sma_products.eshop_name, then fallback to product name.
+ *
+ * @param array|object $row
+ * @return string
+ */
+function webshop_product_display_name($row) {
+    $a = is_array($row) ? $row : (array) $row;
+    if (isset($a['eshop_name'])) {
+        $eshop = trim((string) $a['eshop_name']);
+        if ($eshop !== '') {
+            return $eshop;
+        }
+    }
+
+    foreach (array('name', 'product_name') as $k) {
+        if (!isset($a[$k])) {
+            continue;
+        }
+        $v = trim((string) $a[$k]);
+        if ($v !== '') {
+            return $v;
+        }
     }
     return '';
 }
@@ -683,9 +812,6 @@ function webshop_product_variants_from_row(array $product) {
             }
             if ($vid < 1) {
                 continue;
-            }
-            if ($name === '') {
-                $a['name'] = 'Variant #' . $vid;
             }
             $list[] = $a;
         }
@@ -2216,6 +2342,10 @@ if (!function_exists('webshop_settings_local_phone_length')) {
  * @return string
  */
 function webshop_no_image_src($uploads_base, $thumbs_base = '') {
+    $noImageRel = 'thumbs/no_image.png';
+    if (function_exists('webshop_media_exists_local') && webshop_media_exists_local($uploads_base, $noImageRel)) {
+        return webshop_media_src($uploads_base, $noImageRel);
+    }
     // Stable offline-safe placeholder: avoids repeated 404s when remote uploads path is unavailable.
     $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180"><rect fill="#f1f5f9" width="180" height="180" rx="12"/><path fill="#e2e8f0" d="M52 58h76v48H52z"/><circle cx="64" cy="54" r="7" fill="#cbd5e1"/><path fill="#cbd5e1" d="M44 122h92v10H44z"/><text x="90" y="108" text-anchor="middle" fill="#64748b" font-family="system-ui,sans-serif" font-size="12">No image</text></svg>';
     return 'data:image/svg+xml;charset=UTF-8,' . rawurlencode($svg);
@@ -2236,7 +2366,11 @@ function webshop_product_image_src($uploads_base, $thumbs_base, $row) {
         $img = trim((string) $row['photo']);
     }
     if ($img !== '') {
-        return webshop_media_src($uploads_base, $img);
+        $normalized = webshop_media_normalize_relative($uploads_base, $img);
+        $rel = isset($normalized['relative']) ? (string) $normalized['relative'] : '';
+        if ($rel !== '' && webshop_media_exists_local($uploads_base, $rel)) {
+            return webshop_media_src($uploads_base, $img);
+        }
     }
     return webshop_no_image_src($uploads_base, $thumbs_base);
 }
@@ -2258,6 +2392,73 @@ function webshop_row_numeric_stock($row) {
 }
 
 /**
+ * True when any stock column is present in row (even null/empty).
+ *
+ * @param array|object $row
+ * @return bool
+ */
+function webshop_row_has_stock_column($row) {
+    $row = is_array($row) ? $row : (array) $row;
+    foreach (array('quantity', 'qty', 'stock', 'available_qty') as $k) {
+        if (array_key_exists($k, $row)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Detect explicit stock boolean in API rows.
+ *
+ * @param array|object $row
+ * @return bool|null True/false when explicit flag exists, null when unknown.
+ */
+function webshop_row_explicit_stock_flag($row) {
+    $row = is_array($row) ? $row : (array) $row;
+    $keys = array(
+        'in_stock',
+        'is_in_stock',
+        'out_of_stock',
+        'is_out_of_stock',
+        'stock_available',
+        'available',
+        'productAvailable',
+        'product_available',
+        'stock_status',
+        'availability',
+    );
+    foreach ($keys as $k) {
+        if (!array_key_exists($k, $row)) {
+            continue;
+        }
+        $raw = $row[$k];
+        if (is_bool($raw)) {
+            if ($k === 'out_of_stock' || $k === 'is_out_of_stock') {
+                return !$raw;
+            }
+            return $raw;
+        }
+        $s = strtolower(trim((string) $raw));
+        if ($s === '') {
+            continue;
+        }
+        if (in_array($s, array('1', 'true', 'yes', 'y', 'instock', 'in stock', 'available', 'active'), true)) {
+            if ($k === 'out_of_stock' || $k === 'is_out_of_stock') {
+                return false;
+            }
+            return true;
+        }
+        if (in_array($s, array('0', 'false', 'no', 'n', 'outofstock', 'out of stock', 'unavailable', 'inactive'), true)) {
+            if ($k === 'out_of_stock' || $k === 'is_out_of_stock') {
+                return true;
+            }
+            return false;
+        }
+    }
+    return null;
+}
+
+/**
  * Sellable quantity for product-detail display: sum variant stock when variants expose quantities;
  * otherwise parent product row only (missing stock fields → 0, same as legacy views).
  *
@@ -2268,6 +2469,17 @@ function webshop_row_numeric_stock($row) {
 function webshop_product_display_sellable_qty($product, $variants = null) {
     $product = is_array($product) ? $product : (array) $product;
     $variants = ($variants !== null && is_array($variants)) ? $variants : array();
+
+    // Source of truth: product table quantity column (when present).
+    // Only fall back to variant quantities if parent quantity is missing.
+    $pq = webshop_row_numeric_stock($product);
+    if ($pq !== null) {
+        return max(0.0, $pq);
+    }
+    if (webshop_row_has_stock_column($product)) {
+        // quantity exists but null/empty/non-numeric -> treat as zero stock.
+        return 0.0;
+    }
 
     if (!empty($variants)) {
         $sum = 0.0;
@@ -2285,9 +2497,7 @@ function webshop_product_display_sellable_qty($product, $variants = null) {
             return max(0.0, $sum);
         }
     }
-
-    $pq = webshop_row_numeric_stock($product);
-    return $pq !== null ? max(0.0, $pq) : 0.0;
+    return 0.0;
 }
 
 /**
@@ -2316,7 +2526,7 @@ function webshop_product_detail_variants_ui($product, $variants, $Settings = nul
             continue;
         }
         if ($name === '') {
-            $name = 'Variant #' . $vid;
+            $name = '';
         }
         $unitQty = isset($v['unit_quantity']) ? (float) $v['unit_quantity'] : 1.0;
         if ($unitQty < 1) {
@@ -2351,10 +2561,17 @@ function webshop_product_detail_variants_ui($product, $variants, $Settings = nul
         return array('has_variants' => false, 'items' => array(), 'default' => null);
     }
 
+    $default = $items[0];
+    foreach ($items as $it) {
+        if (!empty($it['in_stock'])) {
+            $default = $it;
+            break;
+        }
+    }
     return array(
         'has_variants' => true,
         'items'        => $items,
-        'default'      => $items[0],
+        'default'      => $default,
     );
 }
 
@@ -2463,6 +2680,13 @@ function webshop_product_list_stock_state($row) {
         }
     }
     if ($parent === null && !$hasVariantStock) {
+        if (webshop_row_has_stock_column($row)) {
+            return array('known' => true, 'in_stock' => false, 'qty' => 0.0);
+        }
+        $explicit = webshop_row_explicit_stock_flag($row);
+        if ($explicit !== null) {
+            return array('known' => true, 'in_stock' => (bool) $explicit, 'qty' => (bool) $explicit ? 1.0 : 0.0);
+        }
         return array('known' => false, 'in_stock' => true, 'qty' => 0.0);
     }
     $qty = webshop_product_display_sellable_qty($row, $variants);
@@ -2541,7 +2765,11 @@ function webshop_category_primary_image_path($row) {
 function webshop_category_image_src($uploads_base, $thumbs_base, $row) {
     $img = webshop_category_primary_image_path($row);
     if ($img !== '') {
-        return webshop_media_src($uploads_base, $img);
+        $normalized = webshop_media_normalize_relative($uploads_base, $img);
+        $rel = isset($normalized['relative']) ? (string) $normalized['relative'] : '';
+        if ($rel !== '' && webshop_media_exists_local($uploads_base, $rel)) {
+            return webshop_media_src($uploads_base, $img);
+        }
     }
     return webshop_no_image_src($uploads_base, $thumbs_base);
 }

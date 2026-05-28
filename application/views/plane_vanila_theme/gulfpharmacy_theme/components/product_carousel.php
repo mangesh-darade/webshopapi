@@ -17,7 +17,7 @@ $_pc_wl_lookup = function_exists('webshop_view_wishlist_lookup')
     : (isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : array());
 $CI =& get_instance();
 ?>
-<link rel="stylesheet" href="<?= webshop_theme_assets_url('css/product-carousel.css?ver=20260526a') ?>">
+<link rel="stylesheet" href="<?= webshop_theme_assets_url('css/product-carousel.css?ver=20260528c') ?>">
 <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/wishlist-fav.css?ver=20260526a') ?>">
 <section class="gp-component dynamic-product-carousel">
     <?php if ($title !== ''): ?>
@@ -31,7 +31,7 @@ $CI =& get_instance();
             <?php foreach ($items as $p):
                 $p     = is_object($p) ? (array)$p : (is_array($p) ? $p : array());
                 $productImageUrl = trim((string) webshop_product_image_src($uploadsB, isset($thumbs) ? $thumbs : '', $p));
-                $productNameRaw  = isset($p['name']) ? (string) $p['name'] : '';
+                $productNameRaw  = (string) webshop_product_display_name($p);
                 $productNameEsc  = htmlspecialchars($productNameRaw, ENT_QUOTES, 'UTF-8');
                 $_pcSettings = isset($Settings) ? $Settings : null;
                 if (function_exists('webshop_product_list_card_pricing')) {
@@ -57,12 +57,28 @@ $CI =& get_instance();
                     $hash = md5((string)(isset($p['id']) ? $p['id'] : ''));
                 }
                 $pId = function_exists('webshop_product_list_item_id') ? webshop_product_list_item_id($p) : (isset($p['id']) ? (int) $p['id'] : 0);
+                $pcIsActive = true;
+                foreach (array('product_is_active', 'productAvailable', 'is_active', 'active', 'status') as $_pcActiveKey) {
+                    if (!array_key_exists($_pcActiveKey, $p)) {
+                        continue;
+                    }
+                    $_pcActiveRaw = strtolower(trim((string) $p[$_pcActiveKey]));
+                    if (in_array($_pcActiveRaw, array('0', 'false', 'no', 'inactive', 'disabled'), true)) {
+                        $pcIsActive = false;
+                    } elseif (in_array($_pcActiveRaw, array('1', 'true', 'yes', 'active', 'enabled'), true)) {
+                        $pcIsActive = true;
+                    }
+                    break;
+                }
                 $pcPurchase = function_exists('webshop_product_list_purchase_state')
-                    ? webshop_product_list_purchase_state($p, true)
+                    ? webshop_product_list_purchase_state($p, $pcIsActive)
                     : array('can_purchase' => true, 'label' => '', 'unavailable' => false);
                 $pcUnavailable = !empty($pcPurchase['unavailable']);
                 $pcStatusLabel = isset($pcPurchase['label']) ? (string) $pcPurchase['label'] : '';
                 $pcCanPurchase = !empty($pcPurchase['can_purchase']);
+                $pcLimitedStock = !empty($pcPurchase['limited']);
+                $pcStockFlag = $pcUnavailable ? 'Out of stock' : ($pcLimitedStock ? 'Low stock' : 'In stock');
+                $pcStockFlagClass = $pcUnavailable ? 'gp-stock-flag--out' : ($pcLimitedStock ? 'gp-stock-flag--low' : 'gp-stock-flag--in');
                 $url   = base_url('webshop/product_details/' . rawurlencode($hash));
                 if (strpos($url, '/ElintOm/') !== false && strpos($_SERVER['REQUEST_URI'], '/webshopapi/') !== false) {
                     $url = str_replace('/ElintOm/', '/webshopapi/', $url);
@@ -71,6 +87,7 @@ $CI =& get_instance();
             <div class="gp-carousel-item">
                 <article class="gp-pc-card<?= $pcUnavailable ? ' gp-pc-card--unavailable' : '' ?>">
                     <div class="gp-pc-img-wrap">
+                        <span class="gp-stock-flag <?= $pcStockFlagClass ?>"><?= htmlspecialchars($pcStockFlag, ENT_QUOTES, 'UTF-8') ?></span>
                         <a href="<?= $url ?>" class="gp-pc-img-link" data-product-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>">
                             <div class="gp-pc-img-placeholder"<?= $productImageUrl !== '' ? ' style="display:none"' : '' ?>>
                                 <div class="gp-no-image-wrap">
@@ -100,7 +117,7 @@ $CI =& get_instance();
                             <span class="gp-price-old"><?= $currency ?><?= number_format($orig, 2) ?></span>
                             <?php endif; ?>
                         </div>
-                        <?php if ($pcStatusLabel !== ''): ?>
+                        <?php if ($pcStatusLabel !== '' && !$pcUnavailable): ?>
                         <p class="gp-pc-stock-status<?= $pcUnavailable ? ' gp-pc-stock-status--unavailable' : '' ?>" role="status"><?= htmlspecialchars($pcStatusLabel, ENT_QUOTES, 'UTF-8') ?></p>
                         <?php endif; ?>
                         <?php if (!$pcCanPurchase): ?>

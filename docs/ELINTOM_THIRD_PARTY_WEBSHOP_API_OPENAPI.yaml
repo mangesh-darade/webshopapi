@@ -1,0 +1,572 @@
+openapi: 3.0.3
+info:
+  title: ElintOm Third-Party Webshop API
+  version: 1.0.0
+  description: |
+    Integration spec for ElintOm webshop API endpoint.
+
+    Base contract:
+    - Method: POST
+    - Endpoint: /webshop_api/index
+    - Content-Type: application/x-www-form-urlencoded
+    - Auth field: privatekey
+    - Routing field: action
+
+    Notes:
+    - API is action-driven (single endpoint with multiple actions).
+    - This spec includes core/high-usage actions for third-party webshop integration.
+servers:
+  - url: http://localhost/ElintOm
+    description: Local ElintOm
+
+paths:
+  /webshop_api/index:
+    post:
+      summary: Action router endpoint
+      description: |
+        Single ElintOm API endpoint. Provide `privatekey` and `action` in form data.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/GetSettingsRequest'
+                - $ref: '#/components/schemas/GetCategoriesRequest'
+                - $ref: '#/components/schemas/GetProductsListRequest'
+                - $ref: '#/components/schemas/GetProductByHashRequest'
+                - $ref: '#/components/schemas/SearchProductsRequest'
+                - $ref: '#/components/schemas/CreateCustomerRequest'
+                - $ref: '#/components/schemas/LoginCheckRequest'
+                - $ref: '#/components/schemas/GetAddressesRequest'
+                - $ref: '#/components/schemas/AddAddressRequest'
+                - $ref: '#/components/schemas/UpdateAddressRequest'
+                - $ref: '#/components/schemas/DeleteAddressRequest'
+                - $ref: '#/components/schemas/SetAddressDefaultRequest'
+                - $ref: '#/components/schemas/AddOrderRequest'
+                - $ref: '#/components/schemas/GetOrderRequest'
+                - $ref: '#/components/schemas/CancelOrderRequest'
+                - $ref: '#/components/schemas/ApplyCouponRequest'
+                - $ref: '#/components/schemas/GetWishlistRequest'
+                - $ref: '#/components/schemas/AddWishlistRequest'
+                - $ref: '#/components/schemas/RemoveWishlistRequest'
+                - $ref: '#/components/schemas/SubmitProductReviewRequest'
+                - $ref: '#/components/schemas/GetProductReviewsRequest'
+                - $ref: '#/components/schemas/GetProductRatingRequest'
+                - $ref: '#/components/schemas/SubmitContactLeadRequest'
+      responses:
+        '200':
+          description: JSON action response
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/GenericSuccess'
+                  - $ref: '#/components/schemas/ErrorResponse'
+                  - $ref: '#/components/schemas/GetSettingsResponse'
+                  - $ref: '#/components/schemas/GetCategoriesResponse'
+                  - $ref: '#/components/schemas/GetProductsListResponse'
+                  - $ref: '#/components/schemas/GetProductByHashResponse'
+                  - $ref: '#/components/schemas/SearchProductsResponse'
+                  - $ref: '#/components/schemas/CreateCustomerResponse'
+                  - $ref: '#/components/schemas/LoginCheckResponse'
+                  - $ref: '#/components/schemas/GetAddressesResponse'
+                  - $ref: '#/components/schemas/AddOrderResponse'
+                  - $ref: '#/components/schemas/GetWishlistResponse'
+                  - $ref: '#/components/schemas/GetProductReviewsResponse'
+                  - $ref: '#/components/schemas/GetProductRatingResponse'
+
+components:
+  schemas:
+    BaseAction:
+      type: object
+      required: [privatekey, action]
+      properties:
+        privatekey:
+          type: string
+          description: API private key from ElintOm settings.
+        action:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ERROR]
+        error_code:
+          type: integer
+          nullable: true
+        msg:
+          type: string
+
+    GenericSuccess:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [SUCCESS]
+        msg:
+          type: string
+          nullable: true
+
+    ProductItem:
+      type: object
+      properties:
+        id: { type: integer }
+        code: { type: string, nullable: true }
+        name:
+          type: string
+          description: Normalized display name (can reflect eshop_name mapping).
+        eshop_name:
+          type: string
+          nullable: true
+        price: { type: number, format: float }
+        mrp: { type: number, format: float, nullable: true }
+        image: { type: string, nullable: true }
+        quantity: { type: number, format: float, nullable: true }
+        category_id: { type: integer, nullable: true }
+        subcategory_id: { type: integer, nullable: true }
+        product_details: { type: string, nullable: true }
+        variants:
+          type: array
+          nullable: true
+          items:
+            type: object
+            additionalProperties: true
+      additionalProperties: true
+
+    AddressItem:
+      type: object
+      properties:
+        id: { type: integer }
+        customer_id: { type: integer }
+        address_name: { type: string, nullable: true }
+        company_name: { type: string, nullable: true }
+        line1: { type: string, nullable: true }
+        line2: { type: string, nullable: true }
+        city: { type: string, nullable: true }
+        state: { type: string, nullable: true }
+        state_code: { type: string, nullable: true }
+        postal_code: { type: string, nullable: true }
+        country: { type: string, nullable: true }
+        phone: { type: string, nullable: true }
+        email: { type: string, nullable: true }
+        address_type: { type: string, nullable: true }
+
+    WishlistItem:
+      type: object
+      properties:
+        product_id: { type: integer }
+        option_id: { type: integer, nullable: true }
+      additionalProperties: true
+
+    ReviewItem:
+      type: object
+      properties:
+        reviews_rattings: { type: integer }
+        reviews_title: { type: string, nullable: true }
+        reviews_details: { type: string, nullable: true }
+        reviews_date: { type: string, nullable: true }
+        customer_name: { type: string, nullable: true }
+
+    # Requests
+    GetSettingsRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseAction'
+        - type: object
+          properties:
+            action: { type: string, enum: [getsettings] }
+
+    GetCategoriesRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseAction'
+        - type: object
+          properties:
+            action: { type: string, enum: [getcategories] }
+
+    GetProductsListRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseAction'
+        - type: object
+          required: [by]
+          properties:
+            action: { type: string, enum: [getproductslist] }
+            by: { type: string, enum: [category, brand, products] }
+            byid:
+              type: string
+              description: Category/brand id or hash, or comma-separated product IDs.
+            use_hash: { type: integer, enum: [0, 1], default: 0 }
+            limit: { type: integer, default: 12 }
+            page: { type: integer, default: 1 }
+
+    GetProductByHashRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseAction'
+        - type: object
+          required: [product_hash]
+          properties:
+            action: { type: string, enum: [getproductbyhash] }
+            product_hash: { type: string }
+            product_id: { type: integer, nullable: true }
+
+    SearchProductsRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseAction'
+        - type: object
+          required: [keyword]
+          properties:
+            action: { type: string, enum: [searchproducts] }
+            keyword: { type: string }
+            category_id: { type: string, nullable: true }
+
+    CreateCustomerRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseAction'
+        - type: object
+          required: [name, phone]
+          properties:
+            action: { type: string, enum: [createcustomer] }
+            name: { type: string }
+            phone: { type: string }
+            email: { type: string, nullable: true }
+            company: { type: string, nullable: true }
+            address: { type: string, nullable: true }
+            city: { type: string, nullable: true }
+            state: { type: string, nullable: true }
+            state_code: { type: string, nullable: true }
+            postal_code: { type: string, nullable: true }
+            country: { type: string, nullable: true }
+            password: { type: string, nullable: true }
+
+    LoginCheckRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseAction'
+        - type: object
+          required: [login, password]
+          properties:
+            action: { type: string, enum: [logincheck] }
+            login: { type: string }
+            password: { type: string }
+
+    GetAddressesRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseAction'
+        - type: object
+          required: [customer_id]
+          properties:
+            action: { type: string, enum: [getaddresses] }
+            customer_id: { type: integer }
+            address_id: { type: integer, nullable: true }
+
+    AddAddressRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseAction'
+        - type: object
+          properties:
+            action: { type: string, enum: [addaddress] }
+            customer_id: { type: integer, nullable: true }
+            company_id: { type: integer, nullable: true }
+            address_name: { type: string, nullable: true }
+            company_name: { type: string, nullable: true }
+            line1: { type: string, nullable: true }
+            line2: { type: string, nullable: true }
+            city: { type: string, nullable: true }
+            postal_code: { type: string, nullable: true }
+            state: { type: string, nullable: true }
+            state_code: { type: string, nullable: true }
+            country: { type: string, nullable: true }
+            phone: { type: string, nullable: true }
+            email: { type: string, nullable: true }
+            email_id: { type: string, nullable: true }
+            address_type: { type: string, nullable: true }
+
+    UpdateAddressRequest:
+      allOf:
+        - $ref: '#/components/schemas/AddAddressRequest'
+        - type: object
+          required: [address_id]
+          properties:
+            action: { type: string, enum: [updateaddress] }
+            address_id: { type: integer }
+
+    DeleteAddressRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseAction'
+        - type: object
+          required: [address_id]
+          properties:
+            action: { type: string, enum: [deleteaddress] }
+            customer_id: { type: integer, nullable: true }
+            company_id: { type: integer, nullable: true }
+            address_id: { type: integer }
+
+    SetAddressDefaultRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseAction'
+        - type: object
+          required: [address_id]
+          properties:
+            action: { type: string, enum: [setaddressdefault] }
+            customer_id: { type: integer, nullable: true }
+            company_id: { type: integer, nullable: true }
+            address_id: { type: integer }
+
+    AddOrderRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseAction'
+        - type: object
+          required: [order, items]
+          properties:
+            action: { type: string, enum: [addorder] }
+            order:
+              type: string
+              description: JSON string of order object.
+            items:
+              type: string
+              description: JSON string of order lines array.
+
+    GetOrderRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseAction'
+        - type: object
+          properties:
+            action: { type: string, enum: [getorder] }
+            order_id: { type: integer, nullable: true }
+            reference_no: { type: string, nullable: true }
+
+    CancelOrderRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseAction'
+        - type: object
+          properties:
+            action: { type: string, enum: [cancelorder] }
+            order_id: { type: integer, nullable: true }
+            reference_no: { type: string, nullable: true }
+            reason: { type: string, nullable: true }
+
+    ApplyCouponRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseAction'
+        - type: object
+          required: [coupon_code]
+          properties:
+            action: { type: string, enum: [applycoupon] }
+            coupon_code: { type: string }
+            cart_total: { type: number, format: float, nullable: true }
+
+    GetWishlistRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseAction'
+        - type: object
+          required: [user_id]
+          properties:
+            action: { type: string, enum: [getwishlist] }
+            user_id: { type: integer }
+
+    AddWishlistRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseAction'
+        - type: object
+          required: [user_id, product_id]
+          properties:
+            action: { type: string, enum: [addwishlist] }
+            user_id: { type: integer }
+            product_id: { type: integer }
+            option_id: { type: integer, nullable: true }
+
+    RemoveWishlistRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseAction'
+        - type: object
+          required: [user_id, product_id]
+          properties:
+            action: { type: string, enum: [removewishlist] }
+            user_id: { type: integer }
+            product_id: { type: integer }
+            option_id: { type: integer, nullable: true }
+
+    SubmitProductReviewRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseAction'
+        - type: object
+          required: [product_id, rating, review]
+          properties:
+            action: { type: string, enum: [submitproductreview] }
+            product_id: { type: integer }
+            rating: { type: integer, minimum: 1, maximum: 5 }
+            review: { type: string }
+            review_title: { type: string, nullable: true }
+            customer_name: { type: string, nullable: true }
+            customer_id: { type: integer, nullable: true }
+            product_name: { type: string, nullable: true }
+            variant_id: { type: integer, nullable: true }
+            variant_name: { type: string, nullable: true }
+
+    GetProductReviewsRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseAction'
+        - type: object
+          required: [product_id]
+          properties:
+            action: { type: string, enum: [getproductreviews] }
+            product_id: { type: integer }
+            limit: { type: integer, nullable: true }
+
+    GetProductRatingRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseAction'
+        - type: object
+          required: [product_id]
+          properties:
+            action: { type: string, enum: [getproductrating] }
+            product_id: { type: integer }
+
+    SubmitContactLeadRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseAction'
+        - type: object
+          properties:
+            action: { type: string, enum: [submitcontactlead] }
+            name: { type: string, nullable: true }
+            full_name: { type: string, nullable: true }
+            phone: { type: string, nullable: true }
+            mobile: { type: string, nullable: true }
+            email: { type: string, nullable: true }
+            message: { type: string, nullable: true }
+            comments: { type: string, nullable: true }
+            source: { type: string, nullable: true }
+
+    # Responses
+    GetSettingsResponse:
+      type: object
+      properties:
+        status: { type: string, enum: [SUCCESS] }
+        webshop_settings:
+          type: object
+          additionalProperties: true
+        payment_gateways:
+          type: object
+          additionalProperties: true
+        website_setting:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+
+    GetCategoriesResponse:
+      type: object
+      properties:
+        status: { type: string, enum: [SUCCESS] }
+        categories:
+          type: object
+          additionalProperties: true
+
+    GetProductsListResponse:
+      type: object
+      properties:
+        status: { type: string, nullable: true, description: May be absent in normalized payload mode. }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductItem'
+        items_total: { type: integer }
+        page: { type: integer }
+
+    GetProductByHashResponse:
+      type: object
+      properties:
+        status: { type: string, enum: [SUCCESS] }
+        item:
+          $ref: '#/components/schemas/ProductItem'
+        variants:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        images:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        stocks:
+          type: object
+          additionalProperties: true
+
+    SearchProductsResponse:
+      type: object
+      properties:
+        status: { type: string, enum: [SUCCESS] }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductItem'
+        other:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductItem'
+
+    CreateCustomerResponse:
+      type: object
+      properties:
+        status: { type: string, enum: [SUCCESS, ERROR] }
+        customer:
+          type: object
+          additionalProperties: true
+        msg: { type: string, nullable: true }
+
+    LoginCheckResponse:
+      type: object
+      properties:
+        status: { type: string, enum: [SUCCESS, ERROR] }
+        customer:
+          type: object
+          additionalProperties: true
+        msg: { type: string, nullable: true }
+
+    GetAddressesResponse:
+      type: object
+      properties:
+        status: { type: string, enum: [SUCCESS, ERROR] }
+        addresses:
+          type: array
+          items:
+            $ref: '#/components/schemas/AddressItem'
+        msg: { type: string, nullable: true }
+
+    AddOrderResponse:
+      type: object
+      properties:
+        status: { type: string, enum: [SUCCESS, ERROR] }
+        order_id: { type: integer, nullable: true }
+        sale_id: { type: integer, nullable: true }
+        msg: { type: string, nullable: true }
+
+    GetWishlistResponse:
+      type: object
+      properties:
+        status: { type: string, enum: [SUCCESS, ERROR] }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WishlistItem'
+        count: { type: integer, nullable: true }
+        msg: { type: string, nullable: true }
+
+    GetProductReviewsResponse:
+      type: object
+      properties:
+        status: { type: string, enum: [SUCCESS, ERROR] }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewItem'
+        msg: { type: string, nullable: true }
+
+    GetProductRatingResponse:
+      type: object
+      properties:
+        status: { type: string, enum: [SUCCESS, ERROR] }
+        average: { type: number, format: float, nullable: true }
+        count: { type: integer, nullable: true }
+        msg: { type: string, nullable: true }

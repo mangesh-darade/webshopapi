@@ -1,0 +1,300 @@
+{
+  "info": {
+    "_postman_id": "9b6d5fc4-baf2-4cf9-8d95-d7f8f5a1b6a7",
+    "name": "ElintOm Third-Party Webshop API",
+    "description": "Action-based ElintOm webshop API collection. Set {{base_url}} and {{privatekey}} variables first.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Store Settings",
+      "item": [
+        {
+          "name": "getsettings",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "privatekey", "value": "{{privatekey}}", "type": "text" },
+                { "key": "action", "value": "getsettings", "type": "text" }
+              ]
+            },
+            "url": "{{base_url}}/webshop_api/index"
+          }
+        },
+        {
+          "name": "getcmspage",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "privatekey", "value": "{{privatekey}}", "type": "text" },
+                { "key": "action", "value": "getcmspage", "type": "text" },
+                { "key": "url", "value": "/about-us", "type": "text" }
+              ]
+            },
+            "url": "{{base_url}}/webshop_api/index"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Catalog",
+      "item": [
+        {
+          "name": "getcategories",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "privatekey", "value": "{{privatekey}}", "type": "text" },
+                { "key": "action", "value": "getcategories", "type": "text" }
+              ]
+            },
+            "url": "{{base_url}}/webshop_api/index"
+          }
+        },
+        {
+          "name": "getproductslist (category)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "privatekey", "value": "{{privatekey}}", "type": "text" },
+                { "key": "action", "value": "getproductslist", "type": "text" },
+                { "key": "by", "value": "category", "type": "text" },
+                { "key": "byid", "value": "1", "type": "text" },
+                { "key": "use_hash", "value": "0", "type": "text" },
+                { "key": "limit", "value": "12", "type": "text" },
+                { "key": "page", "value": "1", "type": "text" }
+              ]
+            },
+            "url": "{{base_url}}/webshop_api/index"
+          }
+        },
+        {
+          "name": "getproductbyhash",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "privatekey", "value": "{{privatekey}}", "type": "text" },
+                { "key": "action", "value": "getproductbyhash", "type": "text" },
+                { "key": "product_hash", "value": "c4ca4238a0b923820dcc509a6f75849b", "type": "text" }
+              ]
+            },
+            "url": "{{base_url}}/webshop_api/index"
+          }
+        },
+        {
+          "name": "searchproducts",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "privatekey", "value": "{{privatekey}}", "type": "text" },
+                { "key": "action", "value": "searchproducts", "type": "text" },
+                { "key": "keyword", "value": "omega", "type": "text" }
+              ]
+            },
+            "url": "{{base_url}}/webshop_api/index"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customer & Address",
+      "item": [
+        {
+          "name": "createcustomer",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "privatekey", "value": "{{privatekey}}", "type": "text" },
+                { "key": "action", "value": "createcustomer", "type": "text" },
+                { "key": "name", "value": "Demo Customer", "type": "text" },
+                { "key": "phone", "value": "9999999999", "type": "text" },
+                { "key": "email", "value": "demo@example.com", "type": "text" }
+              ]
+            },
+            "url": "{{base_url}}/webshop_api/index"
+          }
+        },
+        {
+          "name": "logincheck",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "privatekey", "value": "{{privatekey}}", "type": "text" },
+                { "key": "action", "value": "logincheck", "type": "text" },
+                { "key": "login", "value": "9999999999", "type": "text" },
+                { "key": "password", "value": "123456", "type": "text" }
+              ]
+            },
+            "url": "{{base_url}}/webshop_api/index"
+          }
+        },
+        {
+          "name": "addaddress",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "privatekey", "value": "{{privatekey}}", "type": "text" },
+                { "key": "action", "value": "addaddress", "type": "text" },
+                { "key": "customer_id", "value": "1", "type": "text" },
+                { "key": "address_name", "value": "Home", "type": "text" },
+                { "key": "line1", "value": "Street 1", "type": "text" },
+                { "key": "city", "value": "Muscat", "type": "text" },
+                { "key": "country", "value": "Oman", "type": "text" },
+                { "key": "phone", "value": "9999999999", "type": "text" }
+              ]
+            },
+            "url": "{{base_url}}/webshop_api/index"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Order Flow",
+      "item": [
+        {
+          "name": "addorder",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "privatekey", "value": "{{privatekey}}", "type": "text" },
+                { "key": "action", "value": "addorder", "type": "text" },
+                { "key": "order", "value": "{\"customer_id\":1,\"reference_no\":\"ES-20260528-0001\"}", "type": "text" },
+                { "key": "items", "value": "[{\"product_id\":1,\"product_name\":\"Sample\",\"quantity\":1,\"unit_price\":100}]", "type": "text" }
+              ]
+            },
+            "url": "{{base_url}}/webshop_api/index"
+          }
+        },
+        {
+          "name": "getorder",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "privatekey", "value": "{{privatekey}}", "type": "text" },
+                { "key": "action", "value": "getorder", "type": "text" },
+                { "key": "order_id", "value": "1", "type": "text" }
+              ]
+            },
+            "url": "{{base_url}}/webshop_api/index"
+          }
+        },
+        {
+          "name": "cancelorder",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "privatekey", "value": "{{privatekey}}", "type": "text" },
+                { "key": "action", "value": "cancelorder", "type": "text" },
+                { "key": "order_id", "value": "1", "type": "text" },
+                { "key": "reason", "value": "Payment cancelled", "type": "text" }
+              ]
+            },
+            "url": "{{base_url}}/webshop_api/index"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Commerce Utilities",
+      "item": [
+        {
+          "name": "applycoupon",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "privatekey", "value": "{{privatekey}}", "type": "text" },
+                { "key": "action", "value": "applycoupon", "type": "text" },
+                { "key": "coupon_code", "value": "WELCOME10", "type": "text" },
+                { "key": "cart_total", "value": "250", "type": "text" }
+              ]
+            },
+            "url": "{{base_url}}/webshop_api/index"
+          }
+        },
+        {
+          "name": "getwishlist",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "privatekey", "value": "{{privatekey}}", "type": "text" },
+                { "key": "action", "value": "getwishlist", "type": "text" },
+                { "key": "user_id", "value": "1", "type": "text" }
+              ]
+            },
+            "url": "{{base_url}}/webshop_api/index"
+          }
+        },
+        {
+          "name": "submitcontactlead",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "privatekey", "value": "{{privatekey}}", "type": "text" },
+                { "key": "action", "value": "submitcontactlead", "type": "text" },
+                { "key": "name", "value": "John Doe", "type": "text" },
+                { "key": "phone", "value": "9999999999", "type": "text" },
+                { "key": "email", "value": "john@example.com", "type": "text" },
+                { "key": "message", "value": "Need product info", "type": "text" }
+              ]
+            },
+            "url": "{{base_url}}/webshop_api/index"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "base_url", "value": "http://localhost/ElintOm" },
+    { "key": "privatekey", "value": "PUT_YOUR_API_PRIVATE_KEY_HERE" }
+  ]
+}
