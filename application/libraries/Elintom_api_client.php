@@ -70,6 +70,35 @@ class Elintom_api_client {
     public function get_last_error()        { return $this->last_error; }
     public function get_last_raw_response() { return $this->last_raw;   }
 
+    /**
+     * Validate HTTP_HOST once before using it in outbound context fields.
+     */
+    protected function _safe_http_host($keep_port = false) {
+        if (!isset($_SERVER['HTTP_HOST'])) {
+            return '';
+        }
+        $raw = trim((string) $_SERVER['HTTP_HOST']);
+        if ($raw === '') {
+            return '';
+        }
+        $raw = preg_replace('/[\x00-\x1F\x7F]/', '', $raw);
+        if ($raw === '') {
+            return '';
+        }
+        if (!preg_match('/^([a-z0-9.-]+)(?::(\d{1,5}))?$/i', $raw, $m)) {
+            return '';
+        }
+        $host = strtolower($m[1]);
+        $port = isset($m[2]) ? (int) $m[2] : 0;
+        if ($host === '' || $host[0] === '.' || substr($host, -1) === '.') {
+            return '';
+        }
+        if ($port < 0 || $port > 65535) {
+            return '';
+        }
+        return ($keep_port && $port > 0) ? ($host . ':' . $port) : $host;
+    }
+
     protected function _api_success($res) {
         return $res && isset($res->status) && strtoupper((string) $res->status) === 'SUCCESS';
     }
@@ -794,10 +823,10 @@ class Elintom_api_client {
      * ElintOm may use http_host / subdomain to pick sma_settings + assets/mdata/{folder}/.
      */
     protected function _tenant_context_fields() {
-        if (!isset($_SERVER['HTTP_HOST']) || (string) $_SERVER['HTTP_HOST'] === '') {
+        $host = $this->_safe_http_host(false);
+        if ($host === '') {
             return array();
         }
-        $host = strtolower(trim((string) $_SERVER['HTTP_HOST']));
         $parts = explode('.', $host);
         $sub = isset($parts[0]) ? preg_replace('/[^a-zA-Z0-9_-]/', '', $parts[0]) : '';
         if ($sub === 'www' && isset($parts[1])) {

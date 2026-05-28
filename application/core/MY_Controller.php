@@ -573,8 +573,8 @@ class MY_Controller extends CI_Controller {
             }
             $help_steps[] = 'Log in to ElintOm at <strong>' . htmlspecialchars(rtrim($api_base, '/'), ENT_QUOTES, 'UTF-8') . '</strong> (or your POS URL).';
             $help_steps[] = 'Open <strong>Settings</strong> and copy the <strong>API private key</strong> (<code>sma_settings.api_privatekey</code>).';
-            $help_steps[] = 'Paste that exact value into <code>application/config/elintom_api_switch.php</code> for your host profile (<code>webshop.elintpos.in</code> → <code>gulfpharmacy_testing</code>), or into <code>elintom_api.local.php</code> on the server.';
-            $help_steps[] = 'Remove any old or duplicate key in <code>elintom_api.local.php</code> that overrides the switch with a wrong value.';
+            $help_steps[] = 'Paste that exact value into <code>application/config/elintom_api_switch.php</code> for your host profile (<code>webshop.elintpos.in</code> → <code>gulfpharmacy_testing</code>).';
+            $help_steps[] = 'Remove any old or duplicate API key from inactive switch profiles that can cause confusion.';
             $help_steps[] = 'Reload this page after saving the file.';
         } elseif ($raw !== null && stripos((string) $raw, '<!DOCTYPE') !== false) {
             $title = 'ElintOm database error';
@@ -591,7 +591,7 @@ class MY_Controller extends CI_Controller {
             $detail_lines[] = 'PHP cURL could not verify the HTTPS certificate for the ElintOm server.';
             $help_steps[] = 'This app ships <code>application/libraries/cacert.pem</code> and uses it automatically — reload this page after updating webshopapi.';
             $help_steps[] = 'Or set <code>curl.cainfo</code> in <code>php.ini</code> to that file (WAMP: PHP → php.ini → search <code>curl.cainfo</code>).';
-            $help_steps[] = 'Last resort (local dev only): in <code>elintom_api.local.php</code> add <code>$config[\'elintom_api_ssl_verify\'] = false;</code> — do not use on production.';
+            $help_steps[] = 'Last resort (local dev only): in <code>application/config/elintom_api_switch.php</code> set profile key <code>ssl_verify</code> to <code>false</code> — do not use on production.';
         } elseif (!$is_json_error) {
             $title = 'Cannot connect to ElintOm';
             $help_steps[] = 'Confirm <code>elintom_api_base_url</code> in <code>elintom_api_switch.php</code> matches your POS URL.';

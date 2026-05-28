@@ -182,7 +182,7 @@ if ($bodyHtml !== '') {
                     <h1 class="gp-cms-page-title"><?= htmlspecialchars((string) $page_title, ENT_QUOTES, 'UTF-8') ?></h1>
                     <?php endif; ?>
                     <?php if (!empty($cms_page_load_error)): ?>
-                    <p class="gp-cms-empty-notice">CMS content is missing. On WAMP: open <a href="http://localhost/ElintOm/install_cms_schema.php">install_cms_schema.php</a> once, then add or edit the page in ElintOm → CMS Pages. Ensure <code>application/config/elintom_api.local.php</code> uses <code>http://localhost/ElintOm/</code> and your ElintOm API private key.</p>
+                    <p class="gp-cms-empty-notice">CMS content is missing. On WAMP: open <a href="http://localhost/ElintOm/install_cms_schema.php">install_cms_schema.php</a> once, then add or edit the page in ElintOm → CMS Pages. Ensure your host profile in <code>application/config/elintom_api_switch.php</code> uses <code>http://localhost/ElintOm/</code> and your ElintOm API private key.</p>
                     <?php else: ?>
                     <p class="gp-cms-empty-notice">No content has been published for this page yet. Add HTML blocks or sections in ElintOm → CMS Pages.</p>
                     <?php endif; ?>

@@ -32,6 +32,32 @@ class Webshop_api_model extends CI_Model {
     /** @var bool Memo guard so home_page_data() hits CMS/API at most once per HTTP request */
     protected $_home_page_data_memo_set = false;
 
+    protected function safe_http_host($keep_port = true) {
+        if (!isset($_SERVER['HTTP_HOST'])) {
+            return '';
+        }
+        $raw = trim((string) $_SERVER['HTTP_HOST']);
+        if ($raw === '') {
+            return '';
+        }
+        $raw = preg_replace('/[\x00-\x1F\x7F]/', '', $raw);
+        if ($raw === '') {
+            return '';
+        }
+        if (!preg_match('/^([a-z0-9.-]+)(?::(\d{1,5}))?$/i', $raw, $m)) {
+            return '';
+        }
+        $host = strtolower($m[1]);
+        $port = isset($m[2]) ? (int) $m[2] : 0;
+        if ($host === '' || $host[0] === '.' || substr($host, -1) === '.') {
+            return '';
+        }
+        if ($port < 0 || $port > 65535) {
+            return '';
+        }
+        return ($keep_port && $port > 0) ? ($host . ':' . $port) : $host;
+    }
+
     /** @var stdClass|null Memoized return value for home_page_data() */
     protected $_home_page_data_memo = null;
 
@@ -205,7 +231,7 @@ class Webshop_api_model extends CI_Model {
 
     /**
      * Base URL for POS mdata (logos, banner, products, thumbs). Priority:
-     *   1) config elintom_media_uploads_base_url when non-empty (elintom_api.local.php override / CDN)
+     *   1) config elintom_media_uploads_base_url when non-empty (switch profile / CDN override)
      *   2) getsettings: media_uploads_base_url / mdata_url (MY_Controller::$api_media_uploads_base)
      *   3) elintom_api_base_url + folder: MY_Controller::$Customer_assets (subdomain / API) then config fallback
      *      Path shape: …/assets/mdata/{HTTP_HOST}/uploads/ when elintom_mdata_include_http_host_segment is TRUE
@@ -214,7 +240,7 @@ class Webshop_api_model extends CI_Model {
     public function get_media_uploads_base() {
         $CI = get_instance();
         $this->config->load('elintom_api', true);
-        /* Non-empty config wins first (elintom_api.local.php / CDN override). */
+        /* Non-empty config wins first (switch profile / CDN override). */
         $media_base_url_from_config = $this->config->item('elintom_media_uploads_base_url', 'elintom_api');
         if (is_string($media_base_url_from_config) && trim($media_base_url_from_config) !== '') {
             return rtrim(str_replace('\\', '/', $media_base_url_from_config), '/') . '/';
@@ -242,17 +268,15 @@ class Webshop_api_model extends CI_Model {
         }
         $folder_path_after_mdata = elintom_mdata_uploads_tail_path($customer_assets_folder_name);
         if (is_string($elintom_base_url) && trim($elintom_base_url) !== '') {
-            if ($use_browser_host_for_media_urls && isset($_SERVER['HTTP_HOST']) && (string) $_SERVER['HTTP_HOST'] !== '') {
+            $safe_host_for_media = $this->safe_http_host(true);
+            if ($use_browser_host_for_media_urls && $safe_host_for_media !== '') {
                 $parts_of_elintom_base_url     = parse_url($elintom_base_url);
                 $path_from_elintom_url         = isset($parts_of_elintom_base_url['path'])
                     ? trim(str_replace('\\', '/', $parts_of_elintom_base_url['path']), '/')
                     : '';
                 $slash_path_to_elintom_app     = ($path_from_elintom_url === '') ? '/' : '/' . $path_from_elintom_url . '/';
                 $url_scheme_http_or_https      = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-                if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower((string) $_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https') {
-                    $url_scheme_http_or_https = 'https';
-                }
-                return $url_scheme_http_or_https . '://' . $_SERVER['HTTP_HOST'] . $slash_path_to_elintom_app
+                return $url_scheme_http_or_https . '://' . $safe_host_for_media . $slash_path_to_elintom_app
                     . 'assets/mdata/' . $folder_path_after_mdata;
             }
             $elintom_root_without_trailing_slash = rtrim(str_replace('\\', '/', $elintom_base_url), '/');

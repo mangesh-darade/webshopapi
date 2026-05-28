@@ -38,8 +38,6 @@ $RECYCLE.BIN/
 
 # Project is CodeIgniter 3 only (Webshop AI). CI4 paths below may not exist.
 
-application/config/elintom_api.local.php
-
 #-------------------------
 # Environment Files
 #-------------------------
