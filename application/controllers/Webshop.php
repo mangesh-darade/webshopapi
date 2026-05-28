@@ -504,14 +504,23 @@ XSL;
             // wishlist get header/footer from theme_loader (page_open/page_close).
             $candidates = [
                 $themeFolder . '/pages/' . $baseName,
-                $themeFolder . '/components/' . $baseName,
-                $themeFolder . '/' . $baseName
+                $themeFolder . '/components/' . $baseName
             ];
 
             foreach ($candidates as $cand) {
                 $path = VIEWPATH . 'plane_vanila_theme/' . $cand . '.php';
                 if (is_file($path)) {
                     return 'plane_vanila_theme/' . $cand;
+                }
+            }
+
+            // Legacy theme page shells that may not yet be migrated into pages/components.
+            // Keep this narrow to avoid broad duplicate-path routing.
+            if (in_array($baseName, array('index'), true)) {
+                $legacyCand = $themeFolder . '/' . $baseName;
+                $legacyPath = VIEWPATH . 'plane_vanila_theme/' . $legacyCand . '.php';
+                if (is_file($legacyPath)) {
+                    return 'plane_vanila_theme/' . $legacyCand;
                 }
             }
         }

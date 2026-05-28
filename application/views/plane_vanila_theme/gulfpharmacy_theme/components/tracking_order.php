@@ -96,7 +96,7 @@ $assets_fn = function_exists('webshop_theme_assets_url') ? 'webshop_theme_assets
 </head>
 <body>
 
-<?php include_once('header.php'); ?>
+<?php require_once webshop_plane_vanila_view_file('header'); ?>
 
 <main class="to-shell">
     <div class="to-card">
@@ -236,7 +236,7 @@ $assets_fn = function_exists('webshop_theme_assets_url') ? 'webshop_theme_assets
     </div>
 </main>
 
-<?php include_once('footer.php'); ?>
+<?php require_once webshop_plane_vanila_view_file('footer'); ?>
 
 <?php if ($has_tracking && $order_id_num > 0 && $is_logged_in): ?>
 <script>

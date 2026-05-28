@@ -77,7 +77,7 @@ $pw_status    = isset($password_status) ? (string) $password_status : '';
 <body>
 <div class="gp-site-wrapper">
 
-<?php include_once('header.php'); ?>
+<?php require_once webshop_plane_vanila_view_file('header'); ?>
 
 <main class="ma-shell">
     <!-- Sidebar / tabs -->
@@ -536,7 +536,7 @@ $pw_status    = isset($password_status) ? (string) $password_status : '';
     </form>
 </div>
 
-<?php $gp_footer_styles_in_head = true; include_once('footer.php'); ?>
+<?php $gp_footer_styles_in_head = true; require_once webshop_plane_vanila_view_file('footer'); ?>
 
 </div><!-- /.gp-site-wrapper -->
 <script>window.GP_MA_CTX=<?= json_encode(array(

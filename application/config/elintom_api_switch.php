@@ -61,9 +61,9 @@ $elintom_switch_profiles = array(
         'customer_assets_folder'          => 'herbinnmicromedicines',
         'mdata_include_http_host_segment' => false,
         'media_use_http_host'             => false,
-        'webshop_theme'                   => 'herbinnwellness',
-        'theme_view_folder'               => 'herbinnwellness',
-        'theme_assets_directory'          => 'herbinnwellness',
+        'webshop_theme'                      => 'gulfpharmacy',
+        'theme_view_folder'                  => 'gulfpharmacy_theme',
+        'theme_assets_directory'             => 'gulfpharmacy_theme',
     ),
 );
 

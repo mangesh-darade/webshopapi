@@ -19,6 +19,46 @@
     }
 
     document.addEventListener('DOMContentLoaded', function () {
+        var sameCheckElement = document.getElementById('billtocopy');
+        var shippingDiv = document.getElementById('usershipping');
+        var sameAddressCheckInput = document.getElementById('billing_and_shipping_address_is_same');
+
+        function toggleShippingInputs(enabled) {
+            if (!shippingDiv) {
+                return;
+            }
+            var shippingInputs = shippingDiv.querySelectorAll('input, select, textarea, button');
+            for (var i = 0; i < shippingInputs.length; i++) {
+                if (enabled) {
+                    shippingInputs[i].removeAttribute('disabled');
+                } else {
+                    shippingInputs[i].setAttribute('disabled', 'disabled');
+                }
+            }
+        }
+
+        function syncSameAsBillingUi() {
+            if (!sameCheckElement || !shippingDiv || !sameAddressCheckInput) {
+                return;
+            }
+            if (sameCheckElement.checked) {
+                shippingDiv.hidden = true;
+                shippingDiv.style.display = 'none';
+                toggleShippingInputs(false);
+                sameAddressCheckInput.value = '1';
+                return;
+            }
+            shippingDiv.hidden = false;
+            shippingDiv.style.display = 'block';
+            toggleShippingInputs(true);
+            sameAddressCheckInput.value = '0';
+        }
+
+        if (sameCheckElement && shippingDiv && sameAddressCheckInput) {
+            syncSameAsBillingUi();
+            sameCheckElement.addEventListener('change', syncSameAsBillingUi);
+        }
+
         var billingCountry = document.getElementById('billing_country');
         var shippingCountry = document.getElementById('shipping_country');
         if (billingCountry && shippingCountry) {
