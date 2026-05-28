@@ -16,7 +16,10 @@ $theme = (isset($webshop_settings) && is_object($webshop_settings) && isset($web
     <?= isset($meta_tags) ? $meta_tags : '' ?>
     <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/common.css') ?>">
     <?php if (function_exists('webshop_csrf_pair')): ?>
-    <script>window.GP_CSRF=<?= json_encode(webshop_csrf_pair(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+    <?= $this->load->view(webshop_plane_vanila_view('components/js_bootstrap_var'), array(
+        'var_name'  => 'GP_CSRF',
+        'var_value' => webshop_csrf_pair(),
+    ), true) ?>
     <?php endif; ?>
 </head>
 <body>

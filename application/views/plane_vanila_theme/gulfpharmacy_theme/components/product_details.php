@@ -83,10 +83,13 @@ if ($_pd_lcp_img === '' && !empty($product) && is_array($product)) {
 <script defer src="<?= webshop_theme_assets_url('js/main.js?ver=200406') ?>"></script>
 <script defer src="<?= webshop_theme_assets_url('js/jquery.responsiveTabs.min.js') ?>"></script>
 <script defer src="//cdn.jsdelivr.net/jquery.slick/1.5.9/slick.min.js"></script>
-<script>window.GP_PRODUCT_DETAILS_CTX=<?= json_encode(array(
-    'base_url'        => base_url('webshop/'),
-    'currency_symbol' => isset($this->data['Settings']->symbol) ? $this->data['Settings']->symbol : 'Rs.',
-), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+<?= $this->load->view(webshop_plane_vanila_view('components/js_bootstrap_var'), array(
+    'var_name'  => 'GP_PRODUCT_DETAILS_CTX',
+    'var_value' => array(
+        'base_url'        => base_url('webshop/'),
+        'currency_symbol' => isset($this->data['Settings']->symbol) ? $this->data['Settings']->symbol : 'Rs.',
+    ),
+), true) ?>
 <script defer src="<?= webshop_theme_assets_url('js/product-details.js') ?>"></script>
 </body>
 </html>

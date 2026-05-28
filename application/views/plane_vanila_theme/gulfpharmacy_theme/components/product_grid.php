@@ -11,16 +11,12 @@ $cols     = (isset($cfg['columns_desktop']) && (int)$cfg['columns_desktop'] > 0)
 $uploadsB = isset($uploads) ? rtrim($uploads, '/') . '/' : base_url('assets/uploads/');
 $currency = (isset($webshop_settings) && is_object($webshop_settings) && isset($webshop_settings->currency_symbol))
           ? $webshop_settings->currency_symbol : '&#8377;';
-$appBasePath = rtrim(str_replace('\\', '/', dirname(isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : '')), '/');
-if ($appBasePath === '/' || $appBasePath === '\\' || $appBasePath === '.') {
-    $appBasePath = '';
-}
 $uid = 'pg' . rand(1000, 9999);
 if (empty($items)) return;
-$pg_assets = isset($assets) ? $assets : base_url('assets/webshop/');
 $_pg_wl_lookup = function_exists('webshop_view_wishlist_lookup')
     ? webshop_view_wishlist_lookup(isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : null)
     : (isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : array());
+$CI =& get_instance();
 ?>
 <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/product-grid.css?ver=20260526a') ?>">
 <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/wishlist-fav.css?ver=20260526a') ?>">
@@ -31,8 +27,9 @@ $_pg_wl_lookup = function_exists('webshop_view_wishlist_lookup')
     <div class="gp-product-grid gp-product-grid-<?= $cols ?>col">
         <?php foreach ($items as $p):
             $p     = is_object($p) ? (array)$p : (is_array($p) ? $p : array());
-            $img   = htmlspecialchars(webshop_product_image_src($uploadsB, isset($thumbs) ? $thumbs : '', $p), ENT_QUOTES, 'UTF-8');
-            $name  = htmlspecialchars(isset($p['name']) ? $p['name'] : '', ENT_QUOTES, 'UTF-8');
+            $productImageUrl = trim((string) webshop_product_image_src($uploadsB, isset($thumbs) ? $thumbs : '', $p));
+            $productNameRaw  = isset($p['name']) ? (string) $p['name'] : '';
+            $productNameEsc  = htmlspecialchars($productNameRaw, ENT_QUOTES, 'UTF-8');
             $_pgSettings = isset($Settings) ? $Settings : null;
             if (function_exists('webshop_product_list_card_pricing')) {
                 $_pgCard = webshop_product_list_card_pricing($p, $_pgSettings);
@@ -74,19 +71,21 @@ $_pg_wl_lookup = function_exists('webshop_view_wishlist_lookup')
         ?>
         <div class="gp-product-card<?= $pgUnavailable ? ' gp-product-card--unavailable' : '' ?>">
             <div class="gp-product-img-wrap">
-                <a href="<?= $url ?>" class="gp-product-img-link" data-product-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>">
-                <?php if ($img !== ''): ?>
-                <img src="<?= htmlspecialchars($img, ENT_QUOTES, 'UTF-8') ?>" alt="<?= $name ?>" class="gp-product-img" loading="lazy">
-                <?php else: ?>
-                <div class="gp-product-img-placeholder">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
+            <a href="<?= $url ?>" class="gp-product-img-link" data-product-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>">
+                <div class="gp-product-img-placeholder"<?= $productImageUrl !== '' ? ' style="display:none"' : '' ?>>
+                    <div class="gp-no-image-wrap">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
+                        <span class="gp-no-image-label">No image</span>
+                    </div>
                 </div>
+                <?php if ($productImageUrl !== ''): ?>
+                <img src="<?= htmlspecialchars($productImageUrl, ENT_QUOTES, 'UTF-8') ?>" alt="<?= $productNameEsc ?>" class="gp-product-img" loading="lazy" data-fallback-target=".gp-product-img-placeholder">
                 <?php endif; ?>
                 <?php if ($orig > 0): ?>
                 <span class="gp-product-badge">Sale</span>
                 <?php endif; ?>
-                </a>
-                <?php $CI =& get_instance(); $CI->load->view(webshop_plane_vanila_view('components/wishlist_card_button'), array(
+            </a>
+                <?php $CI->load->view(webshop_plane_vanila_view('components/wishlist_card_button'), array(
                     'product_id'      => $pId,
                     'variant_id'      => isset($_pgVid) ? $_pgVid : 0,
                     'wishlist_lookup' => $_pg_wl_lookup,
@@ -107,7 +106,7 @@ $_pg_wl_lookup = function_exists('webshop_view_wishlist_lookup')
                 if ($catName !== ''): ?>
                 <div class="gp-product-cat"><?= htmlspecialchars($catName, ENT_QUOTES, 'UTF-8') ?></div>
                 <?php endif; ?>
-                <a href="<?= $url ?>" class="gp-product-name" data-product-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>"><?= $name ?></a>
+                <a href="<?= $url ?>" class="gp-product-name" data-product-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>"><?= $productNameEsc ?></a>
                 <div class="gp-product-pricing">
                     <?php if ($price > 0): ?>
                     <span class="gp-price-current"><?= $currency ?><?= number_format($price, 2) ?></span>
@@ -134,3 +133,4 @@ $_pg_wl_lookup = function_exists('webshop_view_wishlist_lookup')
         <?php endforeach; ?>
     </div>
 </section>
+<script defer src="<?= webshop_theme_assets_url('js/image-fallback.js?ver=20260528a') ?>"></script>

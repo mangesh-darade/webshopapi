@@ -18,11 +18,6 @@ $theme = (isset($webshop_settings) && is_object($webshop_settings) && isset($web
     <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/common.css') ?>">
     <link rel="preload" href="<?= webshop_theme_assets_url('css/cart.css') ?>" as="style">
     <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/cart.css') ?>">
-    <style>
-    .cart-page-main{min-height:40vh}
-    .cart-container{max-width:1200px;margin:40px auto;padding:0 20px;font-family:Inter,system-ui,sans-serif}
-    .cart-title{font-size:2rem;margin:0 0 30px;color:var(--gp-text,#1a202c);font-weight:700;line-height:1.2}
-    </style>
 </head>
 <body>
 <div class="gp-site-wrapper">

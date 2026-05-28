@@ -2,9 +2,17 @@
 <?php
 /* cms_footer_section.php — Renders a CMS-driven footer block */
 $cfg      = isset($config) && is_array($config) ? $config : array();
-$navPages = isset($cfg['nav_pages']) && is_array($cfg['nav_pages']) ? $cfg['nav_pages']
-          : (isset($cms_footer_nav_pages) && is_array($cms_footer_nav_pages) ? $cms_footer_nav_pages
-          : (isset($cms_nav_pages) && is_array($cms_nav_pages) ? $cms_nav_pages : array()));
+$navPages = array();
+foreach (array(
+    isset($cfg['nav_pages']) ? $cfg['nav_pages'] : null,
+    isset($cms_footer_nav_pages) ? $cms_footer_nav_pages : null,
+    isset($cms_nav_pages) ? $cms_nav_pages : null,
+) as $candidatePages) {
+    if (is_array($candidatePages) && !empty($candidatePages)) {
+        $navPages = $candidatePages;
+        break;
+    }
+}
 $copyright= isset($cfg['copyright']) ? $cfg['copyright'] : ('&copy; ' . date('Y') . ' All rights reserved.');
 $bodyText = isset($cfg['content']) ? $cfg['content'] : '';
 // Optional section title typed in admin (saved as title/heading).
@@ -27,6 +35,9 @@ foreach (array('title', 'heading') as $k) {
                 <?php foreach ($navPages as $np):
                     $href  = isset($np['href'])  ? $np['href']  : (isset($np['url']) ? $np['url'] : '#');
                     $label = isset($np['title']) ? $np['title'] : (isset($np['page_name']) ? $np['page_name'] : '');
+                    if (trim((string) $label) === '') {
+                        continue;
+                    }
                 ?>
                 <li><a href="<?= htmlspecialchars($href, ENT_QUOTES,'UTF-8') ?>"><?= htmlspecialchars($label, ENT_QUOTES,'UTF-8') ?></a></li>
                 <?php endforeach; ?>
@@ -36,4 +47,4 @@ foreach (array('title', 'heading') as $k) {
         <p class="gp-cms-footer-copy"><?= $copyright ?></p>
     </div>
 </div>
-<link rel="stylesheet" href="<?= isset($assets) ? $assets : base_url('assets/webshop/') ?><?= webshop_theme_assets_url('css/components.css') ?>">
+<link rel="stylesheet" href="<?= htmlspecialchars(webshop_theme_assets_url('css/components.css'), ENT_QUOTES, 'UTF-8') ?>">

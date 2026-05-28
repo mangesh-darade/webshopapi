@@ -87,10 +87,10 @@ $pd_assets = isset($assets) ? $assets : base_url('assets/webshop/');
     <div class="pd-card pd-gallery">
       <div class="pd-thumbs" id="pdThumbs">
         <?php foreach ($gallery as $i => $img) { ?>
-          <div class="pd-thumb <?= $i === 0 ? 'active' : ''; ?>" data-full="<?= htmlspecialchars($img['full'], ENT_QUOTES, 'UTF-8'); ?>"><img loading="lazy" src="<?= htmlspecialchars($img['thumb'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?= htmlspecialchars($productName, ENT_QUOTES, 'UTF-8'); ?>" onerror="this.onerror=null;this.src='<?= $noImgSrcAttr ?>';"></div>
+          <div class="pd-thumb <?= $i === 0 ? 'active' : ''; ?>" data-full="<?= htmlspecialchars($img['full'], ENT_QUOTES, 'UTF-8'); ?>"><img loading="lazy" src="<?= htmlspecialchars($img['thumb'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?= htmlspecialchars($productName, ENT_QUOTES, 'UTF-8'); ?>" data-fallback-src="<?= $noImgSrcAttr ?>"></div>
         <?php } ?>
       </div>
-      <div class="pd-mainimg" id="pdMain"><img id="pdMainImg" src="<?= htmlspecialchars($gallery[0]['full'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?= htmlspecialchars($productName, ENT_QUOTES, 'UTF-8'); ?>" width="600" height="600" fetchpriority="high" decoding="sync" onerror="this.onerror=null;this.src='<?= $noImgSrcAttr ?>';"></div>
+      <div class="pd-mainimg" id="pdMain"><img id="pdMainImg" src="<?= htmlspecialchars($gallery[0]['full'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?= htmlspecialchars($productName, ENT_QUOTES, 'UTF-8'); ?>" width="600" height="600" fetchpriority="high" decoding="sync" data-fallback-src="<?= $noImgSrcAttr ?>"></div>
     </div>
     <div class="pd-card pd-summary">
       <div class="pd-head-row">
@@ -223,9 +223,14 @@ $pd_assets = isset($assets) ? $assets : base_url('assets/webshop/');
 
 </div>
 <?php $_pd_csrf = function_exists('webshop_csrf_pair') ? webshop_csrf_pair() : array('name' => '', 'hash' => ''); ?>
-<script>window.GP_CSRF=<?= json_encode($_pd_csrf, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+<?= $this->load->view(webshop_plane_vanila_view('components/js_bootstrap_var'), array(
+    'var_name'  => 'GP_CSRF',
+    'var_value' => $_pd_csrf,
+), true) ?>
 <script src="<?= webshop_theme_assets_url('js/webshop-csrf.js?ver=20260526c') ?>"></script>
-<script>window.GP_PD_CTX=<?= json_encode(array(
+<?= $this->load->view(webshop_plane_vanila_view('components/js_bootstrap_var'), array(
+    'var_name'  => 'GP_PD_CTX',
+    'var_value' => array(
     'no_image_src'        => $noImgSrc,
     'base_url'            => base_url('webshop/'),
     'webshop_request_url' => base_url('webshop/webshop_request'),
@@ -241,5 +246,7 @@ $pd_assets = isset($assets) ? $assets : base_url('assets/webshop/');
     'wishlist_lookup'     => function_exists('webshop_view_wishlist_lookup')
         ? webshop_view_wishlist_lookup(isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : null)
         : (isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : array()),
-), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+    ),
+), true) ?>
+<script defer src="<?= webshop_theme_assets_url('js/image-fallback.js?ver=20260528a') ?>"></script>
 <script defer src="<?= webshop_theme_assets_url('js/theme-product-details.js?ver=20260526h') ?>"></script>

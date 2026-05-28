@@ -1,6 +1,7 @@
 /* Cart component (.cart-*, .summary-row, .empty-cart-*) — tokens from common.css :root */
+.cart-page-main{min-height:40vh}
 .cart-container{font-family:'Inter',system-ui,sans-serif;max-width:1200px;margin:40px auto;padding:0 20px}
-.cart-title{font-size:2rem;margin-bottom:30px;color:var(--gp-text)}
+.cart-title{font-size:2rem;margin:0 0 30px;color:var(--gp-text,#1a202c);font-weight:700;line-height:1.2}
 .cart-grid{display:grid;grid-template-columns:1fr 350px;gap:30px}
 @media(max-width:992px){.cart-grid{grid-template-columns:1fr}}
 

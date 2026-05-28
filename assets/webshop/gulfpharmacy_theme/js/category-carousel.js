@@ -1,17 +1,16 @@
-// Shared carousel scroll helper + edge-state observer used by .gp-carousel
-// (product_carousel.php and any similar CMS carousels).
+// Category carousel scroll + edge-state observer.
 (function () {
     'use strict';
-    if (typeof window.gpc_scroll !== 'function') {
-        window.gpc_scroll = function (id, dir) {
-            var el = document.getElementById(id);
-            if (el) el.scrollBy({ left: dir * (window.innerWidth < 600 ? 200 : 260), behavior: 'smooth' });
-        };
+
+    function scrollCarousel(id, dir) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.scrollBy({ left: dir * (window.innerWidth < 600 ? 180 : 220), behavior: 'smooth' });
     }
 
     function wireOne(car) {
-        if (!car || car.__gp_carousel_wired) return;
-        car.__gp_carousel_wired = true;
+        if (!car || car.__gp_cc_wired) return;
+        car.__gp_cc_wired = true;
         var wrap = car.parentElement;
         if (!wrap) return;
         function updateEdges() {
@@ -27,23 +26,23 @@
 
     function bindButtons(scope) {
         var root = scope || document;
-        var buttons = root.querySelectorAll('.gp-carousel-btn[data-carousel-id][data-direction]');
+        var buttons = root.querySelectorAll('.gp-cc-btn[data-carousel-id][data-direction]');
         for (var i = 0; i < buttons.length; i++) {
             (function (btn) {
-                if (btn.__gp_btn_wired) return;
-                btn.__gp_btn_wired = true;
+                if (btn.__gp_cc_btn_wired) return;
+                btn.__gp_cc_btn_wired = true;
                 btn.addEventListener('click', function () {
                     var id = btn.getAttribute('data-carousel-id');
                     var dir = parseInt(btn.getAttribute('data-direction'), 10);
                     if (!id || !dir) return;
-                    window.gpc_scroll(id, dir);
+                    scrollCarousel(id, dir);
                 });
             })(buttons[i]);
         }
     }
 
     document.addEventListener('DOMContentLoaded', function () {
-        var nodes = document.querySelectorAll('.gp-carousel');
+        var nodes = document.querySelectorAll('.gp-cc-carousel');
         for (var i = 0; i < nodes.length; i++) wireOne(nodes[i]);
         bindButtons(document);
     });

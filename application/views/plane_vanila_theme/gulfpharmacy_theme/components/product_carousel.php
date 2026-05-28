@@ -11,15 +11,11 @@ $uploadsB = isset($uploads) ? rtrim($uploads, '/') . '/' : '';
 $uid     = 'pc' . rand(1000, 9999);
 $currency = (isset($webshop_settings) && is_object($webshop_settings) && isset($webshop_settings->currency_symbol))
           ? $webshop_settings->currency_symbol : '&#8377;';
-$appBasePath = rtrim(str_replace('\\', '/', dirname(isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : '')), '/');
-if ($appBasePath === '/' || $appBasePath === '\\' || $appBasePath === '.') {
-    $appBasePath = '';
-}
 if (empty($items)) return;
-$pc_assets = isset($assets) ? $assets : base_url('assets/webshop/');
 $_pc_wl_lookup = function_exists('webshop_view_wishlist_lookup')
     ? webshop_view_wishlist_lookup(isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : null)
     : (isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : array());
+$CI =& get_instance();
 ?>
 <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/product-carousel.css?ver=20260526a') ?>">
 <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/wishlist-fav.css?ver=20260526a') ?>">
@@ -28,14 +24,15 @@ $_pc_wl_lookup = function_exists('webshop_view_wishlist_lookup')
     <h2 class="cms-pc-title"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h2>
     <?php endif; ?>
     <div class="gp-carousel-wrap">
-        <button type="button" class="gp-carousel-btn gp-carousel-prev" onclick="gpc_scroll('<?= $uid ?>',-1)" aria-label="Previous">
+        <button type="button" class="gp-carousel-btn gp-carousel-prev" data-carousel-id="<?= $uid ?>" data-direction="-1" aria-label="Previous">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
         <div class="gp-carousel" id="<?= $uid ?>">
             <?php foreach ($items as $p):
                 $p     = is_object($p) ? (array)$p : (is_array($p) ? $p : array());
-                $img   = webshop_product_image_src($uploadsB, isset($thumbs) ? $thumbs : '', $p);
-                $name  = isset($p['name']) ? (string) $p['name'] : '';
+                $productImageUrl = trim((string) webshop_product_image_src($uploadsB, isset($thumbs) ? $thumbs : '', $p));
+                $productNameRaw  = isset($p['name']) ? (string) $p['name'] : '';
+                $productNameEsc  = htmlspecialchars($productNameRaw, ENT_QUOTES, 'UTF-8');
                 $_pcSettings = isset($Settings) ? $Settings : null;
                 if (function_exists('webshop_product_list_card_pricing')) {
                     $_pcCard = webshop_product_list_card_pricing($p, $_pcSettings);
@@ -75,22 +72,24 @@ $_pc_wl_lookup = function_exists('webshop_view_wishlist_lookup')
                 <article class="gp-pc-card<?= $pcUnavailable ? ' gp-pc-card--unavailable' : '' ?>">
                     <div class="gp-pc-img-wrap">
                         <a href="<?= $url ?>" class="gp-pc-img-link" data-product-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>">
-                        <?php if ($img !== ''): ?>
-                        <img src="<?= htmlspecialchars($img, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>" loading="lazy" class="gp-pc-img">
-                        <?php else: ?>
-                        <div class="gp-pc-img-placeholder">
-                             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
-                        </div>
-                        <?php endif; ?>
+                            <div class="gp-pc-img-placeholder"<?= $productImageUrl !== '' ? ' style="display:none"' : '' ?>>
+                                <div class="gp-no-image-wrap">
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
+                                    <span class="gp-no-image-label">No image</span>
+                                </div>
+                            </div>
+                            <?php if ($productImageUrl !== ''): ?>
+                            <img src="<?= htmlspecialchars($productImageUrl, ENT_QUOTES, 'UTF-8') ?>" alt="<?= $productNameEsc ?>" loading="lazy" class="gp-pc-img" data-fallback-target=".gp-pc-img-placeholder">
+                            <?php endif; ?>
                         </a>
-                        <?php $CI =& get_instance(); $CI->load->view(webshop_plane_vanila_view('components/wishlist_card_button'), array(
+                        <?php $CI->load->view(webshop_plane_vanila_view('components/wishlist_card_button'), array(
                             'product_id'      => $pId,
                             'variant_id'      => isset($_pcVid) ? $_pcVid : 0,
                             'wishlist_lookup' => $_pc_wl_lookup,
                         )); ?>
                     </div>
                     <div class="gp-pc-info">
-                        <a href="<?= $url ?>" class="gp-product-name" data-product-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?></a>
+                        <a href="<?= $url ?>" class="gp-product-name" data-product-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>"><?= $productNameEsc ?></a>
                         <div class="gp-pc-pricing">
                             <?php if ($price > 0): ?>
                             <span class="gp-price-current"><?= $currency ?><?= number_format($price, 2) ?></span>
@@ -114,9 +113,10 @@ $_pc_wl_lookup = function_exists('webshop_view_wishlist_lookup')
             </div>
             <?php endforeach; ?>
         </div>
-        <button type="button" class="gp-carousel-btn gp-carousel-next" onclick="gpc_scroll('<?= $uid ?>',1)" aria-label="Next">
+        <button type="button" class="gp-carousel-btn gp-carousel-next" data-carousel-id="<?= $uid ?>" data-direction="1" aria-label="Next">
              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
         </button>
     </div>
 </section>
 <script defer src="<?= webshop_theme_assets_url('js/product-carousel.js') ?>"></script>
+<script defer src="<?= webshop_theme_assets_url('js/image-fallback.js?ver=20260528a') ?>"></script>
