@@ -40,12 +40,13 @@ class Cms_direct_db {
     }
 
     /**
-     * Published pages for header nav (mirrors ElintOm Cms_model::getPublishedPages).
+     * Published pages for header/footer nav (mirrors ElintOm Cms_model::getPublishedPages).
      *
-     * @param array<int,string> $page_types
+     * @param array<int,string>   $page_types
+     * @param string|null         $placement header|footer|null (all)
      * @return array<int,array<string,mixed>>
      */
-    public function list_published_pages(array $page_types = array('static')) {
+    public function list_published_pages(array $page_types = array('static'), $placement = null) {
         if (!$this->is_ready()) {
             return array();
         }
@@ -56,7 +57,19 @@ class Cms_direct_db {
             $select[] = 'nav_order';
             $order = 'ORDER BY `nav_order` ASC, `page_name` ASC, `id` ASC';
         }
+        if ($this->column_exists('pages', 'show_in_header')) {
+            $select[] = 'show_in_header';
+        }
+        if ($this->column_exists('pages', 'show_in_footer')) {
+            $select[] = 'show_in_footer';
+        }
         $sql = 'SELECT `' . implode('`, `', $select) . "` FROM `{$pages}` WHERE `status` = 'published'";
+        $placement = strtolower(trim((string) $placement));
+        if ($placement === 'header' && $this->column_exists('pages', 'show_in_header')) {
+            $sql .= ' AND `show_in_header` = 1';
+        } elseif ($placement === 'footer' && $this->column_exists('pages', 'show_in_footer')) {
+            $sql .= ' AND `show_in_footer` = 1';
+        }
         if (!empty($page_types)) {
             $types = array();
             foreach ($page_types as $type) {

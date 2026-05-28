@@ -385,20 +385,25 @@ class Elintom_api_response {
                 'page'        => $page,
             ));
         }
-        // ElintOm Webshop_model::get_products_list(use_hash=false) nests rows under subcategory_id keys.
+        // ElintOm Webshop_model::get_products_list(use_hash=false) may nest rows under subcategory_id keys
+        // (including "" when subcategory_id is null).
         $numericBuckets = array();
+        $reservedKeys = array('page', 'items_total', 'items', 'products', 'status', 'msg');
         foreach ($result as $k => $v) {
-            if ($k === 'page' || $k === 'items_total' || $k === 'items' || $k === 'products' || $k === 'status' || $k === 'msg') {
-                continue;
-            }
-            if (!is_numeric($k)) {
+            if (in_array($k, $reservedKeys, true)) {
                 continue;
             }
             if (!is_array($v)) {
                 continue;
             }
+            $isBucket = is_numeric($k) || $k === '' || $k === '0';
+            if (!$isBucket) {
+                continue;
+            }
             foreach ($v as $row) {
-                $numericBuckets[] = $row;
+                if (is_array($row) || is_object($row)) {
+                    $numericBuckets[] = $row;
+                }
             }
         }
         if ($numericBuckets !== array()) {

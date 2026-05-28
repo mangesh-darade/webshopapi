@@ -3,7 +3,8 @@
 /* cms_footer_section.php — Renders a CMS-driven footer block */
 $cfg      = isset($config) && is_array($config) ? $config : array();
 $navPages = isset($cfg['nav_pages']) && is_array($cfg['nav_pages']) ? $cfg['nav_pages']
-          : (isset($cms_nav_pages)   && is_array($cms_nav_pages)   ? $cms_nav_pages   : array());
+          : (isset($cms_footer_nav_pages) && is_array($cms_footer_nav_pages) ? $cms_footer_nav_pages
+          : (isset($cms_nav_pages) && is_array($cms_nav_pages) ? $cms_nav_pages : array()));
 $copyright= isset($cfg['copyright']) ? $cfg['copyright'] : ('&copy; ' . date('Y') . ' All rights reserved.');
 $bodyText = isset($cfg['content']) ? $cfg['content'] : '';
 // Optional section title typed in admin (saved as title/heading).

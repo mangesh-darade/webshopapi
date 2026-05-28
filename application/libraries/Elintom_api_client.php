@@ -192,8 +192,16 @@ class Elintom_api_client {
         ));
     }
 
-    public function get_cms_pages() {
-        return $this->post('getcmspages');
+    /**
+     * @param string|null $placement header|footer|null (all published static pages)
+     */
+    public function get_cms_pages($placement = null) {
+        $extra = array();
+        $placement = strtolower(trim((string) $placement));
+        if (in_array($placement, array('header', 'footer'), true)) {
+            $extra['placement'] = $placement;
+        }
+        return $this->post('getcmspages', $extra);
     }
 
     /* ================================================================

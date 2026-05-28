@@ -347,10 +347,16 @@ class Webshop_model extends CI_Model {
                     $row->quantity = isset($items_stocks[$row->id][0]) ? $items_stocks[$row->id][0] : 0;
                 }
                 $row->tax_rate = $taxes[$row->tax_id]->rate;
-                if ($useHash) {
-                    $data['items'][] = (array) $row;
-                } else {
-                    $data[$row->subcategory_id][] = (array) $row;
+                $rowArr = (array) $row;
+                $data['items'][] = $rowArr;
+                if (!$useHash) {
+                    $bucketKey = ($row->subcategory_id !== null && $row->subcategory_id !== '')
+                        ? (int) $row->subcategory_id
+                        : 0;
+                    if (!isset($data[$bucketKey])) {
+                        $data[$bucketKey] = array();
+                    }
+                    $data[$bucketKey][] = $rowArr;
                 }
             }//end foreach
 

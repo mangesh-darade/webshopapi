@@ -245,6 +245,9 @@ class Webshop_section_engine
             }
             $sectionData = $this->merge_component_theme_globals($sectionData, $data);
             $chunk = $this->CI->load->view($view, $sectionData, true);
+            if (trim($chunk) === '' && $this->is_catalog_section_type($type)) {
+                $chunk = $this->render_catalog_section_empty_notice($type, $sectionData);
+            }
             if (trim($chunk) === '') {
                 continue;
             }
@@ -442,6 +445,19 @@ class Webshop_section_engine
         if ($type === 'banner' || $type === 'hero_banner') {
             return $this->getBannerData($config, $seed);
         }
+        if ($type === 'contact_us_form' || $type === 'contact_form') {
+            $cfg = $this->decode_config($config);
+            return array(
+                'title' => isset($cfg['title']) && trim((string) $cfg['title']) !== ''
+                    ? (string) $cfg['title']
+                    : 'Contact Us',
+                'subtitle' => isset($cfg['subtitle']) ? (string) $cfg['subtitle'] : '',
+                'button_text' => isset($cfg['button_text']) ? (string) $cfg['button_text'] : 'Send Message',
+                'fields' => isset($cfg['fields']) && is_array($cfg['fields']) ? $cfg['fields'] : array(),
+                'submit_url' => isset($cfg['submit_url']) ? (string) $cfg['submit_url'] : '',
+                'config' => $cfg,
+            );
+        }
         if ($type === 'header') {
             return array(
                 'cms_nav_pages' => isset($seed['cms_nav_pages']) && is_array($seed['cms_nav_pages']) ? $seed['cms_nav_pages'] : array(),
@@ -449,9 +465,16 @@ class Webshop_section_engine
             );
         }
         if ($type === 'footer') {
+            $footerNav = array();
+            if (isset($seed['cms_footer_nav_pages']) && is_array($seed['cms_footer_nav_pages'])) {
+                $footerNav = $seed['cms_footer_nav_pages'];
+            } elseif (isset($seed['cms_nav_pages']) && is_array($seed['cms_nav_pages'])) {
+                $footerNav = $seed['cms_nav_pages'];
+            }
             return array(
-                'cms_nav_pages' => isset($seed['cms_nav_pages']) && is_array($seed['cms_nav_pages']) ? $seed['cms_nav_pages'] : array(),
-                'page_title' => isset($seed['page_title']) ? (string) $seed['page_title'] : '',
+                'cms_nav_pages'        => $footerNav,
+                'cms_footer_nav_pages' => $footerNav,
+                'page_title'           => isset($seed['page_title']) ? (string) $seed['page_title'] : '',
             );
         }
         return array(
@@ -518,21 +541,43 @@ class Webshop_section_engine
      */
     private function should_render_catalog_section($type, array $sectionData)
     {
-        if (!in_array($type, array('category_grid', 'category_carousel', 'product_grid', 'product_carousel'), true)) {
+        if (!$this->is_catalog_section_type($type)) {
             return true;
         }
-        // Product sections always render (empty-state message) so CMS pages are not blank.
-        if (in_array($type, array('product_grid', 'product_carousel'), true)) {
-            return true;
-        }
-        $items = isset($sectionData['items']) && is_array($sectionData['items']) ? $sectionData['items'] : array();
-        foreach ($items as $item) {
-            $row = is_array($item) ? $item : (array) $item;
-            if (!empty($row['id']) && (int) $row['id'] > 0) {
-                return true;
-            }
-        }
-        return false;
+        // Always render catalog CMS sections when enabled; empty rows show a notice in the view/engine.
+        return true;
+    }
+
+    /**
+     * @param string $type
+     * @return bool
+     */
+    private function is_catalog_section_type($type)
+    {
+        return in_array($type, array('category_grid', 'category_carousel', 'product_grid', 'product_carousel'), true);
+    }
+
+    /**
+     * Fallback when theme component returns empty (no rows / silent return).
+     *
+     * @param string $type
+     * @param array  $sectionData
+     * @return string
+     */
+    private function render_catalog_section_empty_notice($type, array $sectionData)
+    {
+        $title = isset($sectionData['title']) ? trim((string) $sectionData['title']) : '';
+        $isProduct = in_array($type, array('product_grid', 'product_carousel'), true);
+        $label = $isProduct ? 'products' : 'categories';
+        $hint = $isProduct
+            ? 'Enable products for the webshop in ElintOm (Catalog) and ensure this section is Active on the page.'
+            : 'Enable categories for the webshop in ElintOm (Catalog) and ensure this section is Active on the page.';
+        $heading = $title !== '' ? htmlspecialchars($title, ENT_QUOTES, 'UTF-8') : ucfirst(str_replace('_', ' ', $type));
+        return '<section class="gp-component gp-cms-section-empty gp-cms-section-empty--' . htmlspecialchars($type, ENT_QUOTES, 'UTF-8') . '" aria-label="' . $heading . '">'
+            . '<div class="container" style="padding:2rem 1rem;text-align:center;">'
+            . ($title !== '' ? '<h2 class="gp-cms-empty-title" style="margin:0 0 .75rem;">' . $heading . '</h2>' : '')
+            . '<p class="gp-cms-empty-notice" style="margin:0;">No ' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . ' are available to display. ' . htmlspecialchars($hint, ENT_QUOTES, 'UTF-8') . '</p>'
+            . '</div></section>';
     }
 
     /**
@@ -828,6 +873,8 @@ class Webshop_section_engine
             'category_carousel' => 'webshop/components/category_carousel',
             'banner' => 'webshop/components/banner',
             'hero_banner' => 'webshop/components/banner',
+            'contact_us_form' => 'webshop/components/contact_us_form',
+            'contact_form' => 'webshop/components/contact_us_form',
             'header' => 'webshop/components/cms_header_section',
             'footer' => 'webshop/components/cms_footer_section',
         );
@@ -852,6 +899,15 @@ class Webshop_section_engine
             'productgrid' => 'product_grid',
             'product_carousel_component' => 'product_carousel',
             'productcarousel' => 'product_carousel',
+            'category_grid_component' => 'category_grid',
+            'categorygrid' => 'category_grid',
+            'category_carousel_component' => 'category_carousel',
+            'categorycarousel' => 'category_carousel',
+            'contact_us' => 'contact_us_form',
+            'contactusform' => 'contact_us_form',
+            'contact_form_component' => 'contact_us_form',
+            'hero' => 'banner',
+            'hero_banner_component' => 'banner',
         );
         return isset($aliases[$type]) ? $aliases[$type] : $type;
     }

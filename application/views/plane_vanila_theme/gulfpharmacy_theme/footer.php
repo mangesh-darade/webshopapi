@@ -13,7 +13,10 @@ $_gp_footer_layout = function_exists('webshop_footer_gather_display_rows')
     : array('content' => array(), 'social' => array());
 $_gp_footer_content = isset($_gp_footer_layout['content']) ? $_gp_footer_layout['content'] : array();
 $_gp_footer_social  = isset($_gp_footer_layout['social']) ? $_gp_footer_layout['social'] : array();
-$has_main = !empty($_gp_footer_content) || !empty($_gp_footer_social);
+$_gp_footer_cms_nav = isset($cms_footer_nav_pages) && is_array($cms_footer_nav_pages)
+    ? $cms_footer_nav_pages
+    : (isset($cms_nav_pages) && is_array($cms_nav_pages) ? $cms_nav_pages : array());
+$has_main = !empty($_gp_footer_content) || !empty($_gp_footer_social) || !empty($_gp_footer_cms_nav);
 
 $_gp_uploads_base = '';
 if (isset($uploads) && (string) $uploads !== '') {
@@ -92,6 +95,30 @@ $_gp_footer_styles_in_head = !empty($gp_footer_styles_in_head);
                     <?php if (empty($_gp_footer_content) && $_gp_footer_logo === '' && empty($_gp_footer_social)) : ?>
                     <div class="gp-footer-col">
                         <h3 class="gp-footer-heading"><?= htmlspecialchars($shop_name, ENT_QUOTES, 'UTF-8'); ?></h3>
+                    </div>
+                    <?php endif; ?>
+
+                    <?php if (!empty($_gp_footer_cms_nav)) : ?>
+                    <div class="gp-footer-col gp-footer-col--cms-links">
+                        <div class="gp-footer-content-list">
+                            <div class="gp-footer-links">
+                                <?php foreach ($_gp_footer_cms_nav as $_gp_np) :
+                                    $_gp_href_raw = isset($_gp_np['href']) ? (string) $_gp_np['href'] : (isset($_gp_np['url']) ? (string) $_gp_np['url'] : '');
+                                    $_gp_href = function_exists('webshop_resolve_cms_path_href')
+                                        ? webshop_resolve_cms_path_href($_gp_href_raw, base_url('webshop'))
+                                        : $_gp_href_raw;
+                                    $_gp_label = isset($_gp_np['title']) ? trim((string) $_gp_np['title']) : '';
+                                    if ($_gp_label === '' && isset($_gp_np['page_name'])) {
+                                        $_gp_label = trim((string) $_gp_np['page_name']);
+                                    }
+                                    if ($_gp_label === '' || $_gp_href === '') {
+                                        continue;
+                                    }
+                                ?>
+                                <div><a href="<?= htmlspecialchars($_gp_href, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($_gp_label, ENT_QUOTES, 'UTF-8') ?></a></div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
                     </div>
                     <?php endif; ?>
 

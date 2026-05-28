@@ -5509,14 +5509,18 @@ if (!function_exists('webshop_herbinn_footer_layout_from_storefront')) {
             $layout['misc_lines'][] = (string) $row['text'];
         }
 
-        if (empty($layout['company_links']) || empty($layout['legal_links'])) {
-            $cms_nav = array();
-            if (function_exists('get_instance')) {
-                $CI = get_instance();
-                if (isset($CI->data['cms_nav_pages']) && is_array($CI->data['cms_nav_pages'])) {
-                    $cms_nav = $CI->data['cms_nav_pages'];
-                }
+        $cms_nav = array();
+        if (function_exists('get_instance')) {
+            $CI = get_instance();
+            if (isset($CI->data['cms_footer_nav_pages']) && is_array($CI->data['cms_footer_nav_pages'])) {
+                $cms_nav = $CI->data['cms_footer_nav_pages'];
+            } elseif (isset($CI->data['cms_nav_pages']) && is_array($CI->data['cms_nav_pages'])) {
+                // Backward-compatible fallback for older controller payloads.
+                $cms_nav = $CI->data['cms_nav_pages'];
             }
+        }
+
+        if (!empty($cms_nav)) {
             $nav_company = array();
             $nav_legal = array();
             foreach ($cms_nav as $np) {
@@ -5532,11 +5536,30 @@ if (!function_exists('webshop_herbinn_footer_layout_from_storefront')) {
                     $nav_company[] = array('title' => $t, 'href' => $h);
                 }
             }
-            if (empty($layout['company_links'])) {
-                $layout['company_links'] = $nav_company;
+
+            $exists = function ($links, $needle) {
+                $nHref = strtolower(trim((string) $needle['href']));
+                if ($nHref === '') {
+                    return true;
+                }
+                foreach ((array) $links as $row) {
+                    $rHref = strtolower(trim((string) (isset($row['href']) ? $row['href'] : '')));
+                    if ($rHref === $nHref) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+
+            foreach ($nav_company as $row) {
+                if (!$exists($layout['company_links'], $row)) {
+                    $layout['company_links'][] = $row;
+                }
             }
-            if (empty($layout['legal_links'])) {
-                $layout['legal_links'] = $nav_legal;
+            foreach ($nav_legal as $row) {
+                if (!$exists($layout['legal_links'], $row)) {
+                    $layout['legal_links'][] = $row;
+                }
             }
         }
 

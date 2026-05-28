@@ -61,11 +61,11 @@ class Webshop_api_model extends CI_Model {
     /** @var stdClass|null Memoized return value for home_page_data() */
     protected $_home_page_data_memo = null;
 
-    /** @var bool Memo guard for get_cms_nav_pages() */
-    protected $_cms_nav_pages_memo_set = false;
+    /** @var array<string,bool> Memo guard per placement for get_cms_nav_pages() */
+    protected $_cms_nav_pages_memo_set = array();
 
-    /** @var array<int,array{title:string,url:string,href:string,nav_order:int}>|null */
-    protected $_cms_nav_pages_memo = null;
+    /** @var array<string,array<int,array{title:string,url:string,href:string,nav_order:int}>> */
+    protected $_cms_nav_pages_memo = array();
 
     /** Last add_order() failure message for checkout flash (API or transport). */
     protected $last_order_error = '';
@@ -412,38 +412,49 @@ class Webshop_api_model extends CI_Model {
     }
 
     /**
-     * Header/footer CMS static pages from ElintOm CMS tables.
+     * CMS static pages for webshop header/footer nav from ElintOm.
      * Ordered by sma_pages.nav_order ASC (same as ElintOm cms_admin drag-order).
      *
+     * @param string $placement header|footer|all — all = every published page (slug lookup)
      * @return array<int,array{title:string,url:string,href:string,nav_order:int}>
      */
-    public function get_cms_nav_pages() {
-        if ($this->_cms_nav_pages_memo_set) {
-            return $this->_cms_nav_pages_memo;
+    public function get_cms_nav_pages($placement = 'header') {
+        $placement = strtolower(trim((string) $placement));
+        if (!in_array($placement, array('header', 'footer', 'all'), true)) {
+            $placement = 'header';
+        }
+
+        if (!empty($this->_cms_nav_pages_memo_set[$placement])) {
+            return isset($this->_cms_nav_pages_memo[$placement])
+                ? $this->_cms_nav_pages_memo[$placement]
+                : array();
         }
 
         $pages = null;
-        $res = $this->api->get_cms_pages();
+        $apiPlacement = ($placement === 'all') ? null : $placement;
+        $res = $this->api->get_cms_pages($apiPlacement);
         if ($res && isset($res->status) && strtoupper((string) $res->status) === 'SUCCESS' && isset($res->pages)) {
             $pages = is_array($res->pages) ? $res->pages : (array) $res->pages;
         }
         if ($pages === null) {
-            $pages = $this->get_cms_nav_pages_from_direct_db();
+            $pages = $this->get_cms_nav_pages_from_direct_db($apiPlacement);
         }
 
-        $out = $this->build_cms_nav_pages_from_rows($pages);
-        $this->_cms_nav_pages_memo = $out;
-        $this->_cms_nav_pages_memo_set = true;
+        $out = $this->build_cms_nav_pages_from_rows($pages, $placement === 'all' ? null : $placement);
+        $this->_cms_nav_pages_memo[$placement] = $out;
+        $this->_cms_nav_pages_memo_set[$placement] = true;
         return $out;
     }
 
     /**
-     * @param array<int,mixed> $pages Rows from getcmspages or Cms_direct_db::list_published_pages()
+     * @param array<int,mixed>   $pages Rows from getcmspages or Cms_direct_db::list_published_pages()
+     * @param string|null      $placement header|footer — extra filter when API returns all rows
      * @return array<int,array{title:string,url:string,href:string,nav_order:int}>
      */
-    protected function build_cms_nav_pages_from_rows(array $pages) {
+    protected function build_cms_nav_pages_from_rows(array $pages, $placement = null) {
         $out = array();
         $seenHome = false;
+        $placement = strtolower(trim((string) $placement));
         foreach ($pages as $row) {
             $a = is_object($row) ? (array) $row : (is_array($row) ? $row : array());
             $url   = isset($a['url']) ? trim((string) $a['url']) : '';
@@ -451,6 +462,12 @@ class Webshop_api_model extends CI_Model {
             $status = isset($a['status']) ? strtolower(trim((string) $a['status'])) : 'published';
 
             if ($url === '' || $title === '' || $status !== 'published') {
+                continue;
+            }
+            if ($placement === 'header' && array_key_exists('show_in_header', $a) && !$this->cms_nav_visibility_enabled($a['show_in_header'])) {
+                continue;
+            }
+            if ($placement === 'footer' && array_key_exists('show_in_footer', $a) && !$this->cms_nav_visibility_enabled($a['show_in_footer'])) {
                 continue;
             }
             $isHome = $this->is_cms_home_storefront_url($url);
@@ -472,6 +489,16 @@ class Webshop_api_model extends CI_Model {
             );
         }
         return $this->sort_cms_nav_pages($out);
+    }
+
+    /**
+     * @param mixed $value DB flag from show_in_header / show_in_footer
+     */
+    protected function cms_nav_visibility_enabled($value) {
+        if ($value === true || $value === 1) {
+            return true;
+        }
+        return in_array(strtolower(trim((string) $value)), array('1', 'true', 'yes', 'on'), true);
     }
 
     /**
@@ -507,7 +534,11 @@ class Webshop_api_model extends CI_Model {
      *
      * @return array<int,array<string,mixed>>
      */
-    protected function get_cms_nav_pages_from_direct_db() {
+    /**
+     * @param string|null $placement header|footer|null (all)
+     * @return array<int,array<string,mixed>>
+     */
+    protected function get_cms_nav_pages_from_direct_db($placement = null) {
         $this->config->load('elintom_api', true);
         if (!(bool) $this->config->item('elintom_cms_direct_db', 'elintom_api')) {
             return array();
@@ -517,7 +548,7 @@ class Webshop_api_model extends CI_Model {
         if (!isset($CI->cms_direct_db) || !$CI->cms_direct_db->is_ready()) {
             return array();
         }
-        return $CI->cms_direct_db->list_published_pages(array('static'));
+        return $CI->cms_direct_db->list_published_pages(array('static'), $placement);
     }
 
     /**
@@ -579,7 +610,7 @@ class Webshop_api_model extends CI_Model {
         }
         $dashSlug = str_replace('_', '-', $storefrontSlug);
         $underSlug = str_replace('-', '_', $storefrontSlug);
-        foreach ($this->get_cms_nav_pages() as $nav) {
+        foreach ($this->get_cms_nav_pages('all') as $nav) {
             if (!isset($nav['url'])) {
                 continue;
             }
@@ -629,7 +660,7 @@ class Webshop_api_model extends CI_Model {
         $underSlug = str_replace('-', '_', $storefrontSlug);
 
         // Published pages from CMS admin (source of truth for URL field) — try exact admin URL first.
-        foreach ($this->get_cms_nav_pages() as $nav) {
+        foreach ($this->get_cms_nav_pages('all') as $nav) {
             if (!isset($nav['url'])) {
                 continue;
             }

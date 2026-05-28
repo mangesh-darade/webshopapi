@@ -154,7 +154,8 @@ class Webshop extends MY_Controller
             $this->_apply_wishlist_lookup_for_user($webshopUserId);
 
             $this->data['custom_pages'] = $this->webshop_model->getCustomPages();
-            $this->data['cms_nav_pages'] = $this->webshop_model->get_cms_nav_pages();
+            $this->data['cms_nav_pages'] = $this->webshop_model->get_cms_nav_pages('header');
+            $this->data['cms_footer_nav_pages'] = $this->webshop_model->get_cms_nav_pages('footer');
             $this->data['header_theme_pages'] = $this->get_theme_navigation_pages('header');
             $this->data['footer_theme_pages'] = $this->get_theme_navigation_pages('footer');
             $this->data['has_active_blogs'] = $this->has_active_blogs();
@@ -190,9 +191,13 @@ class Webshop extends MY_Controller
             $this->_apply_wishlist_lookup_for_user($webshopUserId);
             $this->data['custom_pages'] = [];
             // Header/sidebar nav (CMS pages) — still required on cart/checkout-light pages.
-            $this->data['cms_nav_pages'] = $this->webshop_model->get_cms_nav_pages();
+            $this->data['cms_nav_pages'] = $this->webshop_model->get_cms_nav_pages('header');
+            $this->data['cms_footer_nav_pages'] = $this->webshop_model->get_cms_nav_pages('footer');
             if (!is_array($this->data['cms_nav_pages'])) {
                 $this->data['cms_nav_pages'] = [];
+            }
+            if (!is_array($this->data['cms_footer_nav_pages'])) {
+                $this->data['cms_footer_nav_pages'] = [];
             }
             $this->data['header_theme_pages'] = [];
             $this->data['footer_theme_pages'] = [];
