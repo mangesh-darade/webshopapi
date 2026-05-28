@@ -2216,19 +2216,7 @@ if (!function_exists('webshop_settings_local_phone_length')) {
  * @return string
  */
 function webshop_no_image_src($uploads_base, $thumbs_base = '') {
-    $try = array();
-    if ($uploads_base !== null && $uploads_base !== '') {
-        // Required default for product/category placeholders.
-        $try[] = webshop_media_src($uploads_base, 'no_image.png');
-    }
-    if ($thumbs_base !== null && $thumbs_base !== '') {
-        $try[] = webshop_media_src($thumbs_base, 'no_image.png');
-    }
-    foreach ($try as $u) {
-        if ($u !== '') {
-            return $u;
-        }
-    }
+    // Stable offline-safe placeholder: avoids repeated 404s when remote uploads path is unavailable.
     $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180"><rect fill="#f1f5f9" width="180" height="180" rx="12"/><path fill="#e2e8f0" d="M52 58h76v48H52z"/><circle cx="64" cy="54" r="7" fill="#cbd5e1"/><path fill="#cbd5e1" d="M44 122h92v10H44z"/><text x="90" y="108" text-anchor="middle" fill="#64748b" font-family="system-ui,sans-serif" font-size="12">No image</text></svg>';
     return 'data:image/svg+xml;charset=UTF-8,' . rawurlencode($svg);
 }
@@ -4621,12 +4609,93 @@ if (!function_exists('webshop_footer_identity_rows')) {
 
 if (!function_exists('webshop_resolve_storefront_logo_image_url')) {
     /**
+     * Pick newest logo file from local logos upload folder.
+     *
+     * Folder: assets/mdata/{customer_assets_folder}/uploads/logos/
+     *
+     * @return string Absolute URL or empty
+     */
+    function webshop_latest_uploaded_logo_url($uploads_base = '') {
+        $customerAssetsFolder = 'localhost';
+        if (function_exists('get_instance')) {
+            $CI =& get_instance();
+            if ($CI && isset($CI->config)) {
+                $cfgFolder = trim((string) $CI->config->item('elintom_customer_assets_folder', 'elintom_api'));
+                if ($cfgFolder !== '') {
+                    $customerAssetsFolder = $cfgFolder;
+                }
+            }
+        }
+
+        $patterns = array('logo*.png', 'logo*.jpg', 'logo*.jpeg', 'logo*.webp', 'logo*.gif', 'logo*.svg');
+        $latestPath = '';
+        $latestMtime = 0;
+
+        $dirs = array(
+            rtrim((string) FCPATH, DIRECTORY_SEPARATOR)
+                . DIRECTORY_SEPARATOR . 'assets'
+                . DIRECTORY_SEPARATOR . 'mdata'
+                . DIRECTORY_SEPARATOR . $customerAssetsFolder
+                . DIRECTORY_SEPARATOR . 'uploads'
+                . DIRECTORY_SEPARATOR . 'logos',
+            rtrim((string) dirname((string) FCPATH), DIRECTORY_SEPARATOR)
+                . DIRECTORY_SEPARATOR . 'ElintOm'
+                . DIRECTORY_SEPARATOR . 'assets'
+                . DIRECTORY_SEPARATOR . 'mdata'
+                . DIRECTORY_SEPARATOR . $customerAssetsFolder
+                . DIRECTORY_SEPARATOR . 'uploads'
+                . DIRECTORY_SEPARATOR . 'logos',
+        );
+
+        foreach ($dirs as $logosDir) {
+            if (!is_dir($logosDir)) {
+                continue;
+            }
+            foreach ($patterns as $pattern) {
+                $files = glob($logosDir . DIRECTORY_SEPARATOR . $pattern);
+                if (!is_array($files)) {
+                    continue;
+                }
+                foreach ($files as $f) {
+                    if (!is_file($f)) {
+                        continue;
+                    }
+                    $mtime = @filemtime($f);
+                    if ($mtime === false) {
+                        $mtime = 0;
+                    }
+                    if ($latestPath === '' || $mtime > $latestMtime) {
+                        $latestPath = $f;
+                        $latestMtime = (int) $mtime;
+                    }
+                }
+            }
+        }
+
+        if ($latestPath === '') {
+            return '';
+        }
+
+        $base = trim((string) $uploads_base);
+        if ($base !== '') {
+            return rtrim(str_replace('\\', '/', $base), '/') . '/logos/' . rawurlencode(basename($latestPath));
+        }
+        return rtrim(base_url(), '/') . '/assets/mdata/' . rawurlencode($customerAssetsFolder) . '/uploads/logos/' . rawurlencode(basename($latestPath));
+    }
+
+    /**
      * Absolute URL for logo_image row from getsettings website_setting[] (Storefront manager in ElintOm).
      *
      * @param string $uploads_base
      * @return string
      */
     function webshop_resolve_storefront_logo_image_url($uploads_base) {
+        // Highest priority: newest uploaded logo from local logos folder.
+        $latestUploadedLogo = webshop_latest_uploaded_logo_url($uploads_base);
+        if ($latestUploadedLogo !== '') {
+            return $latestUploadedLogo;
+        }
+
         $row = function_exists('webshop_website_setting_lookup_row_in_section')
             ? webshop_website_setting_lookup_row_in_section('logo_image', 'header') : null;
         if (!$row) {

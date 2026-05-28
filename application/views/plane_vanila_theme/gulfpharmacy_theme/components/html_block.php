@@ -21,7 +21,7 @@ $fragment = isset($extracted['html']) ? (string) $extracted['html'] : $preparedB
 $supportBand = (bool) preg_match('/questions\?|customer service|call our friendly/i', strip_tags($fragment));
 $blockClass = 'gp-component gp-html-block cms-html-block' . ($supportBand ? ' gp-home-support-band' : '');
 ?>
-<link rel="stylesheet" href="<?= isset($assets) ? $assets : base_url('assets/webshop/') ?><?= webshop_theme_assets_url('css/components.css') ?>">
+<link rel="stylesheet" href="<?= htmlspecialchars(webshop_theme_assets_url('css/components.css'), ENT_QUOTES, 'UTF-8') ?>">
 <?php if ($embeddedHead !== ''): ?>
 <?= $embeddedHead ?>
 

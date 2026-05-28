@@ -8788,70 +8788,113 @@ XSL;
     }
     ///////////////////////////////////// Contact Submission ////////////////////////////////////////
 
-    public function submit_contact()
+    public function contact_us_submit()
     {
-        if ($this->input->post()) {
-            $this->load->library('form_validation');
-            $this->form_validation->set_rules('name', 'Name', 'required|trim');
-            $this->form_validation->set_rules('email', 'Email', 'required|valid_email|trim');
-            $this->form_validation->set_rules('phone', 'Phone', 'trim');
-            $this->form_validation->set_rules('subject', 'Subject', 'required|trim');
-            $this->form_validation->set_rules('message', 'Message', 'required|trim');
+        $isAjax = strtolower((string) $this->input->server('HTTP_X_REQUESTED_WITH')) === 'xmlhttprequest'
+            || strpos(strtolower((string) $this->input->server('HTTP_ACCEPT')), 'application/json') !== false;
 
-            if ($this->form_validation->run() == true) {
-                $name = $this->input->post('name', TRUE);
-                $email = $this->input->post('email', TRUE);
-                $phone = $this->input->post('phone', TRUE);
-                $subject = $this->input->post('subject', TRUE);
-                $message = $this->input->post('message', TRUE);
-
-                // Get admin email from settings
-                $admin_email = $this->Settings->default_email;
-                if (empty($admin_email)) {
-                    $admin_email = $this->Settings->email;
-                }
-
-                // var_dump($admin_email);exit;
-
-                // Prepare email content for admin
-                $email_content = "
-                <h3>New Contact Form Submission</h3>
-                <p><strong>Name:</strong> {$name}</p>
-                <p><strong>Email:</strong> {$email}</p>
-                <p><strong>Phone:</strong> {$phone}</p>
-                <p><strong>Subject:</strong> {$subject}</p>
-                <p><strong>Message:</strong></p>
-                <p>" . nl2br(htmlspecialchars($message)) . "</p>
-                <p><small>Submitted on: " . date('Y-m-d H:i:s') . "</small></p>
-                ";
-
-                // Send email to admin
-                $subject_line = "Contact Form: " . $subject;
-                if ($this->sma->send_email($admin_email, $subject_line, $email_content)) {
-
-                    // Send confirmation email to user
-                    $user_content = "
-                    <h3>Thank you for contacting us!</h3>
-                    <p>Dear {$name},</p>
-                    <p>We have received your message and will get back to you shortly.</p>
-                    <p><strong>Your message details:</strong></p>
-                    <p><strong>Subject:</strong> {$subject}</p>
-                    <p><strong>Message:</strong></p>
-                    <p>" . nl2br(htmlspecialchars($message)) . "</p>
-                    <p>Best regards,<br>Herbinn Micro Medicines Team</p>
-                ";
-                    $this->sma->send_email($email, "Thank you for contacting us", $user_content);
-
-                    $this->session->set_flashdata('success', 'Thank you for contacting us. We will get back to you soon!');
-                } else {
-                    $this->session->set_flashdata('error', 'Sorry, there was an error sending your message. Please try again.');
-                }
-            } else {
-                $this->session->set_flashdata('error', validation_errors());
+        if (!$this->input->post()) {
+            if ($isAjax) {
+                $this->json_response(array(
+                    'status'  => 'FAIL',
+                    'message' => 'Invalid request.',
+                    'errors'  => array('Invalid request.'),
+                ), 400);
+                return;
             }
+            redirect('webshop/contact_us');
+            return;
         }
-        redirect('webshop/contact_us');
+
+        $this->load->library('form_validation');
+        $this->form_validation->set_rules('name', 'Name', 'required|trim');
+        $this->form_validation->set_rules('phone', 'Phone No', 'required|trim|min_length[7]|max_length[20]|regex_match[/^[0-9+\-\s]+$/]');
+        $this->form_validation->set_rules('email', 'Email', 'trim|valid_email');
+        $this->form_validation->set_rules('message', 'Message', 'trim');
+
+        $return_url = trim((string) $this->input->post('return_url', true));
+        if ($return_url === '') {
+            $return_url = site_url('webshop/contact_us');
+        }
+        $notice_url = $return_url . (strpos($return_url, '?') === false ? '?' : '&') . 'contact_notice=1';
+
+        if ($this->form_validation->run() !== true) {
+            $errors = array_values(array_filter(array(
+                form_error('name'),
+                form_error('phone'),
+                form_error('email'),
+                form_error('message'),
+            )));
+            if (empty($errors)) {
+                $errors = array('Please fill all required fields.');
+            }
+            if ($isAjax) {
+                $this->json_response(array(
+                    'status'  => 'FAIL',
+                    'message' => 'Validation failed.',
+                    'errors'  => $errors,
+                ), 422);
+                return;
+            }
+            $this->session->set_flashdata('contact_errors', $errors);
+            redirect($notice_url);
+            return;
+        }
+
+        $name = trim((string) $this->input->post('name', true));
+        $phone = trim((string) $this->input->post('phone', true));
+        $email = trim((string) $this->input->post('email', true));
+        $message = trim((string) $this->input->post('message', true));
+
+        $lead_data = array(
+            'name'       => $name,
+            'phone'      => $phone,
+            'email'      => $email,
+            'message'    => $message,
+            'status'     => 'new',
+            'source'     => 'webshop_contact_form',
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s'),
+        );
+
+        $this->load->model('webshop_api_model');
+        $apiResult = $this->webshop_api_model->submit_contact_lead($lead_data);
+        $apiOk = is_array($apiResult)
+            && isset($apiResult['status'])
+            && strtoupper((string) $apiResult['status']) === 'SUCCESS';
+        if ($apiOk) {
+            if ($isAjax) {
+                $this->json_response(array(
+                    'status'  => 'SUCCESS',
+                    'message' => 'Thank you. Your message has been submitted successfully.',
+                ));
+                return;
+            }
+            $this->session->set_flashdata('contact_success', 'Thank you. Your message has been submitted successfully.');
+            redirect($notice_url);
+            return;
+        }
+        $apiFailMessage = is_array($apiResult) && isset($apiResult['msg'])
+            ? trim((string) $apiResult['msg'])
+            : '';
+
+        $finalMessage = 'Sorry, we could not save your message. Please try again.';
+        if ($apiFailMessage !== '') {
+            $finalMessage = $apiFailMessage;
+        }
+        if ($isAjax) {
+            $this->json_response(array(
+                'status'  => 'FAIL',
+                'message' => $finalMessage,
+                'errors'  => array($finalMessage),
+            ));
+            return;
+        }
+        $this->session->set_flashdata('contact_errors', array($finalMessage));
+
+        redirect($notice_url);
     }
+
 }
 
 //end Class
