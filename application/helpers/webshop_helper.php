@@ -2943,11 +2943,8 @@ function webshop_category_learn_more_url($row, $fallback = '') {
     }
     // Dummy landing pages — replace via learn_more_url on each category when ready.
     $dummyPaths = array(
-        'webshop/about-us',
-        'webshop/contact',
-        'webshop/faq',
-        'webshop/shipping-policy',
-        'webshop/privacy-policy',
+        'webshop/formats',
+       
     );
     if ($id > 0) {
         return base_url($dummyPaths[($id - 1) % count($dummyPaths)]);

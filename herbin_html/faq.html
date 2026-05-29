@@ -1,0 +1,126 @@
+<link rel="icon" type="image/png" href="assets/images/favicon.png">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- AOS Library -->
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <!-- Herbinn CMS global styles (no inline style block - edit cms-herbinn-global.css) -->
+    <link rel="stylesheet" href="assets/webshop/herbinnwellness/css/cms-herbinn-global.css">
+    <!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-PXCJKJJN');</script>
+<!-- End Google Tag Manager -->
+
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-PXCJKJJN"
+height="0" width="0" class="gtm-noscript-iframe"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+<!-- FAQ Section -->
+    <section class="section bg-light">
+        <div class="container">
+            <div class="section-header" data-aos="fade-up">
+                <h2>Frequently Asked Questions</h2>
+                <p>Everything you need to know about our nutraceutical manufacturing services</p>
+            </div>
+            <div class="faq-container">
+                <div class="faq-item" data-aos="fade-up">
+                    <h3>What supplement formulations do you offer?</h3>
+                    <p>We specialize in softgel capsules, gummies, and custom formulations.Each formulation has unique benefits for different types of supplements and target markets.</p>
+                </div>
+                <div class="faq-item" data-aos="fade-up" data-aos-delay="100">
+                    <h3>When should I choose tablets over capsules?</h3>
+                    <p>Capsules are better for oil-based supplements, heat-sensitive ingredients,and when you want to mask unpleasant tastes.</p>
+                </div>
+                <div class="faq-item" data-aos="fade-up" data-aos-delay="200">
+                    <h3>Do you offer vegan capsule options?</h3>
+                    <p>Yes, we provide both gelatine and vegetarian capsule options. Our vegetarian capsules are made from plant-based materials and are suitable for vegan products.</p>
+                </div>
+                <div class="faq-item" data-aos="fade-up" data-aos-delay="300">
+                    <h3>What quality standards do you maintain for different formulations?</h3>
+                    <p>All our formulations meet GMP standards with rigorous quality control. We ensure consistent fill weights, proper sealing, and stability testing for every batch regardless of the formulation chosen.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!-- Scripts -->
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+        AOS.init({ once: true, offset: 80 });
+// Hero Slider Logic
+        const slides = document.querySelectorAll('.hero-slide');
+        if(slides.length > 0) {
+            let currentSlide = 0;
+            let slideInterval;
+            const dotsContainer = document.getElementById('sliderDots');
+
+            // Create dots dynamically
+            slides.forEach((_, i) => {
+                const dot = document.createElement('div');
+                dot.classList.add('dot');
+                if (i === 0) dot.classList.add('active');
+                dot.addEventListener('click', () => {
+                    currentSlide = i;
+                    showSlide(currentSlide);
+                    resetInterval();
+                });
+                if(dotsContainer) dotsContainer.appendChild(dot);
+            });
+
+            const dots = document.querySelectorAll('#sliderDots .dot');
+            
+            function showSlide(index) {
+                slides.forEach((slide, i) => {
+                    slide.classList.remove('active');
+                    if (i === index) slide.classList.add('active');
+                });
+                dots.forEach((dot, i) => {
+                    dot.classList.remove('active');
+                    if (i === index) dot.classList.add('active');
+                });
+            }
+
+            function prevSlide() {
+                currentSlide = (currentSlide - 1 + slides.length) % slides.length;
+                showSlide(currentSlide);
+            }
+
+            function nextSlide() {
+                currentSlide = (currentSlide + 1) % slides.length;
+                showSlide(currentSlide);
+            }
+            
+            function startInterval() {
+                slideInterval = setInterval(nextSlide, 8000); // Slower interval
+            }
+
+            function resetInterval() {
+                clearInterval(slideInterval);
+                startInterval();
+            }
+
+            startInterval();
+
+            // Swipe Detection for Mobile
+            let touchstartX = 0;
+            let touchendX = 0;
+            const slider = document.getElementById('homeHero');
+
+            slider.addEventListener('touchstart', e => {
+                touchstartX = e.changedTouches[0].screenX;
+            }, {passive: true});
+
+            slider.addEventListener('touchend', e => {
+                touchendX = e.changedTouches[0].screenX;
+                if (touchendX < touchstartX - 40) {
+                    nextSlide();
+                    resetInterval();
+                } else if (touchendX > touchstartX + 40) {
+                    prevSlide();
+                    resetInterval();
+                }
+            }, {passive: true});
+        }
+
+    </script>

@@ -1,0 +1,1091 @@
+<link rel="icon" type="image/png" href="assets/images/favicon.png">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- AOS Library -->
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <!-- Herbinn CMS global styles (no inline style block - edit cms-herbinn-global.css) -->
+    <link rel="stylesheet" href="assets/webshop/herbinnwellness/css/cms-herbinn-global.css">
+    <!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-PXCJKJJN');</script>
+<!-- End Google Tag Manager -->
+
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-PXCJKJJN"
+height="0" width="0" class="gtm-noscript-iframe"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+<!-- Hero -->
+    <header class="products-hero">
+        <div class="container text-center" data-aos="fade-up">
+            <h1>Our Product Catalog</h1>
+            <p class="lead text-muted">
+                Explore our full range of nutraceutical offerings — from premium softgel capsules and herbal extracts to veterinary formulations and specialty nutraceuticals.
+            </p>
+            <div class="products-stats">
+                <div class="text-center">
+                    <h3 class="text-primary-custom">50+</h3>
+                    <small class="text-muted">SKUs Available</small>
+                </div>
+                <div class="text-center">
+                    <h3 class="text-primary-custom">8</h3>
+                    <small class="text-muted">Categories</small>
+                </div>
+                <div class="text-center">
+                    <h3 class="text-primary-custom">GMP</h3>
+                    <small class="text-muted">Certified</small>
+                </div>
+                <div class="text-center">
+                    <h3 class="text-primary-custom">FDA</h3>
+                    <small class="text-muted">Compliant</small>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Certifications Banner -->
+    <div class="bg-white certs-band">
+        <div class="container flex-center gap-4 flex-wrap">
+            <h5 class="certs-band__title"> Global Accreditation:</h5>
+            <div class="flex gap-4 align-center flex-wrap certs-band__logos">
+                <img src="{{api_base_url}}assets/mdata/{{customer_assets_folder}}/uploads/webshop/uploads/images/cert-msme.png" alt="Ministry of MSME" class="certs-logo">
+                <img src="{{api_base_url}}assets/mdata/{{customer_assets_folder}}/uploads/webshop/uploads/images/cert-fda.png" alt="FDA Licensed" class="certs-logo certs-logo--fda">
+                <img src="{{api_base_url}}assets/mdata/{{customer_assets_folder}}/uploads/webshop/uploads/images/cert-fssai.png" alt="FSSAI Licensed" class="certs-logo certs-logo--fssai">
+                <img src="{{api_base_url}}assets/mdata/{{customer_assets_folder}}/uploads/webshop/uploads/images/cert-fieo.png" alt="FIEO Certified" class="certs-logo">
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+        <div class="container">
+            <div class="filter-bar-row">
+                <div class="search-box search-box--fixed">
+                    
+                    <input type="text" id="searchInput" placeholder="Search products…" oninput="filterProducts()">
+                </div>
+                <div class="filter-scroll filter-scroll--grow" id="filterPills">
+                    <button class="filter-pill active" onclick="setFilter('all', this)" data-filter="all">
+                         All Products
+                    </button>
+                    <button class="filter-pill" onclick="setFilter('softgel', this)" data-filter="softgel">
+                         Softgels
+                    </button>
+                    <button class="filter-pill" onclick="setFilter('extract', this)" data-filter="extract">
+                         Extracts
+                    </button>
+                    <button class="filter-pill" onclick="setFilter('vet', this)" data-filter="vet">
+                         Veterinary
+                    </button>
+                    <button class="filter-pill" onclick="setFilter('nutra', this)" data-filter="nutra">
+                         Nutraceuticals
+                    </button>
+                    <button class="filter-pill" onclick="setFilter('shalaka', this)" data-filter="shalaka">
+                         Shalaka
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Products Grid -->
+    <section class="py-5">
+        <div class="container">
+            <div class="products-results-bar">
+                <p class="results-count" id="resultsCount">Showing <strong id="countNum">50</strong> products</p>
+            </div>
+
+            <div class="product-grid" id="productsGrid">
+                <div class="product-item" data-category="softgel vet" data-name="coconut 1000 mg">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/fee6c66d3efb237a80a74d9732cde0e8.jpg" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-softgel">Softgels</span>
+                            <h3 class="product-name">COCONUT 1000 mg</h3>
+                            <p class="product-desc">Provides MCTs for energy, brain health, immunity, skin & hair.</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Capsules</span>
+                                <a href="/product?slug=coconut-1000-mg" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="softgel" data-name="oragano 250mg (10:1)">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="{{api_base_url}}assets/mdata/{{customer_assets_folder}}/uploads/webshop/uploads/images/oregano.png" alt="Oragano Softgels"></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-softgel">Softgels</span>
+                            <h3 class="product-name">ORAGANO 250MG (10:1)</h3>
+                            <p class="product-desc">Natural antimicrobial for immunity, digestion, and infection defense.</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Capsules</span>
+                                <a href="/product?slug=oragano-250mg-10-1" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="softgel vet" data-name="black seed 1000 mg">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/3846345f653bd55def085fb753dc5c69.jpg" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-softgel">Softgels</span>
+                            <h3 class="product-name">BLACK SEED 1000 mg</h3>
+                            <p class="product-desc">Boosts immunity, improves digestion, and provides strong antioxidant support.</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Capsules</span>
+                                <a href="/product?slug=black-seed-1000-mg" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="softgel" data-name="vitamin d3 10000 iu">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="{{api_base_url}}assets/mdata/{{customer_assets_folder}}/uploads/webshop/uploads/images/vitamin-d3-10000-iu.png" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-softgel">Softgels</span>
+                            <h3 class="product-name">VITAMIN D3 10000 IU</h3>
+                            <p class="product-desc">Essential for bones, calcium absorption, mood, and immunity</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Capsules</span>
+                                <a href="/product?slug=vitamin-d3-10000-iu" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="softgel" data-name="vitamin d3 5000 iu">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="{{api_base_url}}assets/mdata/{{customer_assets_folder}}/uploads/webshop/uploads/images/vitamin-d3-5000-iu.png" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-softgel">Softgels</span>
+                            <h3 class="product-name">VITAMIN D3 5000 IU</h3>
+                            <p class="product-desc">Essential for bones, calcium absorption, mood, and immunity</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Capsules</span>
+                                <a href="/product?slug=vitamin-d3-5000-iu" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="softgel vet" data-name="pumpkin seed 1000 mg">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/f5674501ca656ab54ba5264c9ce3f4d5.jpg" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-softgel">Softgels</span>
+                            <h3 class="product-name">PUMPKIN SEED 1000 mg</h3>
+                            <p class="product-desc">Supports prostate, urinary, heart, skin, and hormone balance.</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Capsules</span>
+                                <a href="/product?slug=pumpkin-seed-1000-mg" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="softgel" data-name="cla 1000 mg made with 95% cla from safflower oil">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="{{api_base_url}}assets/mdata/{{customer_assets_folder}}/uploads/webshop/uploads/images/cla-1000-mg-made-with-95-cla-from-safflower-oil.png" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-softgel">Softgels</span>
+                            <h3 class="product-name">CLA 1000 mg Made with 95% CLA from Safflower Oil</h3>
+                            <p class="product-desc">Supports fat metabolism, weight control, and lean muscle.</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Capsules</span>
+                                <a href="/product?slug=cla-1000-mg-made-with-95-cla-from-safflower-oil" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="softgel" data-name="cla 1250 mgmade with 95% cla from safflower oil">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="{{api_base_url}}assets/mdata/{{customer_assets_folder}}/uploads/webshop/uploads/images/cla-1250-mgmade-with-95-cla-from-safflower-oil.png" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-softgel">Softgels</span>
+                            <h3 class="product-name">CLA 1250 mgMade with 95% CLA from Safflower Oil</h3>
+                            <p class="product-desc">Supports fat metabolism, weight control, and lean muscle.</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Capsules</span>
+                                <a href="/product?slug=cla-1250-mgmade-with-95-cla-from-safflower-oil" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="softgel" data-name="borage 1000 mg">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="{{api_base_url}}assets/mdata/{{customer_assets_folder}}/uploads/webshop/uploads/images/borage-1000-mg.png" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-softgel">Softgels</span>
+                            <h3 class="product-name">BORAGE 1000 mg</h3>
+                            <p class="product-desc">High in GLA, reduces inflammation, supporta skin, joints, and hormones.</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Capsules</span>
+                                <a href="/product?slug=borage-1000-mg" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="softgel" data-name="evening prime rose 1300 mg">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="{{api_base_url}}assets/mdata/{{customer_assets_folder}}/uploads/webshop/uploads/images/evening-prime-rose-1300-mg.jpg" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-softgel">Softgels</span>
+                            <h3 class="product-name">EVENING PRIME ROSE 1300 mg</h3>
+                            <p class="product-desc">Rich in GLA, supports skin, reduces inflammation, and aids nerve function.</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Capsules</span>
+                                <a href="/product?slug=evening-prime-rose-1300-mg" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="softgel" data-name="wheat germ 1130">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/dc96eeb71898b3d23a9f72514d544469.jpg" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-softgel">Softgels</span>
+                            <h3 class="product-name">WHEAT GERM 1130</h3>
+                            <p class="product-desc">Rich in Vitamin E, promotes akin, heart, and immune health.</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Capsules</span>
+                                <a href="/product?slug=wheat-germ-1130" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="softgel" data-name="garlic oil garlic (allium sativum bulb) oil 0.5% 1000mg">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="{{api_base_url}}assets/mdata/{{customer_assets_folder}}/uploads/webshop/uploads/images/garlic-oil-garlic-allium-sativum-bulb-oil-0-5-1000mg.png" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-softgel">Softgels</span>
+                            <h3 class="product-name">GARLIC OIL Garlic (Allium Sativum Bulb) Oil 0.5% 1000MG</h3>
+                            <p class="product-desc">Supports heart health, regulates cholesterol, and boosts immunity.</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Capsules</span>
+                                <a href="/product?slug=garlic-oil-garlic-allium-sativum-bulb-oil-0-5-1000mg" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="softgel" data-name="omega (18/12) 1000 mg">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="{{api_base_url}}assets/mdata/{{customer_assets_folder}}/uploads/webshop/uploads/images/omega-18-12-1000-mg.png" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-softgel">Softgels</span>
+                            <h3 class="product-name">OMEGA (18/12) 1000 mg</h3>
+                            <p class="product-desc">High in EPA & DHA, promotes heart, brain, and joint health.</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Capsules</span>
+                                <a href="/product?slug=omega-18-12-1000-mg" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="softgel" data-name="krill oil 1000 mg">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="{{api_base_url}}assets/mdata/{{customer_assets_folder}}/uploads/webshop/uploads/images/krill-oil-1000-mg.png" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-softgel">Softgels</span>
+                            <h3 class="product-name">KRILL OIL 1000 mg</h3>
+                            <p class="product-desc">Providing you the best range of Krill Oil Capsules with effective & timely delivery.</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Capsules</span>
+                                <a href="/product?slug=krill-oil-1000-mg" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="softgel" data-name="krill 500 mg">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="{{api_base_url}}assets/mdata/{{customer_assets_folder}}/uploads/webshop/uploads/images/krill-500-mg.png" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-softgel">Softgels</span>
+                            <h3 class="product-name">KRILL 500 mg</h3>
+                            <p class="product-desc">Providing you the best range of Krill Oil Capsules with effective & timely delivery.</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Capsules</span>
+                                <a href="/product?slug=krill-500-mg" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="softgel" data-name="flaxseed 1000 mg">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="{{api_base_url}}assets/mdata/{{customer_assets_folder}}/uploads/webshop/uploads/images/flaxseed-1000-mg.png" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-softgel">Softgels</span>
+                            <h3 class="product-name">FLAXSEED 1000 mg</h3>
+                            <p class="product-desc">A rich, supports heart, skin, hormones, and digestion.</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Capsules</span>
+                                <a href="/product?slug=flaxseed-1000-mg" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="face scrub">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="{{api_base_url}}assets/mdata/{{customer_assets_folder}}/uploads/webshop/uploads/images/lycopene-capsule-250mg.png" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Skin Care</span>
+                            <h3 class="product-name">FACE SCRUB</h3>
+                            <p class="product-desc"></p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=face-scrub" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="face pack">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/a2585a1f6ae051a822e8201120b9186e.jpg" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Skin Care</span>
+                            <h3 class="product-name">FACE PACK</h3>
+                            <p class="product-desc"></p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=face-pack" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="lip balm">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/8e3694e6fdb5f3cdd0f4380906ce8368.jpg" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Skin Care</span>
+                            <h3 class="product-name">LIP BALM</h3>
+                            <p class="product-desc"></p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=lip-balm" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="anti-aging face serum">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/6a02888914b8a7d618c95e188328aa3e.jpg" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Serums</span>
+                            <h3 class="product-name">Anti-Aging Face Serum</h3>
+                            <p class="product-desc"></p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=anti-aging-face-serum" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="herbal hairwash powder">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/118276abb169cc257386cf662d7a7e65.png" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Serums</span>
+                            <h3 class="product-name">Herbal Hairwash Powder</h3>
+                            <p class="product-desc"></p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=herbal-hairwash-powder" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="probiotech-detox">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="{{api_base_url}}assets/mdata/{{customer_assets_folder}}/uploads/webshop/uploads/images/detox-spa-oil.png" alt="ProBioTech Detox Spa Oil"></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Oils</span>
+                            <h3 class="product-name">ProBioTech Detox Spa Oil</h3>
+                            <p class="product-desc"></p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=detox" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="extract" data-name="moringa">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/5bb4791b2eaf6b821883b89d290c1e9c.jpg" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-extract">Extracts</span>
+                            <h3 class="product-name">Moringa</h3>
+                            <p class="product-desc">Rich in nutrients and antioxidants that support heart health, reduce inflammation, and help manage b...</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=moringa" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="extract" data-name="green coffee">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/20d6b3b32d22dd3d8f9fb83211db0004.jpg" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-extract">Extracts</span>
+                            <h3 class="product-name">Green Coffee</h3>
+                            <p class="product-desc">Supports weight management and helps improve blood sugar, blood pressure, and heart health.</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=green-coffee" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="extract" data-name="curcumin">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/bc7272c1885fbd18a565bbe1faab34a7.jpg" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-extract">Extracts</span>
+                            <h3 class="product-name">Curcumin</h3>
+                            <p class="product-desc">Supports healthy skin, bones, joints, and blood while helping reduce inflammation.</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=curcumin" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="mct oil">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/2d09c43916171578940772b30e833916.png" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Nutraceuticals</span>
+                            <h3 class="product-name">MCT Oil</h3>
+                            <p class="product-desc">Supports brain, liver, kidney, and skin health while boosting memory, immunity, and overall body fun...</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=mct-oil" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="garcinia combogia">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/6c149c6278c7aaff3fadedbf9d5332a0.jpg" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Nutraceuticals</span>
+                            <h3 class="product-name">Garcinia Combogia</h3>
+                            <p class="product-desc"></p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=garcinia-combogia" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="fos powder">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/40e40a0c6e93d0ac423a541dbd81e37d.jpg" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Nutraceuticals</span>
+                            <h3 class="product-name">Fos Powder</h3>
+                            <p class="product-desc">Natural anti-inflammatory supplement that supports skin, bones, joints, and blood health while helpi...</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=fos-powder" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="musa flower soup (patented)">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/594534ac6263f002a8cf6c640b953e98.jpg" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Soups</span>
+                            <h3 class="product-name">Musa Flower Soup (Patented)</h3>
+                            <p class="product-desc">Rich in essential minerals that help fight infections, support menstrual health, improve mood, and h...</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=musa-flower-soup-patented" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="mix veg">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/4c6dcf2af664462b047fef8360c81be7.jpg" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Soups</span>
+                            <h3 class="product-name">Mix Veg</h3>
+                            <p class="product-desc">Healthy, organic, and chemical-free mix veg soup.</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=mix-veg" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="manchow">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/28058eebbc3b8650db56c7d27dfbfcb8.jpg" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Soups</span>
+                            <h3 class="product-name">Manchow</h3>
+                            <p class="product-desc">Healthy, chemical-free, and easy-to-carry nutritious soup.</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=manchow" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="tomato">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/c74cbe10149beb791f8d78936c959959.jpg" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Soups</span>
+                            <h3 class="product-name">Tomato</h3>
+                            <p class="product-desc">Healthy, chemical-free, gluten-free soup made with organic ingredients-nutritious, tasty, and easy t...</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=tomato" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="sweet corn">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/726c1ab91d7e064bdb5a8c58258fa6b7.jpg" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Soups</span>
+                            <h3 class="product-name">Sweet Corn</h3>
+                            <p class="product-desc">Sweet corn soup-healthy, chemical-free, and made with natural ingredients.</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=sweet-corn" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="hot & sour">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/917e72a8fd4499de5a867811bd87dca7.jpg" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Soups</span>
+                            <h3 class="product-name">Hot & Sour</h3>
+                            <p class="product-desc">Hot & sour soup-healthy, chemical-free, and made with natural ingredients.</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=hot-sour" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="softgel" data-name="astaxanthin 10% 10mg">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-softgel">Softgels</span>
+                            <h3 class="product-name">ASTAXANTHIN 10% 10MG</h3>
+                            <p class="product-desc">Superior antioxidant for skin, endurance, eyes, and heart.</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Capsules</span>
+                                <a href="/product?slug=astaxanthin-10-10mg" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="softgel" data-name="co q 10 200 mg">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-softgel">Softgels</span>
+                            <h3 class="product-name">CO Q 10 200 mg</h3>
+                            <p class="product-desc">Boosta energy, heart health, and reduces oxidative stress</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Capsules</span>
+                                <a href="/product?slug=co-q-10-200-mg" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="softgel" data-name="lycopene  capsule 250mg">
+                    <div class="product-card">
+                        <div class="product-img-wrap">💊</div>
+                        <div class="product-body">
+                            <span class="category-badge cat-softgel">Softgels</span>
+                            <h3 class="product-name">LYCOPENE  CAPSULE 250MG</h3>
+                            <p class="product-desc">We are a leading Exporter of Lycopene Capsules from Mumbai, India.</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Capsules</span>
+                                <a href="/product?slug=lycopene-capsule-250mg" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="softgel" data-name="ubidecarenone 200 mg">
+                    <div class="product-card">
+                        <div class="product-img-wrap">💊</div>
+                        <div class="product-body">
+                            <span class="category-badge cat-softgel">Softgels</span>
+                            <h3 class="product-name">UBIDECARENONE 200 MG</h3>
+                            <p class="product-desc"></p>
+                            <div class="product-footer">
+                                <span class="format-tag">Capsules</span>
+                                <a href="/product?slug=ubidecarenone-200-mg" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="softgel" data-name="beta carotene capsules">
+                    <div class="product-card">
+                        <div class="product-img-wrap">💊</div>
+                        <div class="product-body">
+                            <span class="category-badge cat-softgel">Softgels</span>
+                            <h3 class="product-name">BETA CAROTENE CAPSULES</h3>
+                            <p class="product-desc"></p>
+                            <div class="product-footer">
+                                <span class="format-tag">Capsules</span>
+                                <a href="/product?slug=beta-carotene-capsules" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="saffron lotus beauty serum">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Serums</span>
+                            <h3 class="product-name">Saffron Lotus Beauty Serum</h3>
+                            <p class="product-desc"></p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=saffron-lotus-beauty-serum" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="24k gold skin brightening serum">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Serums</span>
+                            <h3 class="product-name">24K Gold Skin Brightening Serum</h3>
+                            <p class="product-desc"></p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=24k-gold-skin-brightening-serum" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="eye brow serum">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Serums</span>
+                            <h3 class="product-name">Eye brow Serum</h3>
+                            <p class="product-desc"></p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=eye-brow-serum" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="hair growth (hibiscus-bringha)">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Serums</span>
+                            <h3 class="product-name">Hair Growth (Hibiscus-Bringha)</h3>
+                            <p class="product-desc"></p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=hair-growth-hibiscus-bringha" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="anti-dandruff">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Serums</span>
+                            <h3 class="product-name">Anti-Dandruff</h3>
+                            <p class="product-desc"></p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=anti-dandruff" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="refreshing">
+                    <div class="product-card">
+                        <div class="product-img-wrap">💊</div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Oils</span>
+                            <h3 class="product-name">Refreshing</h3>
+                            <p class="product-desc"></p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=refreshing" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="anti-stress">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Oils</span>
+                            <h3 class="product-name">Anti-Stress</h3>
+                            <p class="product-desc"></p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=anti-stress" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="deep tissue">
+                    <div class="product-card">
+                        <div class="product-img-wrap"><img src="https://herbinnmicromedicines.elintpos.in/assets/mdata/herbinnmicromedicines/uploads/" alt="..."></div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Oils</span>
+                            <h3 class="product-name">Deep Tissue</h3>
+                            <p class="product-desc"></p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=deep-tissue" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="lavender">
+                    <div class="product-card">
+                        <div class="product-img-wrap">💊</div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Oils</span>
+                            <h3 class="product-name">Lavender</h3>
+                            <p class="product-desc"></p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=lavender" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="foot spa oil">
+                    <div class="product-card">
+                        <div class="product-img-wrap">💊</div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Oils</span>
+                            <h3 class="product-name">Foot Spa Oil</h3>
+                            <p class="product-desc"></p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=foot-spa-oil" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="vet" data-name="omega 3 fish oil 1000mg">
+                    <div class="product-card">
+                        <div class="product-img-wrap">💊</div>
+                        <div class="product-body">
+                            <span class="category-badge cat-vet">Veterinary</span>
+                            <h3 class="product-name">Omega 3 Fish Oil 1000mg</h3>
+                            <p class="product-desc"></p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=omega-3-fish-oil-1000mg" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="vet" data-name="oregano oil capsule 200mg">
+                    <div class="product-card">
+                        <div class="product-img-wrap">💊</div>
+                        <div class="product-body">
+                            <span class="category-badge cat-vet">Veterinary</span>
+                            <h3 class="product-name">Oregano Oil Capsule 200mg</h3>
+                            <p class="product-desc"></p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=oregano-oil-capsule-200mg" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="vet" data-name="vitamin d3 (1000iu)">
+                    <div class="product-card">
+                        <div class="product-img-wrap">💊</div>
+                        <div class="product-body">
+                            <span class="category-badge cat-vet">Veterinary</span>
+                            <h3 class="product-name">Vitamin D3 (1000IU)</h3>
+                            <p class="product-desc"></p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=vitamin-d3-1000iu" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="vet" data-name="glucosamine">
+                    <div class="product-card">
+                        <div class="product-img-wrap">💊</div>
+                        <div class="product-body">
+                            <span class="category-badge cat-vet">Veterinary</span>
+                            <h3 class="product-name">Glucosamine</h3>
+                            <p class="product-desc"></p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=glucosamine" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="vet" data-name="astaxanthin 2mg">
+                    <div class="product-card">
+                        <div class="product-img-wrap">💊</div>
+                        <div class="product-body">
+                            <span class="category-badge cat-vet">Veterinary</span>
+                            <h3 class="product-name">Astaxanthin 2mg</h3>
+                            <p class="product-desc"></p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=astaxanthin-2mg" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="vet" data-name="probiotics">
+                    <div class="product-card">
+                        <div class="product-img-wrap">💊</div>
+                        <div class="product-body">
+                            <span class="category-badge cat-vet">Veterinary</span>
+                            <h3 class="product-name">Probiotics</h3>
+                            <p class="product-desc"></p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=probiotics" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="extract" data-name="papaya leaf extract(caplet)">
+                    <div class="product-card">
+                        <div class="product-img-wrap">💊</div>
+                        <div class="product-body">
+                            <span class="category-badge cat-extract">Extracts</span>
+                            <h3 class="product-name">Papaya Leaf Extract(Caplet)</h3>
+                            <p class="product-desc">Rich in nutrients and antioxidants that support heart health, reduce inflammation, and help manage b...</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=papaya-leaf-extract-caplet" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="extract" data-name="ashwagandha">
+                    <div class="product-card">
+                        <div class="product-img-wrap">💊</div>
+                        <div class="product-body">
+                            <span class="category-badge cat-extract">Extracts</span>
+                            <h3 class="product-name">Ashwagandha</h3>
+                            <p class="product-desc"></p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=ashwagandha" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="boswellia">
+                    <div class="product-card">
+                        <div class="product-img-wrap">💊</div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Nutraceuticals</span>
+                            <h3 class="product-name">Boswellia</h3>
+                            <p class="product-desc">Natural anti-inflammatory that helps reduce pain, support joint health, and protect cartilage.</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=boswellia" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-item" data-category="nutra" data-name="mushroom">
+                    <div class="product-card">
+                        <div class="product-img-wrap">💊</div>
+                        <div class="product-body">
+                            <span class="category-badge cat-nutra">Soups</span>
+                            <h3 class="product-name">Mushroom</h3>
+                            <p class="product-desc">Organic, gluten-free soups-pure, nutritious, and delicious.</p>
+                            <div class="product-footer">
+                                <span class="format-tag">Bottle</span>
+                                <a href="/product?slug=mushroom" class="btn-inquire">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div><!-- end #productsGrid -->
+
+            <!-- Pagination Controls -->
+            <div id="paginationControls"></div>
+
+            <!-- No Results -->
+            <div class="no-results" id="noResults">
+                
+                <h4 class="fw-bold">No products found</h4>
+                <p class="text-muted">Try a different search term or filter category.</p>
+                <button class="btn btn-premium btn-primary-premium mt-2" onclick="setFilter('all', document.querySelector('[data-filter=all]'))">View All Products</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Banner -->
+    <section class="cta-section">
+        <div class="container" data-aos="fade-up">
+            <h2>Need a Custom Formulation?</h2>
+            <p>We manufacture to your exact specifications — MOQ, dosage, Formula, and packaging.</p>
+            <div class="cta-actions">
+                <a href="/contact" class="btn btn-light btn-lg text-primary-custom">Request a Free Quote</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section class="section bg-light">
+        <div class="container">
+            <div class="section-header" data-aos="fade-up">
+                <h2>Frequently Asked Questions</h2>
+                <p>Answers about our product catalog and capabilities</p>
+            </div>
+            <div class="faq-container">
+                <div class="faq-item" data-aos="fade-up">
+                    <h3>What types of products do you manufacture?</h3>
+                    <p>We manufacture a wide range of nutraceutical products including vitamins, minerals, herbal supplements, specialty formulations, and custom blends in various Formulas like softgels, tablets, and gummies.</p>
+                </div>
+                <div class="faq-item" data-aos="fade-up" data-aos-delay="100">
+                    <h3>Can you create custom formulations?</h3>
+                    <p>Yes! Our R&D team specializes in developing custom formulations based on your specific requirements. We can create unique blends that meet your target market needs and competitive positioning.</p>
+                </div>
+                <div class="faq-item" data-aos="fade-up" data-aos-delay="200">
+                    <h3>How do you ensure product quality?</h3>
+                    <p>Every product undergoes rigorous testing in our GMP-certified laboratory. We perform 100% batch testing, stability studies, and maintain comprehensive quality control documentation.</p>
+                </div>
+                <div class="faq-item" data-aos="fade-up" data-aos-delay="300">
+                    <h3>What certifications do your products have?</h3>
+                    <p>Our products meet GMP, ISO 9001:2015, FDA, and WHO-GMP standards. We can also accommodate additional certifications like halal, kosher, and organic upon request.</p>
+                </div>
+                <div class="faq-item" data-aos="fade-up" data-aos-delay="400">
+                    <h3>Do you offer sample products?</h3>
+                    <p>Yes, we can provide samples for evaluation and testing. Sample availability depends on the specific formulation and regulatory requirements for your market.</p>
+                </div>
+                <div class="faq-item" data-aos="fade-up" data-aos-delay="500">
+                    <h3>How do I choose the right product for my brand?</h3>
+                    <p>We help you select or develop products based on market research, consumer trends, regulatory requirements, and your brand positioning. Our experts guide you through the entire process.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!-- Scripts -->
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+        AOS.init({ once: true, offset: 80 });
+// Vanilla nav
+        let activeFilter = 'all';
+        let currentPage = 1;
+        const itemsPerPage = 18;
+
+        function setFilter(cat, el) {
+            activeFilter = cat;
+            currentPage = 1;
+            document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+            if(el) el.classList.add('active');
+            filterProducts();
+        }
+
+        function filterProducts() {
+            const searchEl = document.getElementById('searchInput');
+            const q = searchEl ? searchEl.value.toLowerCase().trim() : '';
+            const items = document.querySelectorAll('.product-item');
+            
+            const filteredItems = Array.from(items).filter(item => {
+                const catMatch = activeFilter === 'all' || item.dataset.category.split(' ').includes(activeFilter);
+                const name = item.dataset.name ? item.dataset.name.toLowerCase() : '';
+                const nameMatch = name.includes(q);
+                return catMatch && nameMatch;
+            });
+
+            const countEl = document.getElementById('countNum');
+            if (countEl) countEl.textContent = filteredItems.length;
+            
+            const noResultsEl = document.getElementById('noResults');
+            if (noResultsEl) noResultsEl.style.display = filteredItems.length === 0 ? 'block' : 'none';
+
+            const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+            if (currentPage > totalPages && totalPages > 0) currentPage = totalPages;
+
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+
+            items.forEach(item => item.style.display = 'none');
+
+            filteredItems.slice(startIndex, endIndex).forEach(item => {
+                item.style.display = '';
+            });
+
+            renderPagination(totalPages);
+        }
+
+        function renderPagination(totalPages) {
+            const paginationContainer = document.getElementById('paginationControls');
+            if (!paginationContainer) return;
+            
+            if (totalPages <= 1) {
+                paginationContainer.classList.remove('is-visible');
+                return;
+            }
+
+            paginationContainer.classList.add('is-visible');
+            let html = '';
+            
+            html += `<button class="btn btn-outline" ${currentPage === 1 ? 'disabled style="padding: 0.5rem 1rem; opacity:0.5; cursor:not-allowed;"' : `style="padding: 0.5rem 1rem;" onclick="goToPage(${currentPage - 1})"`}>&laquo; Prev</button>`;
+            
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
+                    html += `<button class="btn ${i === currentPage ? 'btn-primary' : 'btn-outline'}" style="padding: 0.5rem 1rem;" onclick="goToPage(${i})">${i}</button>`;
+                } else if (i === currentPage - 2 || i === currentPage + 2) {
+                    html += `<span style="padding: 0.5rem; color: #6c757d;">...</span>`;
+                }
+            }
+            
+            html += `<button class="btn btn-outline" ${currentPage === totalPages ? 'disabled style="padding: 0.5rem 1rem; opacity:0.5; cursor:not-allowed;"' : `style="padding: 0.5rem 1rem;" onclick="goToPage(${currentPage + 1})"`}>Next &raquo;</button>`;
+            
+            paginationContainer.innerHTML = html;
+        }
+
+        function goToPage(page) {
+            currentPage = page;
+            filterProducts();
+            const grid = document.getElementById('productsGrid');
+            if (grid) {
+                const yOffset = -120; // Offset for sticky navbar
+                const y = grid.getBoundingClientRect().top + window.scrollY + yOffset;
+                window.scrollTo({top: y, behavior: 'smooth'});
+            }
+        }
+
+        const sInput = document.getElementById('searchInput');
+        if (sInput) {
+            sInput.addEventListener('input', () => {
+                currentPage = 1;
+                filterProducts();
+            });
+        }
+
+        // Handle URL ?filter= param
+        const urlFilter = new URLSearchParams(window.location.search).get('filter');
+        if (urlFilter) {
+            const btn = document.querySelector(`[data-filter="${urlFilter}"]`);
+            if (btn) setFilter(urlFilter, btn);
+        }
+
+    </script>

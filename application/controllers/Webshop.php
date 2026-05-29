@@ -8407,40 +8407,7 @@ XSL;
         $this->_render_cms_storefront_page('contact_us', 'contact_us');
     }
 
-    public function blogs()
-    {
-        $blogTable = $this->resolve_blog_table();
-        $this->data['blog_module_missing'] = $blogTable === null;
-        $this->data['blogs'] = [];
-        $activeTheme = $this->get_active_webshop_theme();
-
-        if ($blogTable !== null) {
-            $this->db->where('is_active', 1);
-            if ($this->db->field_exists('webshop_theme', $blogTable)) {
-                $this->db
-                    ->group_start()
-                    ->where('webshop_theme', $activeTheme)
-                    ->or_where('webshop_theme IS NULL', null, false)
-                    ->or_where('webshop_theme', '')
-                    ->group_end();
-            }
-            $this->data['blogs'] = $this->db
-                ->order_by('updated_at', 'DESC')
-                ->order_by('id', 'DESC')
-                ->get($blogTable)
-                ->result_array();
-        }
-
-        if ($this->webshop_settings->webshop_theme == 'restaurant') {
-            $this->load_view("webshop_restaurant_t1/blogs", $this->data);
-        } elseif ($this->webshop_settings->webshop_theme == 'nw') {
-            $this->load_view("nw_theme/blogs", $this->data);
-        } elseif ($this->webshop_settings->webshop_theme == 'gulfpharmacy') {
-            $this->load_view("blogs", $this->data);
-        } else {
-            $this->load_view("blogs", $this->data);
-        }
-    }
+  
 
     public function blog_rss()
     {
@@ -8510,49 +8477,49 @@ XSL;
         $this->output->set_output($xml);
     }
 
-    public function blog($slug = null)
-    {
-        $slug = trim((string)$slug);
-        if ($slug === '') {
-            show_404();
-            return;
-        }
+    // public function blog($slug = null)
+    // {
+    //     $slug = trim((string)$slug);
+    //     if ($slug === '') {
+    //         show_404();
+    //         return;
+    //     }
 
-        $blogTable = $this->resolve_blog_table();
-        if ($blogTable === null) {
-            show_404();
-            return;
-        }
+    //     $blogTable = $this->resolve_blog_table();
+    //     if ($blogTable === null) {
+    //         show_404();
+    //         return;
+    //     }
 
-        $activeTheme = $this->get_active_webshop_theme();
-        $this->db->where('slug', $slug)->where('is_active', 1);
-        if ($this->db->field_exists('webshop_theme', $blogTable)) {
-            $this->db
-                ->group_start()
-                ->where('webshop_theme', $activeTheme)
-                ->or_where('webshop_theme IS NULL', null, false)
-                ->or_where('webshop_theme', '')
-                ->group_end();
-        }
-        $blog = $this->db->get($blogTable)->row_array();
+    //     $activeTheme = $this->get_active_webshop_theme();
+    //     $this->db->where('slug', $slug)->where('is_active', 1);
+    //     if ($this->db->field_exists('webshop_theme', $blogTable)) {
+    //         $this->db
+    //             ->group_start()
+    //             ->where('webshop_theme', $activeTheme)
+    //             ->or_where('webshop_theme IS NULL', null, false)
+    //             ->or_where('webshop_theme', '')
+    //             ->group_end();
+    //     }
+    //     $blog = $this->db->get($blogTable)->row_array();
 
-        if (empty($blog)) {
-            show_404();
-            return;
-        }
+    //     if (empty($blog)) {
+    //         show_404();
+    //         return;
+    //     }
 
-        $this->data['blog'] = $blog;
+    //     $this->data['blog'] = $blog;
 
-        if ($this->webshop_settings->webshop_theme == 'restaurant') {
-            $this->load_view("webshop_restaurant_t1/blog_detail", $this->data);
-        } elseif ($this->webshop_settings->webshop_theme == 'nw') {
-            $this->load_view("nw_theme/blog_detail", $this->data);
-        } elseif ($this->webshop_settings->webshop_theme == 'gulfpharmacy') {
-            $this->load_view("blog_detail", $this->data);
-        } else {
-            $this->load_view("blog_detail", $this->data);
-        }
-    }
+    //     if ($this->webshop_settings->webshop_theme == 'restaurant') {
+    //         $this->load_view("webshop_restaurant_t1/blog_detail", $this->data);
+    //     } elseif ($this->webshop_settings->webshop_theme == 'nw') {
+    //         $this->load_view("nw_theme/blog_detail", $this->data);
+    //     } elseif ($this->webshop_settings->webshop_theme == 'gulfpharmacy') {
+    //         $this->load_view("blog_detail", $this->data);
+    //     } else {
+    //         $this->load_view("blog_detail", $this->data);
+    //     }
+    // }
 
     public function track_order($order_id)
     {
