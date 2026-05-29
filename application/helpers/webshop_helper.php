@@ -476,7 +476,7 @@ function webshop_cms_html_content_redundant_with_title($content, $title)
 }
 
 /**
- * Replace {{api_base_url}} / {{customer_assets_folder}} tokens in CMS HTML blocks.
+ * Replace {{api_base_url}}, {{webshop_base_url}}, {{customer_assets_folder}} in CMS HTML blocks.
  *
  * @param string $html
  * @return string
@@ -488,6 +488,7 @@ function webshop_replace_cms_html_placeholders($html)
     }
     $api_base = '';
     $folder = '';
+    $webshop_base = '';
     if (function_exists('get_instance')) {
         $CI = get_instance();
         if ($CI && isset($CI->config)) {
@@ -495,10 +496,20 @@ function webshop_replace_cms_html_placeholders($html)
             $api_base = trim((string) $CI->config->item('elintom_api_base_url', 'elintom_api'));
             $folder = trim((string) $CI->config->item('elintom_customer_assets_folder', 'elintom_api'), '/');
         }
+        if (function_exists('base_url')) {
+            $webshop_base = rtrim(str_replace('\\', '/', base_url()), '/') . '/';
+        }
     }
     if ($api_base !== '') {
         $api_base = rtrim(str_replace('\\', '/', $api_base), '/') . '/';
         $html = str_replace(array('{{api_base_url}}', '{{ELINTOM_API_BASE_URL}}'), $api_base, $html);
+    }
+    if ($webshop_base !== '') {
+        $html = str_replace(
+            array('{{webshop_base_url}}', '{{WEBSHOP_BASE_URL}}'),
+            $webshop_base,
+            $html
+        );
     }
     if ($folder !== '') {
         $html = str_replace(
