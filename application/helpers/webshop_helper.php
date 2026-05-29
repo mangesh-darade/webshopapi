@@ -2727,6 +2727,184 @@ function webshop_product_list_purchase_state($row, $is_active_ok = true) {
 }
 
 /**
+ * Read first non-empty string field from a category row (API aliases supported).
+ *
+ * @param array|object $row
+ * @param array        $keys
+ * @return string
+ */
+function webshop_category_pick_field($row, array $keys) {
+    if (is_object($row)) {
+        foreach ($keys as $k) {
+            if (isset($row->$k) && trim((string) $row->$k) !== '') {
+                return trim((string) $row->$k);
+            }
+        }
+        return '';
+    }
+    if (!is_array($row)) {
+        return '';
+    }
+    foreach ($keys as $k) {
+        if (isset($row[$k]) && trim((string) $row[$k]) !== '') {
+            return trim((string) $row[$k]);
+        }
+    }
+    return '';
+}
+
+/**
+ * @param array|object $row
+ * @return array { short_description, long_description }
+ */
+function webshop_category_descriptions($row) {
+    $short = webshop_category_pick_field($row, array(
+        'short_description', 'ShortDescription', 'short_desc', 'excerpt', 'summary', 'tagline',
+    ));
+    $long = webshop_category_pick_field($row, array(
+        'long_description', 'LongDescription', 'long_desc', 'description', 'details', 'body',
+    ));
+    if ($long === '' && $short !== '' && strlen($short) > 180) {
+        $long = $short;
+        $short = '';
+    }
+    return array(
+        'short_description' => $short,
+        'long_description'  => $long,
+    );
+}
+
+/**
+ * Plain-text category copy for cards (strip HTML, collapse whitespace).
+ *
+ * @param string $text
+ * @param int    $maxLen 0 = no hard limit
+ * @return string
+ */
+function webshop_category_description_plain($text, $maxLen = 0) {
+    $s = trim(strip_tags(html_entity_decode((string) $text, ENT_QUOTES, 'UTF-8')));
+    $s = preg_replace('/\s+/u', ' ', $s);
+    if ($s === null) {
+        $s = '';
+    }
+    $maxLen = (int) $maxLen;
+    if ($maxLen > 0 && function_exists('mb_strlen') && function_exists('mb_substr')) {
+        if (mb_strlen($s, 'UTF-8') > $maxLen) {
+            $s = rtrim(mb_substr($s, 0, $maxLen - 1, 'UTF-8')) . '…';
+        }
+    } elseif ($maxLen > 0 && strlen($s) > $maxLen) {
+        $s = rtrim(substr($s, 0, $maxLen - 1)) . '…';
+    }
+    return $s;
+}
+
+/**
+ * Layout-safe description strings for category cards.
+ *
+ * @param array|object $row
+ * @param string       $layout carousel|grid
+ * @return array { blurb, short, long }
+ */
+function webshop_category_card_copy($row, $layout = 'grid') {
+    $desc = webshop_category_descriptions($row);
+    $shortRaw = webshop_category_description_plain($desc['short_description'], 0);
+    $longRaw  = webshop_category_description_plain($desc['long_description'], 0);
+    if ($longRaw !== '' && $shortRaw !== '' && $longRaw === $shortRaw) {
+        $longRaw = '';
+    }
+    $layout = strtolower(trim((string) $layout));
+    if ($layout === 'carousel' || $layout === 'grid') {
+        $blurb = $shortRaw !== '' ? $shortRaw : $longRaw;
+        return array(
+            'blurb'  => webshop_category_description_plain($blurb, 72),
+            'short'  => '',
+            'long'   => '',
+        );
+    }
+    $shortOut = webshop_category_description_plain($shortRaw, 110);
+    $longOut  = '';
+    if ($longRaw !== '') {
+        $longOut = webshop_category_description_plain($longRaw, 160);
+        if ($shortOut === '' || $longOut === $shortOut) {
+            if ($shortOut === '') {
+                $shortOut = webshop_category_description_plain($longRaw, 110);
+            }
+            $longOut = '';
+        }
+    }
+    return array(
+        'blurb'  => '',
+        'short'  => $shortOut,
+        'long'   => $longOut,
+    );
+}
+
+/**
+ * Flat category row for category_grid / category_carousel section views.
+ *
+ * @param array|object $row
+ * @return array
+ */
+function webshop_category_section_item($row) {
+    $o = is_object($row) ? $row : (is_array($row) ? (object) $row : new stdClass());
+    $desc = webshop_category_descriptions($o);
+    $id = isset($o->id) ? (int) $o->id : 0;
+    return array(
+        'id'                => $id,
+        'name'              => isset($o->name) ? (string) $o->name : '',
+        'image'             => isset($o->image) ? (string) $o->image : '',
+        'photo'             => isset($o->photo) ? (string) $o->photo : '',
+        'short_description' => $desc['short_description'],
+        'long_description'  => $desc['long_description'],
+        'learn_more_url'    => webshop_category_pick_field($o, array(
+            'learn_more_url', 'learn_more_link', 'LearnMoreUrl', 'cta_url', 'cta_link',
+            'link_url', 'page_url', 'landing_url', 'custom_url', 'external_url', 'href',
+        )),
+    );
+}
+
+/**
+ * Resolve Learn More href for category cards (API/DB field or placeholder until configured).
+ *
+ * @param array|object $row
+ * @param string       $fallback Default when no custom URL and no dummy mapping applies.
+ * @return string
+ */
+function webshop_category_learn_more_url($row, $fallback = '') {
+    $url = webshop_category_pick_field($row, array(
+        'learn_more_url', 'learn_more_link', 'LearnMoreUrl', 'cta_url', 'cta_link',
+        'link_url', 'page_url', 'landing_url', 'custom_url', 'external_url', 'href',
+    ));
+    if ($url !== '') {
+        if (preg_match('#^https?://#i', $url)) {
+            return $url;
+        }
+        if (isset($url[0]) && $url[0] === '/') {
+            return rtrim(base_url(), '/') . $url;
+        }
+        return base_url(ltrim($url, '/'));
+    }
+    $id = 0;
+    if (is_object($row)) {
+        $id = isset($row->id) ? (int) $row->id : 0;
+    } elseif (is_array($row)) {
+        $id = isset($row['id']) ? (int) $row['id'] : 0;
+    }
+    // Dummy landing pages — replace via learn_more_url on each category when ready.
+    $dummyPaths = array(
+        'webshop/about-us',
+        'webshop/contact',
+        'webshop/faq',
+        'webshop/shipping-policy',
+        'webshop/privacy-policy',
+    );
+    if ($id > 0) {
+        return base_url($dummyPaths[($id - 1) % count($dummyPaths)]);
+    }
+    return $fallback !== '' ? $fallback : base_url('webshop');
+}
+
+/**
  * First non-empty category image path from API/DB row (same field order as product: image, photo, then common aliases).
  *
  * @param array|object $row
@@ -2767,8 +2945,14 @@ function webshop_category_image_src($uploads_base, $thumbs_base, $row) {
     if ($img !== '') {
         $normalized = webshop_media_normalize_relative($uploads_base, $img);
         $rel = isset($normalized['relative']) ? (string) $normalized['relative'] : '';
-        if ($rel !== '' && webshop_media_exists_local($uploads_base, $rel)) {
-            return webshop_media_src($uploads_base, $img);
+        if ($rel !== '') {
+            if (webshop_media_exists_local($uploads_base, $rel)) {
+                return webshop_media_src($uploads_base, $img);
+            }
+            $remote = webshop_media_src($uploads_base, $img);
+            if ($remote !== '') {
+                return $remote;
+            }
         }
     }
     return webshop_no_image_src($uploads_base, $thumbs_base);

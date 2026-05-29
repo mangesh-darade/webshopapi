@@ -5,7 +5,7 @@
     function scrollCarousel(id, dir) {
         var el = document.getElementById(id);
         if (!el) return;
-        el.scrollBy({ left: dir * (window.innerWidth < 600 ? 180 : 220), behavior: 'smooth' });
+        el.scrollBy({ left: dir * (window.innerWidth < 600 ? 234 : 266), behavior: 'smooth' });
     }
 
     function wireOne(car) {

@@ -785,13 +785,9 @@ class Webshop_section_engine
         }
         $items = array();
         foreach ($tree['main'] as $cid => $row) {
-            $o = is_object($row) ? $row : (object) $row;
-            $items[] = array(
-                'id' => isset($o->id) ? (int) $o->id : (int) $cid,
-                'name' => isset($o->name) ? (string) $o->name : '',
-                'image' => isset($o->image) ? (string) $o->image : '',
-                'photo' => isset($o->photo) ? (string) $o->photo : '',
-            );
+            $items[] = function_exists('webshop_category_section_item')
+                ? webshop_category_section_item($row)
+                : $this->category_row_to_section_item($row, $cid);
             if ($limit > 0 && count($items) >= $limit) {
                 break;
             }
@@ -813,19 +809,43 @@ class Webshop_section_engine
         }
         $items = array();
         foreach ($rawItems as $cid => $row) {
-            $o = is_object($row) ? $row : (object) $row;
-            $id = isset($o->id) ? (int) $o->id : (int) $cid;
-            if ($id <= 0) {
+            $item = function_exists('webshop_category_section_item')
+                ? webshop_category_section_item($row)
+                : $this->category_row_to_section_item($row, $cid);
+            if ((int) $item['id'] <= 0) {
                 continue;
             }
-            $items[] = array(
-                'id' => $id,
-                'name' => isset($o->name) ? (string) $o->name : '',
-                'image' => isset($o->image) ? (string) $o->image : '',
-                'photo' => isset($o->photo) ? (string) $o->photo : '',
-            );
+            $items[] = $item;
         }
         return $items;
+    }
+
+    /**
+     * @param mixed $row
+     * @param mixed $cidKey
+     * @return array
+     */
+    private function category_row_to_section_item($row, $cidKey)
+    {
+        $o = is_object($row) ? $row : (object) $row;
+        $id = isset($o->id) ? (int) $o->id : (int) $cidKey;
+        $desc = function_exists('webshop_category_descriptions')
+            ? webshop_category_descriptions($o)
+            : array('short_description' => '', 'long_description' => '');
+        return array(
+            'id'                => $id,
+            'name'              => isset($o->name) ? (string) $o->name : '',
+            'image'             => isset($o->image) ? (string) $o->image : '',
+            'photo'             => isset($o->photo) ? (string) $o->photo : '',
+            'short_description' => $desc['short_description'],
+            'long_description'  => $desc['long_description'],
+            'learn_more_url'    => function_exists('webshop_category_pick_field')
+                ? webshop_category_pick_field($o, array(
+                    'learn_more_url', 'learn_more_link', 'LearnMoreUrl', 'cta_url', 'cta_link',
+                    'link_url', 'page_url', 'landing_url', 'custom_url', 'external_url', 'href',
+                ))
+                : '',
+        );
     }
 
     private function resolve_component_view($type)

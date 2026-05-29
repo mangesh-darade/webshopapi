@@ -91,7 +91,7 @@ class Webshop_model extends CI_Model {
 
         // $q = $this->db->select('id, code, name, image, parent_id, rank')->where(['is_active'=>1, 'in_eshop'=>1])->order_by('rank', 'asc')->get('categories');
        $q = $this->db->query("
-            SELECT id, code, name, image, parent_id, 
+            SELECT id, code, name, short_description, long_description, image, parent_id, 
                 CASE 
                     WHEN `rank` IS NULL OR TRIM(`rank`) = '' THEN NULL 
                     ELSE CAST(`rank` AS SIGNED) 

@@ -6,12 +6,21 @@ $theme = (isset($webshop_settings) && is_object($webshop_settings) && isset($web
 
 $selectedCatId  = isset($get_category_id) ? (int) $get_category_id : 0;
 $categoryName   = 'Products';
+$categoryRow    = null;
 if (isset($categories['main'][$selectedCatId])) {
     $c = $categories['main'][$selectedCatId];
-    $categoryName = is_object($c) ? (string) $c->name : (isset($c['name']) ? (string) $c['name'] : $categoryName);
+    $categoryRow = is_object($c) ? (array) $c : (is_array($c) ? $c : array());
+    $categoryName = isset($categoryRow['name']) ? (string) $categoryRow['name'] : $categoryName;
 }
 if (isset($entity_meta_title) && trim((string) $entity_meta_title) !== '') {
     $categoryName = trim((string) $entity_meta_title);
+}
+$categoryShortDesc = '';
+$categoryLongDesc  = '';
+if ($categoryRow !== null && function_exists('webshop_category_card_copy')) {
+    $catCopy = webshop_category_card_copy($categoryRow, 'grid');
+    $categoryShortDesc = isset($catCopy['short']) ? (string) $catCopy['short'] : '';
+    $categoryLongDesc  = isset($catCopy['long']) ? (string) $catCopy['long'] : '';
 }
 
 $products      = isset($listItems) && is_array($listItems) ? $listItems : array();
@@ -191,7 +200,15 @@ if (!empty($products)) {
         <!-- Main -->
         <main class="cp-main">
             <div class="cp-header-bar">
-                <h1 class="cp-header-title"><?= htmlspecialchars($categoryName, ENT_QUOTES, 'UTF-8') ?></h1>
+                <div class="cp-header-intro">
+                    <h1 class="cp-header-title"><?= htmlspecialchars($categoryName, ENT_QUOTES, 'UTF-8') ?></h1>
+                    <?php if ($categoryShortDesc !== ''): ?>
+                    <p class="cp-header-short"><?= htmlspecialchars(html_entity_decode($categoryShortDesc, ENT_QUOTES, 'UTF-8'), ENT_QUOTES, 'UTF-8') ?></p>
+                    <?php endif; ?>
+                    <?php if ($categoryLongDesc !== '' && $categoryLongDesc !== $categoryShortDesc): ?>
+                    <div class="cp-header-long"><?= nl2br(htmlspecialchars(html_entity_decode($categoryLongDesc, ENT_QUOTES, 'UTF-8'), ENT_QUOTES, 'UTF-8')) ?></div>
+                    <?php endif; ?>
+                </div>
                 <span class="cp-header-count">
                     <?= $totalItems ?> result<?= $totalItems != 1 ? 's' : '' ?>
                     <?php if ($totalPages > 1): ?>

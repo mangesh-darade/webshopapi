@@ -154,6 +154,36 @@ class Elintom_api_response {
     }
 
     /**
+     * Map API description aliases onto sma_categories field names for storefront views.
+     *
+     * @param object $obj
+     */
+    public function coerce_category_descriptions_on_object($obj) {
+        if (!is_object($obj)) {
+            return;
+        }
+        $has = function ($o, $prop) {
+            return isset($o->$prop) && trim((string) $o->$prop) !== '';
+        };
+        if (!$has($obj, 'short_description')) {
+            foreach (array('ShortDescription', 'short_desc', 'excerpt', 'summary', 'tagline') as $p) {
+                if ($has($obj, $p)) {
+                    $obj->short_description = trim((string) $obj->$p);
+                    break;
+                }
+            }
+        }
+        if (!$has($obj, 'long_description')) {
+            foreach (array('LongDescription', 'long_desc', 'description', 'details', 'body') as $p) {
+                if ($has($obj, $p)) {
+                    $obj->long_description = trim((string) $obj->$p);
+                    break;
+                }
+            }
+        }
+    }
+
+    /**
      * True when category row should appear on the storefront (matches Webshop_model::get_categories() filters).
      * If in_eshop / is_active are absent, the row is kept for backward compatibility with older payloads.
      *
@@ -269,6 +299,7 @@ class Elintom_api_response {
             $obj = is_object($row) ? $row : (object) $row;
             $this->coerce_category_id_on_object($obj);
             $this->coerce_category_image_on_object($obj);
+            $this->coerce_category_descriptions_on_object($obj);
             if (!isset($obj->id) || $obj->id === '' || $obj->id === null) {
                 continue;
             }
@@ -313,6 +344,7 @@ class Elintom_api_response {
                 $obj = is_object($row) ? $row : (object) $row;
                 $this->coerce_category_id_on_object($obj);
                 $this->coerce_category_image_on_object($obj);
+                $this->coerce_category_descriptions_on_object($obj);
                 if (!isset($obj->id) || $obj->id === '' || $obj->id === null) {
                     continue;
                 }
