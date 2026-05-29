@@ -45,4 +45,11 @@
 .gp-add-to-cart-btn:hover{background:var(--gp-accent);box-shadow:0 8px 20px rgba(76,175,137,.3)}
 .gp-add-to-cart-btn.is-disabled{background:#9ca3af;color:#fff;cursor:not-allowed;pointer-events:none;box-shadow:none}
 .gp-add-to-cart-icon{margin-right:6px;vertical-align:middle;display:inline-block}
-.cms-pg-title{font-size:24px;font-weight:800;color:#214548;margin:0 0 20px;letter-spacing:-.5px}
+.gp-product-grid-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 16px;margin-bottom:20px}
+.cms-pg-title{font-size:24px;font-weight:800;color:#214548;margin:0;letter-spacing:-.5px}
+.gp-product-grid-count{margin:0;font-size:14px;font-weight:600;color:#64748b;white-space:nowrap}
+.gp-product-grid-pagination{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:28px;flex-wrap:wrap}
+.gp-pg-btn{padding:8px 14px;border:1px solid var(--gp-border,#e2e8f0);border-radius:10px;font-size:14px;background:var(--gp-bg,#fff);color:var(--gp-text,#214548);font-weight:600;text-decoration:none;transition:background .15s,border-color .15s}
+a.gp-pg-btn:hover{background:#f0fdfa;border-color:var(--gp-accent,#4caf89)}
+.gp-pg-btn.is-active{background:var(--gp-accent,#4caf89);color:#fff;border-color:var(--gp-accent,#4caf89);pointer-events:none}
+.gp-pg-btn.is-disabled{color:#cbd5e1;pointer-events:none;border-color:var(--gp-border,#e2e8f0)}

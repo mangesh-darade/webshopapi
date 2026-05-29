@@ -6139,3 +6139,206 @@ if (!function_exists('webshop_herbinn_footer_copyright_line')) {
         return str_replace('{year}', date('Y'), $tpl);
     }
 }
+
+if (!function_exists('webshop_cms_path_strip_page_segment')) {
+    /**
+     * Split a CMS path and trailing page segment: /product/2 → ['/product', 2].
+     *
+     * @param string $urlPath e.g. /product/2
+     * @return array{0: string, 1: int}
+     */
+    function webshop_cms_path_strip_page_segment($urlPath)
+    {
+        $path = '/' . trim((string) $urlPath, '/');
+        if ($path === '/' || $path === '') {
+            return array('/', 1);
+        }
+        if (preg_match('#^(.+)/(\d+)$#', $path, $m)) {
+            $page = (int) $m[2];
+            $base = (string) $m[1];
+            if ($base === '') {
+                $base = '/';
+            }
+            if ($page > 0) {
+                return array($base, $page);
+            }
+        }
+        return array($path, 1);
+    }
+}
+
+if (!function_exists('webshop_product_grid_page_from_request')) {
+    /**
+     * Product grid page from URI segment (controller data) or ?page= query.
+     *
+     * @return int
+     */
+    function webshop_product_grid_page_from_request()
+    {
+        $CI =& get_instance();
+        if (isset($CI->data['cms_product_grid_page'])) {
+            $page = (int) $CI->data['cms_product_grid_page'];
+            if ($page > 0) {
+                return $page;
+            }
+        }
+        if (isset($CI->input)) {
+            $page = (int) $CI->input->get('page');
+            if ($page > 0) {
+                return $page;
+            }
+        }
+        return 1;
+    }
+}
+
+if (!function_exists('webshop_product_grid_summary_text')) {
+    /**
+     * Human-readable product count for grid / carousel headers.
+     *
+     * @param int $total
+     * @param int $page
+     * @param int $perPage
+     * @param int $totalPages
+     * @return string
+     */
+    function webshop_product_grid_summary_text($total, $page = 1, $perPage = 12, $totalPages = 1)
+    {
+        $total = max(0, (int) $total);
+        if ($total < 1) {
+            return '';
+        }
+        $page = max(1, (int) $page);
+        $perPage = max(1, (int) $perPage);
+        $totalPages = max(1, (int) $totalPages);
+        if ($totalPages > 1) {
+            $from = (($page - 1) * $perPage) + 1;
+            $to = min($page * $perPage, $total);
+            if ($to >= $from) {
+                return 'Showing ' . $from . '–' . $to . ' of ' . $total . ' products';
+            }
+        }
+        return $total . ' product' . ($total === 1 ? '' : 's');
+    }
+}
+
+if (!function_exists('webshop_product_grid_pagination_base')) {
+    /**
+     * Clean base URL for product grid pages, e.g. http://host/webshopapi/webshop/product
+     *
+     * @param array $section Unused; reserved for future per-section bases
+     * @return string
+     */
+    function webshop_product_grid_pagination_base($section = array())
+    {
+        $CI =& get_instance();
+        if (isset($CI->data['cms_product_grid_slug']) && trim((string) $CI->data['cms_product_grid_slug']) !== '') {
+            $slug = trim((string) $CI->data['cms_product_grid_slug'], '/');
+            return rtrim(base_url('webshop/' . $slug), '/');
+        }
+        if (isset($CI->data['dynamic_cms_slug']) && trim((string) $CI->data['dynamic_cms_slug']) !== '') {
+            $slug = trim((string) $CI->data['dynamic_cms_slug'], '/');
+            if ($slug !== '' && $slug !== '/') {
+                return rtrim(base_url('webshop/' . $slug), '/');
+            }
+        }
+        return rtrim(base_url('webshop'), '/');
+    }
+}
+
+if (!function_exists('webshop_product_grid_page_url')) {
+    /**
+     * Build a clean paginated CMS URL. Page 1 omits the trailing segment.
+     *
+     * @param string $base  From webshop_product_grid_pagination_base()
+     * @param int    $page
+     * @return string
+     */
+    function webshop_product_grid_page_url($base, $page)
+    {
+        $base = rtrim((string) $base, '/');
+        $page = (int) $page;
+        if ($page <= 1) {
+            return $base;
+        }
+        return $base . '/' . $page;
+    }
+}
+
+if (!function_exists('webshop_redirect_legacy_product_grid_query')) {
+    /**
+     * 301 from ?pg_71=2 or ?page=2 to clean path /webshop/{slug}/2
+     *
+     * @param string $urlPath CMS path e.g. /product
+     * @return void
+     */
+    function webshop_redirect_legacy_product_grid_query($urlPath = '')
+    {
+        if (!isset($_GET) || !is_array($_GET) || $_GET === array()) {
+            return;
+        }
+
+        $CI =& get_instance();
+        $targetPage = 0;
+        $hadPgKey = false;
+        $cleanGet = array();
+
+        foreach ($_GET as $key => $val) {
+            if (preg_match('/^pg_/i', (string) $key)) {
+                $hadPgKey = true;
+                $targetPage = max($targetPage, max(1, (int) $val));
+                continue;
+            }
+            if ((string) $key === 'page') {
+                $targetPage = max($targetPage, max(1, (int) $val));
+                continue;
+            }
+            $cleanGet[$key] = $val;
+        }
+
+        if ($targetPage < 1) {
+            return;
+        }
+
+        $slug = trim((string) $urlPath, '/');
+        if ($slug === '' && isset($CI->data['cms_product_grid_slug'])) {
+            $slug = trim((string) $CI->data['cms_product_grid_slug'], '/');
+        }
+        if ($slug === '' && !$hadPgKey && empty($CI->data['is_dynamic_cms_page'])) {
+            return;
+        }
+        if ($slug === '') {
+            return;
+        }
+
+        $target = webshop_product_grid_page_url(rtrim(base_url('webshop/' . $slug), '/'), $targetPage);
+        $qs = http_build_query($cleanGet);
+        if ($qs !== '') {
+            $target .= '?' . $qs;
+        }
+
+        $CI->load->helper('url');
+        redirect($target, 'location', 301);
+        exit;
+    }
+}
+
+if (!function_exists('webshop_redirect_product_grid_page_one_segment')) {
+    /**
+     * Canonical URL: /webshop/product/1 → /webshop/product
+     *
+     * @param string $slug Storefront slug e.g. product
+     * @return void
+     */
+    function webshop_redirect_product_grid_page_one_segment($slug)
+    {
+        $slug = trim((string) $slug, '/');
+        if ($slug === '') {
+            return;
+        }
+        $CI =& get_instance();
+        $CI->load->helper('url');
+        redirect(webshop_product_grid_page_url(rtrim(base_url('webshop/' . $slug), '/'), 1), 'location', 301);
+        exit;
+    }
+}

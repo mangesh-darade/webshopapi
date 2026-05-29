@@ -8,6 +8,22 @@ $items    = isset($items)   && is_array($items)    ? $items
 $title    = isset($title) ? trim((string) $title) : '';
 if ($title === '' && isset($cfg['title']) && $cfg['title'] !== '') $title = (string) $cfg['title'];
 $cols     = (isset($cfg['columns_desktop']) && (int)$cfg['columns_desktop'] > 0) ? (int)$cfg['columns_desktop'] : 4;
+$pgBase   = isset($pagination_base_url) ? rtrim((string) $pagination_base_url, '/') : '';
+if ($pgBase === '' && function_exists('webshop_product_grid_pagination_base')) {
+    $pgBase = rtrim(webshop_product_grid_pagination_base(), '/');
+}
+$pgPage   = isset($current_page) ? max(1, (int) $current_page) : 1;
+$pgPages  = isset($total_pages) ? max(1, (int) $total_pages) : 1;
+$pgPer    = isset($products_per_page) && (int) $products_per_page > 0
+          ? (int) $products_per_page
+          : (isset($cfg['limit']) && (int) $cfg['limit'] > 0 ? (int) $cfg['limit'] : 12);
+$pgTotal  = isset($total_items) ? max(0, (int) $total_items) : count($items);
+if ($pgTotal < count($items)) {
+    $pgTotal = count($items);
+}
+$pgSummary = function_exists('webshop_product_grid_summary_text')
+    ? webshop_product_grid_summary_text($pgTotal, $pgPage, $pgPer, $pgPages)
+    : ($pgTotal . ' products');
 $uploadsB = isset($uploads) ? rtrim($uploads, '/') . '/' : base_url('assets/uploads/');
 $currency = (isset($webshop_settings) && is_object($webshop_settings) && isset($webshop_settings->currency_symbol))
           ? $webshop_settings->currency_symbol : '&#8377;';
@@ -18,12 +34,17 @@ $_pg_wl_lookup = function_exists('webshop_view_wishlist_lookup')
     : (isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : array());
 $CI =& get_instance();
 ?>
-<link rel="stylesheet" href="<?= webshop_theme_assets_url('css/product-grid.css?ver=20260528c') ?>">
+<link rel="stylesheet" href="<?= webshop_theme_assets_url('css/product-grid.css?ver=20260529a') ?>">
 <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/wishlist-fav.css?ver=20260526a') ?>">
 <section class="gp-component dynamic-product-grid" aria-labelledby="<?= $uid ?>">
-    <?php if ($title !== ''): ?>
-    <h2 class="cms-pg-title" id="<?= $uid ?>"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h2>
-    <?php endif; ?>
+    <div class="gp-product-grid-head">
+        <?php if ($title !== ''): ?>
+        <h2 class="cms-pg-title" id="<?= $uid ?>"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h2>
+        <?php endif; ?>
+        <?php if ($pgSummary !== ''): ?>
+        <p class="gp-product-grid-count"<?= $title === '' ? ' id="' . $uid . '"' : '' ?>><?= htmlspecialchars($pgSummary, ENT_QUOTES, 'UTF-8') ?></p>
+        <?php endif; ?>
+    </div>
     <div class="gp-product-grid gp-product-grid-<?= $cols ?>col">
         <?php foreach ($items as $p):
             $p     = is_object($p) ? (array)$p : (is_array($p) ? $p : array());
@@ -149,5 +170,25 @@ $CI =& get_instance();
         </div>
         <?php endforeach; ?>
     </div>
+    <?php if ($pgPages > 1 && $pgBase !== '' && function_exists('webshop_product_grid_page_url')):
+        $pgRange = 2;
+    ?>
+    <nav class="gp-product-grid-pagination" aria-label="Product pages">
+        <?php if ($pgPage > 1): ?>
+        <a href="<?= htmlspecialchars(webshop_product_grid_page_url($pgBase, $pgPage - 1), ENT_QUOTES, 'UTF-8') ?>" class="gp-pg-btn">‹ Prev</a>
+        <?php else: ?>
+        <span class="gp-pg-btn is-disabled">‹ Prev</span>
+        <?php endif;
+        for ($pgN = max(1, $pgPage - $pgRange); $pgN <= min($pgPages, $pgPage + $pgRange); $pgN++): ?>
+        <a href="<?= htmlspecialchars(webshop_product_grid_page_url($pgBase, $pgN), ENT_QUOTES, 'UTF-8') ?>"
+           class="gp-pg-btn<?= $pgN === $pgPage ? ' is-active' : '' ?>"><?= (int) $pgN ?></a>
+        <?php endfor;
+        if ($pgPage < $pgPages): ?>
+        <a href="<?= htmlspecialchars(webshop_product_grid_page_url($pgBase, $pgPage + 1), ENT_QUOTES, 'UTF-8') ?>" class="gp-pg-btn">Next ›</a>
+        <?php else: ?>
+        <span class="gp-pg-btn is-disabled">Next ›</span>
+        <?php endif; ?>
+    </nav>
+    <?php endif; ?>
 </section>
 <script defer src="<?= webshop_theme_assets_url('js/image-fallback.js?ver=20260528a') ?>"></script>

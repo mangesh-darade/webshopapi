@@ -19,10 +19,25 @@ $CI =& get_instance();
 ?>
 <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/product-carousel.css?ver=20260528c') ?>">
 <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/wishlist-fav.css?ver=20260526a') ?>">
+<?php
+$pcTotal = isset($total_items) ? max(0, (int) $total_items) : count($items);
+if ($pcTotal < count($items)) {
+    $pcTotal = count($items);
+}
+?>
 <section class="gp-component dynamic-product-carousel">
-    <?php if ($title !== ''): ?>
-    <h2 class="cms-pc-title"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h2>
-    <?php endif; ?>
+    <div class="gp-product-carousel-head">
+        <?php if ($title !== ''): ?>
+        <h2 class="cms-pc-title"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h2>
+        <?php endif; ?>
+        <?php
+        $pcSummary = function_exists('webshop_product_grid_summary_text')
+            ? webshop_product_grid_summary_text($pcTotal, 1, $pcTotal, 1)
+            : ($pcTotal . ' product' . ($pcTotal === 1 ? '' : 's'));
+        if ($pcSummary !== ''): ?>
+        <p class="gp-product-grid-count"><?= htmlspecialchars($pcSummary, ENT_QUOTES, 'UTF-8') ?></p>
+        <?php endif; ?>
+    </div>
     <div class="gp-carousel-wrap">
         <button type="button" class="gp-carousel-btn gp-carousel-prev" data-carousel-id="<?= $uid ?>" data-direction="-1" aria-label="Previous">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>

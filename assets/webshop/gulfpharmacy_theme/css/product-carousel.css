@@ -42,7 +42,9 @@
 .gp-carousel-btn:hover{background:var(--gp-primary);color:#fff;transform:scale(1.1)}
 .gp-carousel-prev{position:absolute;left:5px}
 .gp-carousel-next{position:absolute;right:5px}
-.cms-pc-title{font-size:24px;font-weight:800;color:#214548;margin:0 0 20px}
+.gp-product-carousel-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 16px;margin-bottom:20px}
+.cms-pc-title{font-size:24px;font-weight:800;color:#214548;margin:0}
+.gp-product-carousel-head .gp-product-grid-count{margin:0;font-size:14px;font-weight:600;color:#64748b;white-space:nowrap}
 .gp-pc-pricing{display:flex;align-items:center;gap:6px}
 /* Auto-hide arrows at scroll boundaries — works on all sizes once JS toggles classes. */
 .gp-carousel-wrap.is-at-start .gp-carousel-prev,
@@ -52,5 +54,6 @@
     .gp-carousel-btn svg{width:16px;height:16px}
     .gp-carousel-prev{left:2px}
     .gp-carousel-next{right:2px}
-    .cms-pc-title{font-size:20px;margin:0 0 14px}
+    .gp-product-carousel-head{margin-bottom:14px}
+    .cms-pc-title{font-size:20px}
 }

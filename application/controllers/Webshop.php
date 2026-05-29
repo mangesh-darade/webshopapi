@@ -901,7 +901,7 @@ XSL;
             return call_user_func_array([$this, $method], $params);
         }
 
-        if (empty($params) && $this->render_dynamic_cms_slug_page($method)) {
+        if ($this->render_dynamic_cms_slug_page($method, $params)) {
             return;
         }
 
@@ -958,7 +958,12 @@ XSL;
         return count($params) >= $required;
     }
 
-    private function render_dynamic_cms_slug_page($method)
+    /**
+     * @param string $method URI segment (CMS slug)
+     * @param array  $params Optional trailing segments, e.g. [2] for /webshop/product/2
+     * @return bool
+     */
+    private function render_dynamic_cms_slug_page($method, $params = array())
     {
         $slug = trim((string) $method);
         if ($slug === '') {
@@ -977,6 +982,22 @@ XSL;
         ), true)) {
             return false;
         }
+
+        $gridPage = 1;
+        if (!empty($params)) {
+            if (count($params) === 1 && ctype_digit((string) $params[0])) {
+                $gridPage = max(1, (int) $params[0]);
+            } else {
+                return false;
+            }
+        }
+
+        if ($gridPage === 1 && !empty($params) && function_exists('webshop_redirect_product_grid_page_one_segment')) {
+            webshop_redirect_product_grid_page_one_segment($slug);
+        }
+
+        $this->data['cms_product_grid_page'] = $gridPage;
+        $this->data['cms_product_grid_slug'] = $slug;
 
         return $this->_render_cms_storefront_page($slug);
     }
@@ -2190,6 +2211,21 @@ XSL;
             $urlPath = '/';
         }
 
+        $rawUrlPath = $urlPath;
+        $pathPage = 1;
+        if (function_exists('webshop_cms_path_strip_page_segment')) {
+            list($urlPath, $pathPage) = webshop_cms_path_strip_page_segment($urlPath);
+        }
+        if ($pathPage > 1 && !isset($this->data['cms_product_grid_page'])) {
+            $this->data['cms_product_grid_page'] = $pathPage;
+        }
+        if ($pathPage === 1 && preg_match('#/1$#', $rawUrlPath)) {
+            $slugForCanonical = trim($urlPath, '/');
+            if ($slugForCanonical !== '' && function_exists('webshop_redirect_product_grid_page_one_segment')) {
+                webshop_redirect_product_grid_page_one_segment($slugForCanonical);
+            }
+        }
+
         $candidates = $this->webshop_model->cms_url_candidates_from_path($urlPath);
         $cmsPage = $this->webshop_model->find_published_cms_page($candidates);
         if (!is_object($cmsPage)) {
@@ -2243,6 +2279,18 @@ XSL;
 
         $this->data['is_dynamic_cms_page'] = true;
         $this->data['dynamic_cms_slug'] = $urlPath;
+        $slugForPaging = trim((string) $urlPath, '/');
+        if ($slugForPaging !== '' && !isset($this->data['cms_product_grid_slug'])) {
+            $this->data['cms_product_grid_slug'] = $slugForPaging;
+        }
+        if (function_exists('webshop_redirect_legacy_product_grid_query')) {
+            webshop_redirect_legacy_product_grid_query($urlPath);
+        }
+        if (!isset($this->data['cms_product_grid_page'])) {
+            $this->data['cms_product_grid_page'] = function_exists('webshop_product_grid_page_from_request')
+                ? webshop_product_grid_page_from_request()
+                : 1;
+        }
         $this->data['dynamic_cms_page_type'] = isset($cmsPage->page_type) ? (string) $cmsPage->page_type : '';
         $this->data['home_page_cms'] = $cmsPage;
         $this->data['home_section_html_block'] = '';

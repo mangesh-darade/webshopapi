@@ -355,16 +355,45 @@ class Webshop_section_engine
         return $out;
     }
 
-    public function getProductGridData($config, $seed = array())
+    public function getProductGridData($config, $seed = array(), $section = array())
     {
         $cfg = $this->decode_config($config);
+        $perPage = $this->resolve_catalog_fetch_limit($cfg);
+        $paginationBase = $this->resolve_product_grid_pagination_base($section);
+        $currentPage = $this->resolve_product_section_page();
+        $totalItems = 0;
+        $totalPages = 1;
+
         $items = isset($seed['products']) && is_array($seed['products']) ? $seed['products'] : array();
         if (empty($items) && isset($seed['items']) && is_array($seed['items'])) {
             $items = $seed['items'];
         }
         if (empty($items)) {
-            $items = $this->fetch_products_for_section_config($cfg);
+            $fetched = $this->fetch_products_for_section_config($cfg, array(
+                'mode' => 'paginated',
+                'page' => $currentPage,
+                'per_page' => $perPage,
+            ));
+            $normalized = $this->normalize_paginated_product_fetch($cfg, $fetched, $currentPage, $perPage);
+            $items = $normalized['items'];
+            $totalItems = $normalized['total_items'];
+            $currentPage = $normalized['page'];
+            $perPage = $normalized['per_page'];
+            $totalPages = $normalized['total_pages'];
+        } else {
+            $totalItems = count($items);
+            $totalPages = ($perPage > 0 && $totalItems > $perPage)
+                ? (int) max(1, ceil($totalItems / $perPage))
+                : 1;
+            if ($totalPages > 0 && $currentPage > $totalPages) {
+                $currentPage = $totalPages;
+            }
+            if ($totalItems > $perPage) {
+                $offset = ($currentPage - 1) * $perPage;
+                $items = array_slice($items, $offset, $perPage);
+            }
         }
+
         if (!empty($items) && isset($this->CI->webshop_model)
             && method_exists($this->CI->webshop_model, 'enrich_product_list_items_with_stock')) {
             $catId = (isset($cfg['category_id']) && is_numeric($cfg['category_id'])) ? (int) $cfg['category_id'] : 0;
@@ -380,10 +409,14 @@ class Webshop_section_engine
         }
         return array(
             'title' => isset($cfg['title']) && trim((string) $cfg['title']) !== '' ? (string) $cfg['title'] : '',
-            'products_per_page' => $this->resolve_catalog_fetch_limit($cfg),
+            'products_per_page' => $perPage,
             'columns_desktop' => $cols,
             'config' => $cfg,
             'items' => $items,
+            'pagination_base_url' => $paginationBase,
+            'current_page' => $currentPage,
+            'total_pages' => $totalPages,
+            'total_items' => $totalItems,
         );
     }
 
@@ -433,10 +466,10 @@ class Webshop_section_engine
         $type = $this->normalize_section_type($section);
         $config = $this->section_row_config($section);
         if ($type === 'product_grid') {
-            return $this->getProductGridData($config, $seed);
+            return $this->getProductGridData($config, $seed, $section);
         }
         if ($type === 'product_carousel') {
-            return $this->getProductCarouselData($config, $seed);
+            return $this->getProductCarouselData($config, $seed, $section);
         }
         if ($type === 'category_grid') {
             return $this->getCategoryGridData($config, $seed);
@@ -489,13 +522,40 @@ class Webshop_section_engine
     }
 
     /**
-     * Carousel uses the same product payload as grid; markup/CSS differs.
+     * Carousel loads the full catalog for the section (no pagination).
      */
-    public function getProductCarouselData($config, $seed = array())
+    public function getProductCarouselData($config, $seed = array(), $section = array())
     {
-        $base = $this->getProductGridData($config, $seed);
-        $base['carousel_variant'] = 'horizontal';
-        return $base;
+        $cfg = $this->decode_config($config);
+        $items = isset($seed['products']) && is_array($seed['products']) ? $seed['products'] : array();
+        if (empty($items) && isset($seed['items']) && is_array($seed['items'])) {
+            $items = $seed['items'];
+        }
+        $totalItems = count($items);
+        if (empty($items)) {
+            $fetched = $this->fetch_products_for_section_config($cfg, array('mode' => 'all'));
+            $items = isset($fetched['items']) && is_array($fetched['items']) ? $fetched['items'] : array();
+            $totalItems = isset($fetched['total_items']) ? (int) $fetched['total_items'] : count($items);
+        }
+        if (!empty($items) && isset($this->CI->webshop_model)
+            && method_exists($this->CI->webshop_model, 'enrich_product_list_items_with_stock')) {
+            $catId = (isset($cfg['category_id']) && is_numeric($cfg['category_id'])) ? (int) $cfg['category_id'] : 0;
+            $items = $this->CI->webshop_model->enrich_product_list_items_with_stock($items, $catId);
+        }
+        if (!empty($items) && isset($this->CI->webshop_model)
+            && method_exists($this->CI->webshop_model, 'enrich_product_list_items_with_variants')) {
+            $items = $this->CI->webshop_model->enrich_product_list_items_with_variants($items);
+        }
+        if ($totalItems < count($items)) {
+            $totalItems = count($items);
+        }
+        return array(
+            'title' => isset($cfg['title']) && trim((string) $cfg['title']) !== '' ? (string) $cfg['title'] : '',
+            'config' => $cfg,
+            'items' => $items,
+            'total_items' => $totalItems,
+            'carousel_variant' => 'horizontal',
+        );
     }
 
     /**
@@ -658,15 +718,94 @@ class Webshop_section_engine
     }
 
     /**
+     * Clamp page to valid range; refetch when the requested page is past the last page.
+     *
      * @param array $cfg
-     * @return array
+     * @param array $fetched
+     * @param int   $requestedPage
+     * @param int   $perPage
+     * @return array{items: array, total_items: int, page: int, per_page: int, total_pages: int}
      */
-    private function fetch_products_for_section_config(array $cfg)
+    private function normalize_paginated_product_fetch(array $cfg, array $fetched, $requestedPage, $perPage)
     {
-        if (!isset($this->CI->webshop_model)) {
-            return array();
+        $items = isset($fetched['items']) && is_array($fetched['items']) ? $fetched['items'] : array();
+        $totalItems = isset($fetched['total_items']) ? max(0, (int) $fetched['total_items']) : count($items);
+        $perPage = isset($fetched['per_page']) ? max(1, (int) $fetched['per_page']) : max(1, (int) $perPage);
+        $totalPages = ($totalItems > 0 && $perPage > 0) ? (int) max(1, ceil($totalItems / $perPage)) : 1;
+        $page = max(1, (int) $requestedPage);
+
+        if ($totalItems > 0 && $page > $totalPages) {
+            $page = $totalPages;
+            $fetched = $this->fetch_products_for_section_config($cfg, array(
+                'mode' => 'paginated',
+                'page' => $page,
+                'per_page' => $perPage,
+            ));
+            $items = isset($fetched['items']) && is_array($fetched['items']) ? $fetched['items'] : array();
+            $totalItems = isset($fetched['total_items']) ? max(0, (int) $fetched['total_items']) : count($items);
+            $perPage = isset($fetched['per_page']) ? max(1, (int) $fetched['per_page']) : $perPage;
+            $totalPages = ($totalItems > 0 && $perPage > 0) ? (int) max(1, ceil($totalItems / $perPage)) : 1;
         }
-        $limit = $this->resolve_catalog_fetch_limit($cfg);
+
+        return array(
+            'items' => $items,
+            'total_items' => $totalItems,
+            'page' => $page,
+            'per_page' => $perPage,
+            'total_pages' => $totalPages,
+        );
+    }
+
+    /**
+     * Base path for product grid pagination links (no query string).
+     *
+     * @param array $section
+     * @return string
+     */
+    private function resolve_product_grid_pagination_base(array $section = array())
+    {
+        if (function_exists('webshop_product_grid_pagination_base')) {
+            return webshop_product_grid_pagination_base($section);
+        }
+        return rtrim(base_url('webshop'), '/');
+    }
+
+    /**
+     * Current page from URI segment (/webshop/product/2) or controller data.
+     *
+     * @return int
+     */
+    private function resolve_product_section_page()
+    {
+        if (function_exists('webshop_product_grid_page_from_request')) {
+            return webshop_product_grid_page_from_request();
+        }
+        if (isset($this->CI->data['cms_product_grid_page'])) {
+            $page = (int) $this->CI->data['cms_product_grid_page'];
+            return $page > 0 ? $page : 1;
+        }
+        return 1;
+    }
+
+    /**
+     * @param array $cfg
+     * @param array $opts mode: paginated|all; page; per_page
+     * @return array{items: array, total_items: int, page: int, per_page: int}
+     */
+    private function fetch_products_for_section_config(array $cfg, array $opts = array())
+    {
+        $empty = array('items' => array(), 'total_items' => 0, 'page' => 1, 'per_page' => 12);
+        if (!isset($this->CI->webshop_model)) {
+            return $empty;
+        }
+
+        $mode = isset($opts['mode']) && $opts['mode'] === 'all' ? 'all' : 'paginated';
+        $perPage = isset($opts['per_page']) && (int) $opts['per_page'] > 0
+            ? (int) $opts['per_page']
+            : $this->resolve_catalog_fetch_limit($cfg);
+        $page = isset($opts['page']) ? max(1, (int) $opts['page']) : 1;
+        $sqlLimit = ($mode === 'all') ? 0 : $perPage;
+        $sqlPage = ($mode === 'all') ? 1 : $page;
         $m = $this->CI->webshop_model;
 
         $productIds = $this->resolve_product_ids_from_section_config($cfg);
@@ -674,7 +813,7 @@ class Webshop_section_engine
             $res = $m->get_products_list('products', $productIds, false, 0, 1);
             $items = $this->normalize_product_list_rows($res);
             if (!empty($items)) {
-                return $items;
+                return $this->finalize_product_fetch_result($items, $mode, $page, $perPage);
             }
         }
 
@@ -683,29 +822,92 @@ class Webshop_section_engine
             $cid = null;
         }
 
-        $res = null;
         if ($cid !== null && $cid !== '') {
-            $res = $m->get_products_list('category', $cid, false, $limit, 1);
-            $items = $this->normalize_product_list_rows($res);
-            if (!empty($items)) {
-                return $items;
+            $res = $m->get_products_list('category', $cid, false, $sqlLimit, $sqlPage);
+            $pack = $this->pack_product_list_response($res, $mode, $page, $perPage);
+            if (!empty($pack['items'])) {
+                return $pack;
             }
             if (is_numeric($cid)) {
-                $res = $m->get_products_list('category', md5((string) $cid), true, $limit, 1);
-                $items = $this->normalize_product_list_rows($res);
-                if (!empty($items)) {
-                    return $items;
+                $res = $m->get_products_list('category', md5((string) $cid), true, $sqlLimit, $sqlPage);
+                $pack = $this->pack_product_list_response($res, $mode, $page, $perPage);
+                if (!empty($pack['items'])) {
+                    return $pack;
                 }
             }
         }
 
-        $res = $m->get_products_list(null, null, false, $limit, 1);
-        $items = $this->normalize_product_list_rows($res);
-        if (!empty($items)) {
-            return $items;
+        $res = $m->get_products_list(null, null, false, $sqlLimit, $sqlPage);
+        $pack = $this->pack_product_list_response($res, $mode, $page, $perPage);
+        if (!empty($pack['items'])) {
+            return $pack;
         }
 
-        return $this->fetch_products_from_main_categories($limit);
+        // Category walk returns a de-duplicated full list; paginate in PHP when needed.
+        $items = $this->fetch_products_from_main_categories(0, 1);
+        return $this->finalize_product_fetch_result($items, $mode, $page, $perPage);
+    }
+
+    /**
+     * @param mixed $res
+     * @param string $mode
+     * @param int    $page
+     * @param int    $perPage
+     * @return array
+     */
+    private function pack_product_list_response($res, $mode, $page, $perPage)
+    {
+        $items = $this->normalize_product_list_rows($res);
+        $total = 0;
+        if (is_array($res) && isset($res['items_total'])) {
+            $total = (int) $res['items_total'];
+        }
+        if ($total < 1) {
+            $total = count($items);
+        }
+        if ($mode === 'paginated') {
+            return array(
+                'items' => $items,
+                'total_items' => $total,
+                'page' => $page,
+                'per_page' => $perPage,
+            );
+        }
+        return array(
+            'items' => $items,
+            'total_items' => $total,
+            'page' => 1,
+            'per_page' => $perPage,
+        );
+    }
+
+    /**
+     * Slice a full in-memory list when the source query does not support SQL paging.
+     *
+     * @param array  $items
+     * @param string $mode
+     * @param int    $page
+     * @param int    $perPage
+     * @return array
+     */
+    private function finalize_product_fetch_result(array $items, $mode, $page, $perPage)
+    {
+        $total = count($items);
+        if ($mode === 'all' || $perPage < 1 || $total <= $perPage) {
+            return array(
+                'items' => $items,
+                'total_items' => $total,
+                'page' => 1,
+                'per_page' => $perPage > 0 ? $perPage : 12,
+            );
+        }
+        $offset = ($page - 1) * $perPage;
+        return array(
+            'items' => array_slice($items, $offset, $perPage),
+            'total_items' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+        );
     }
 
     /**
@@ -727,15 +929,18 @@ class Webshop_section_engine
     /**
      * Fallback when getproductslist returns no rows for "all products" (common on API-only shops).
      *
-     * @param int $limit
+     * @param int $limit 0 = no cap (carousel / full catalog)
+     * @param int $page  Used only when $limit > 0
      * @return array
      */
-    private function fetch_products_from_main_categories($limit)
+    private function fetch_products_from_main_categories($limit, $page = 1)
     {
         if (!isset($this->CI->webshop_model)) {
             return array();
         }
-        $limit = max(1, (int) $limit);
+        $limit = (int) $limit;
+        $page = max(1, (int) $page);
+        $unlimited = ($limit < 1);
         $m = $this->CI->webshop_model;
         $tree = $m->get_categories();
         if (!is_array($tree) || empty($tree['main']) || !is_array($tree['main'])) {
@@ -745,7 +950,7 @@ class Webshop_section_engine
         $out = array();
         $seen = array();
         foreach ($tree['main'] as $cidKey => $row) {
-            if (count($out) >= $limit) {
+            if (!$unlimited && count($out) >= $limit) {
                 break;
             }
             $cid = 0;
@@ -760,9 +965,10 @@ class Webshop_section_engine
             if ($cid < 1) {
                 continue;
             }
-            $list = $m->get_products_list('category', md5((string) $cid), true, $limit, 1);
+            $catLimit = $unlimited ? 0 : $limit;
+            $list = $m->get_products_list('category', md5((string) $cid), true, $catLimit, $unlimited ? 1 : $page);
             if (empty($list['items'])) {
-                $list = $m->get_products_list('category', $cid, false, $limit, 1);
+                $list = $m->get_products_list('category', $cid, false, $catLimit, $unlimited ? 1 : $page);
             }
             if (!is_array($list) || empty($list['items'])) {
                 continue;
@@ -775,7 +981,7 @@ class Webshop_section_engine
                 }
                 $seen[$pid] = true;
                 $out[] = $a;
-                if (count($out) >= $limit) {
+                if (!$unlimited && count($out) >= $limit) {
                     break 2;
                 }
             }
