@@ -142,7 +142,16 @@ class Webshop_api_model extends CI_Model {
      * @return int
      */
     protected function _categories_session_cache_version() {
-        return 2;
+        return 4;
+    }
+
+    /** Clear in-request and session category cache (after Catalog changes in ElintOm). */
+    public function clear_categories_cache() {
+        $this->_categories_cache = null;
+        $CI = get_instance();
+        if (isset($CI->session)) {
+            $CI->session->unset_userdata('elintom_cache_categories');
+        }
     }
 
     protected function _store_categories_session_cache(array $tree, $ttl_seconds) {
@@ -1656,11 +1665,17 @@ class Webshop_api_model extends CI_Model {
             if ($res && $this->elintom_response->api_status_ok($res)) {
                 $raw = $this->elintom_response->unwrap_categories_from_api_response($res);
                 $tree = $this->elintom_response->normalize_categories_payload($raw);
+                $tree = $this->elintom_response->ensure_categories_main_populated($tree);
                 if ($this->elintom_response->categories_main_count($tree) > 0) {
                     $this->_categories_cache = $tree;
                     $this->_store_categories_session_cache($tree, $cat_ttl);
                     return $this->_categories_cache;
                 }
+                log_message('debug', 'Webshop_api_model: getcategories SUCCESS but main bucket empty after normalize');
+            } else {
+                $err = method_exists($this->api, 'get_last_error') ? (string) $this->api->get_last_error() : '';
+                $st = ($res && isset($res->status)) ? (string) $res->status : 'no_response';
+                log_message('error', 'Webshop_api_model: getcategories failed status=' . $st . ' error=' . $err);
             }
 
             /* Primary webshop_api/getcategories may 500 or return empty — api3/eshop getallcategories uses `category` list */
@@ -1672,6 +1687,7 @@ class Webshop_api_model extends CI_Model {
                     $rawL = $legacy->allcategories;
                 }
                 $treeL = $this->elintom_response->normalize_categories_payload($rawL !== null ? $rawL : $legacy);
+                $treeL = $this->elintom_response->ensure_categories_main_populated($treeL);
                 if ($this->elintom_response->categories_main_count($treeL) > 0) {
                     $this->_categories_cache = $treeL;
                     $this->_store_categories_session_cache($treeL, $cat_ttl);
@@ -1689,7 +1705,11 @@ class Webshop_api_model extends CI_Model {
             }
         }
         $fb = $this->_fallback_webshop_model()->get_categories();
-        $this->_categories_cache = ($fb !== false && is_array($fb)) ? $fb : array('main' => array());
+        if ($fb !== false && is_array($fb)) {
+            $this->_categories_cache = $this->elintom_response->ensure_categories_main_populated($fb);
+        } else {
+            $this->_categories_cache = array('main' => array());
+        }
         if ($cat_ttl > 0 && $this->use_elintom_api_catalogue() && is_array($this->_categories_cache)) {
             $this->_store_categories_session_cache($this->_categories_cache, $cat_ttl);
         }

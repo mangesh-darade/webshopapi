@@ -1,196 +1,217 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 <?php
-$ws = (isset($webshop_settings) && is_object($webshop_settings)) ? $webshop_settings : new stdClass();
-$S  = (isset($Settings) && is_object($Settings)) ? $Settings : new stdClass();
-
+$ws = isset($webshop_settings) && is_object($webshop_settings) ? $webshop_settings : new stdClass();
+$S  = isset($Settings) && is_object($Settings) ? $Settings : new stdClass();
 $shop_name = webshop_store_display_name($S, $ws);
 if ($shop_name === '') {
     $shop_name = 'Shop';
 }
-$yr = (string) date('Y');
-
-$_gp_footer_layout = array('content' => array(), 'social' => array());
-if (function_exists('webshop_footer_gather_display_rows')) {
-    $_gp_footer_layout = webshop_footer_gather_display_rows();
+$uploadsBase = isset($uploads) ? (string) $uploads : '';
+$logo_url = function_exists('webshop_resolve_header_logo_url')
+    ? webshop_resolve_header_logo_url($uploadsBase, $S, $ws, '')
+    : '';
+if ($logo_url === '' && function_exists('webshop_resolve_storefront_logo_image_url')) {
+    $_gp_uploads_base = $uploadsBase !== '' ? rtrim($uploadsBase, '/') . '/' : '';
+    $logo_url = webshop_resolve_storefront_logo_image_url($_gp_uploads_base);
 }
-$_gp_footer_content = isset($_gp_footer_layout['content']) ? $_gp_footer_layout['content'] : array();
-$_gp_footer_social  = isset($_gp_footer_layout['social']) ? $_gp_footer_layout['social'] : array();
-$_gp_footer_cms_nav = array();
-foreach (array(
-    isset($cms_footer_nav_pages) ? $cms_footer_nav_pages : null,
-    isset($cms_nav_pages) ? $cms_nav_pages : null,
-) as $_gp_nav_candidate) {
-    if (is_array($_gp_nav_candidate) && !empty($_gp_nav_candidate)) {
-        $_gp_footer_cms_nav = $_gp_nav_candidate;
-        break;
+$logo_src = $logo_url;
+$webshop_url = base_url('webshop');
+$ws_base = rtrim($webshop_url, '/');
+
+$hb_footer = function_exists('webshop_herbinn_footer_layout_from_storefront')
+    ? webshop_herbinn_footer_layout_from_storefront()
+    : array('has_data' => false);
+
+$tagline = isset($hb_footer['tagline']) ? (string) $hb_footer['tagline'] : '';
+$copyright = function_exists('webshop_herbinn_footer_copyright_line')
+    ? webshop_herbinn_footer_copyright_line(isset($hb_footer['copyright']) ? $hb_footer['copyright'] : '')
+    : '';
+$headings = isset($hb_footer['headings']) && is_array($hb_footer['headings']) ? $hb_footer['headings'] : array();
+$company_heading = isset($headings['company']) ? (string) $headings['company'] : '';
+$legal_heading = isset($headings['legal']) ? (string) $headings['legal'] : '';
+$certs_heading = isset($headings['certifications']) ? (string) $headings['certifications'] : '';
+$office_heading = isset($headings['office']) ? (string) $headings['office'] : '';
+$office_address = isset($hb_footer['office_address']) ? (string) $hb_footer['office_address'] : '';
+$company_links = isset($hb_footer['company_links']) && is_array($hb_footer['company_links']) ? $hb_footer['company_links'] : array();
+$legal_links = isset($hb_footer['legal_links']) && is_array($hb_footer['legal_links']) ? $hb_footer['legal_links'] : array();
+$extra_links = isset($hb_footer['extra_links']) && is_array($hb_footer['extra_links']) ? $hb_footer['extra_links'] : array();
+$misc_lines = isset($hb_footer['misc_lines']) && is_array($hb_footer['misc_lines']) ? $hb_footer['misc_lines'] : array();
+$certifications = isset($hb_footer['certifications']) && is_array($hb_footer['certifications']) ? $hb_footer['certifications'] : array();
+$certs_html = isset($hb_footer['certifications_html']) ? trim((string) $hb_footer['certifications_html']) : '';
+
+$_hb_cert_items = array();
+foreach ($certifications as $_hb_cert) {
+    $_hb_parts = preg_split('/\s*\|\s*|[,\r\n]+/', (string) $_hb_cert);
+    foreach ($_hb_parts as $_hb_part) {
+        $_hb_part = trim((string) $_hb_part);
+        if ($_hb_part !== '') {
+            $_hb_cert_items[] = $_hb_part;
+        }
     }
 }
-$has_main = !empty($_gp_footer_content) || !empty($_gp_footer_social) || !empty($_gp_footer_cms_nav);
+$certifications = $_hb_cert_items;
 
-$_gp_uploads_base = '';
-if (isset($uploads) && (string) $uploads !== '') {
-    $_gp_uploads_base = rtrim((string) $uploads, '/') . '/';
-} elseif (function_exists('get_instance')) {
-    $CI =& get_instance();
-    if (isset($CI->data['uploads']) && (string) $CI->data['uploads'] !== '') {
-        $_gp_uploads_base = rtrim((string) $CI->data['uploads'], '/') . '/';
-    }
-}
+$show_footer = $logo_src !== ''
+    || !empty($hb_footer['has_data'])
+    || $tagline !== ''
+    || $copyright !== ''
+    || !empty($company_links)
+    || !empty($legal_links)
+    || !empty($extra_links)
+    || !empty($misc_lines)
+    || !empty($certifications)
+    || $certs_html !== ''
+    || $office_address !== '';
 
-$_gp_footer_logo = '';
-if (function_exists('webshop_resolve_storefront_logo_image_url')) {
-    $_gp_footer_logo = webshop_resolve_storefront_logo_image_url($_gp_uploads_base);
-}
-
-$_gp_assets = isset($assets) ? $assets : base_url('assets/webshop/');
 $_gp_footer_styles_in_head = !empty($gp_footer_styles_in_head);
-$style_links = array(
-    $_gp_assets . 'css/techmarket-font-awesome.css',
-    webshop_theme_assets_url('css/components.css'),
-);
+$_hb_footer_css_file = FCPATH . 'assets' . DIRECTORY_SEPARATOR . 'webshop' . DIRECTORY_SEPARATOR . 'herbinnwellness' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'herbinn-footer.css';
+$_hb_footer_css = is_file($_hb_footer_css_file)
+    ? rtrim(base_url('assets/webshop/herbinnwellness/'), '/') . '/css/herbinn-footer.css'
+    : '';
 ?>
-<?php if (!$_gp_footer_styles_in_head): ?>
-<?php foreach ($style_links as $_gp_style_link): ?>
-<?php if (function_exists('webshop_async_stylesheet_tag')): ?>
-<?= webshop_async_stylesheet_tag($_gp_style_link) ?>
-<?php else: ?>
-<link rel="stylesheet" href="<?= htmlspecialchars($_gp_style_link, ENT_QUOTES, 'UTF-8') ?>">
+<?php if ($show_footer) : ?>
+<?php if (!$_gp_footer_styles_in_head && $_hb_footer_css !== '') : ?>
+<link rel="stylesheet" href="<?= htmlspecialchars($_hb_footer_css, ENT_QUOTES, 'UTF-8') ?>?ver=20260529a">
 <?php endif; ?>
-<?php endforeach; ?>
-<?php endif; ?>
-<footer class="gp-footer">
-    <div class="gp-footer-wave" aria-hidden="true">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 80" preserveAspectRatio="none"><path fill="#214548" d="M0,40 C360,80 1080,0 1440,40 L1440,80 L0,80 Z"/></svg>
-    </div>
-    <div class="gp-footer-body">
-        <div class="container">
-            <?php if ($has_main) : ?>
-            <div class="gp-footer-main">
-                <div class="gp-footer-grid">
-                    <?php if ($_gp_footer_logo !== '' || !empty($_gp_footer_content)) : ?>
-                    <div class="gp-footer-col gp-footer-col--brand">
-                        <a href="<?= base_url('webshop') ?>" class="gp-footer-brand-link">
-                            <h3 class="gp-footer-heading gp-footer-brand-text"><?= htmlspecialchars($shop_name, ENT_QUOTES, 'UTF-8'); ?></h3>
-                        </a>
-                    </div>
+<footer class="bg-white hb-site-footer">
+    <div class="container">
+        <div class="footer-grid">
+            <div class="brand-col">
+                <a href="<?= htmlspecialchars($webshop_url, ENT_QUOTES, 'UTF-8') ?>">
+                    <?php if ($logo_src !== '') : ?>
+                    <img src="<?= htmlspecialchars($logo_src, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($shop_name, ENT_QUOTES, 'UTF-8') ?>">
+                    <?php else : ?>
+                    <span class="navbar-brand-text"><?= htmlspecialchars($shop_name, ENT_QUOTES, 'UTF-8') ?></span>
                     <?php endif; ?>
-
-                    <?php foreach ($_gp_footer_content as $item) :
-                        $fk = isset($item['field_key']) ? (string) $item['field_key'] : '';
-                        $raw_val = (string) $item['value'];
-                        $icon_db = isset($item['icons']) ? trim((string) $item['icons']) : '';
-                        $icon_cls = $icon_db;
-                        if (function_exists('webshop_footer_row_display_icon_class')) {
-                            $icon_cls = webshop_footer_row_display_icon_class($fk, $icon_db);
-                        }
-                        $lab = trim((string) $item['label']);
-                        $heading = $lab !== '' ? $lab : ucwords(str_replace('_', ' ', $fk));
-                        $body_html = nl2br(htmlspecialchars($raw_val, ENT_QUOTES, 'UTF-8'));
-                        if (function_exists('webshop_footer_row_body_html')) {
-                            $body_html = webshop_footer_row_body_html($fk, $raw_val, $_gp_uploads_base, '');
-                        }
-                        if (trim(strip_tags($body_html)) === '' && trim($raw_val) === '') {
-                            $body_html = '<span class="gp-footer-empty">&mdash;</span>';
+                </a>
+                <?php if ($tagline !== '') : ?>
+                <p><?= htmlspecialchars($tagline, ENT_QUOTES, 'UTF-8') ?></p>
+                <?php endif; ?>
+                <?php if (!empty($misc_lines)) : ?>
+                <div class="hb-footer-misc">
+                    <?php foreach ($misc_lines as $misc_line) :
+                        $misc_line = trim((string) $misc_line);
+                        if ($misc_line === '') {
+                            continue;
                         }
                     ?>
-                    <div class="gp-footer-col">
-                        <h3 class="gp-footer-heading"><?= htmlspecialchars($heading, ENT_QUOTES, 'UTF-8'); ?></h3>
-                        <div class="gp-footer-content-list">
-                            <div class="gp-footer-text">
-                                <?php if ($icon_cls !== '') : ?>
-                                <span class="gp-footer-slot-icon"><i class="<?= htmlspecialchars($icon_cls, ENT_QUOTES, 'UTF-8'); ?>"></i></span>
-                                <?php endif; ?>
-                                <span class="gp-footer-slot-body"><?= $body_html ?></span>
-                            </div>
-                        </div>
-                    </div>
+                    <p class="hb-footer-misc-line"><?= htmlspecialchars($misc_line, ENT_QUOTES, 'UTF-8') ?></p>
                     <?php endforeach; ?>
-
-                    <?php if (empty($_gp_footer_content) && $_gp_footer_logo === '' && empty($_gp_footer_social)) : ?>
-                    <div class="gp-footer-col">
-                        <h3 class="gp-footer-heading"><?= htmlspecialchars($shop_name, ENT_QUOTES, 'UTF-8'); ?></h3>
-                    </div>
-                    <?php endif; ?>
-
-                    <?php if (!empty($_gp_footer_cms_nav)) : ?>
-                    <div class="gp-footer-col gp-footer-col--cms-links">
-                        <div class="gp-footer-content-list">
-                            <div class="gp-footer-links">
-                                <?php foreach ($_gp_footer_cms_nav as $_gp_np) :
-                                    $_gp_href_raw = isset($_gp_np['href']) ? (string) $_gp_np['href'] : (isset($_gp_np['url']) ? (string) $_gp_np['url'] : '');
-                                    $_gp_href = $_gp_href_raw;
-                                    if (function_exists('webshop_resolve_cms_path_href')) {
-                                        $_gp_href = webshop_resolve_cms_path_href($_gp_href_raw, base_url('webshop'));
-                                    }
-                                    $_gp_label = isset($_gp_np['title']) ? trim((string) $_gp_np['title']) : '';
-                                    if ($_gp_label === '' && isset($_gp_np['page_name'])) {
-                                        $_gp_label = trim((string) $_gp_np['page_name']);
-                                    }
-                                    if ($_gp_label === '' || $_gp_href === '') {
-                                        continue;
-                                    }
-                                ?>
-                                <div><a href="<?= htmlspecialchars($_gp_href, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($_gp_label, ENT_QUOTES, 'UTF-8') ?></a></div>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
-                    </div>
-                    <?php endif; ?>
-
-                    <?php if (!empty($_gp_footer_social)) : ?>
-                    <div class="gp-footer-col gp-footer-col--social">
-                        <h3 class="gp-footer-heading">Follow Us</h3>
-                        <div class="gp-footer-social">
-                            <?php foreach ($_gp_footer_social as $si) :
-                                $fk = (string) $si['field_key'];
-                                $val = (string) $si['value'];
-                                $href = $val;
-                                if (function_exists('webshop_footer_row_link_href')) {
-                                    $href = webshop_footer_row_link_href($fk, $val);
-                                }
-                                $icon = function_exists('webshop_footer_social_icon_class') ? webshop_footer_social_icon_class($fk) : 'fa fa-link';
-                                $title = isset($si['label']) && (string) $si['label'] !== '' ? (string) $si['label'] : ucwords(str_replace('_', ' ', preg_replace('/^media_|_link$/', '', $fk)));
-                                $disabled = ($href === '');
-                                if ($disabled) {
-                                    $href = '#';
-                                }
-                            ?>
-                            <a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>"
-                               class="gp-social-btn<?= $disabled ? ' gp-social-btn--disabled' : '' ?>"
-                               <?= $disabled ? ' aria-disabled="true" tabindex="-1"' : ' target="_blank" rel="noopener noreferrer"' ?>
-                               title="<?= htmlspecialchars($title . ($disabled ? ' (add URL in ElintOm Storefront)' : ''), ENT_QUOTES, 'UTF-8') ?>">
-                                <i class="<?= htmlspecialchars($icon, ENT_QUOTES, 'UTF-8') ?>"></i>
-                            </a>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                    <?php endif; ?>
                 </div>
+                <?php endif; ?>
+            </div>
+            <?php if ($company_heading !== '' || !empty($company_links) || !empty($extra_links)) : ?>
+            <div class="footer-col footer-col--company">
+                <?php if ($company_heading !== '') : ?>
+                <h6><?= htmlspecialchars($company_heading, ENT_QUOTES, 'UTF-8') ?></h6>
+                <?php endif; ?>
+                <?php if (!empty($company_links) || !empty($extra_links)) : ?>
+                <ul>
+                    <?php foreach ($company_links as $lnk) :
+                        $href = webshop_resolve_cms_path_href((string) $lnk['href'], $ws_base);
+                        $title = (string) $lnk['title'];
+                        if ($title === '' || $href === '') {
+                            continue;
+                        }
+                    ?>
+                    <li><a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></a></li>
+                    <?php endforeach; ?>
+                    <?php foreach ($extra_links as $lnk) :
+                        $href = function_exists('webshop_resolve_cms_path_href')
+                            ? webshop_resolve_cms_path_href((string) $lnk['href'], $ws_base)
+                            : (string) $lnk['href'];
+                        $title = (string) $lnk['title'];
+                        if ($title === '' || $href === '') {
+                            continue;
+                        }
+                    ?>
+                    <li><a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></a></li>
+                    <?php endforeach; ?>
+                </ul>
+                <?php endif; ?>
             </div>
             <?php endif; ?>
-            <div class="gp-footer-bottom">
-                <div class="gp-copy">&copy; <?= $yr ?> <?= htmlspecialchars($shop_name, ENT_QUOTES, 'UTF-8') ?>. All rights reserved.</div>
-                <a href="https://elintom.io" target="_blank" rel="noopener" class="gp-credit">Powered by ElintOm</a>
+            <?php if ($legal_heading !== '' || !empty($legal_links)) : ?>
+            <div class="footer-col footer-col--legal">
+                <?php if ($legal_heading !== '') : ?>
+                <h6><?= htmlspecialchars($legal_heading, ENT_QUOTES, 'UTF-8') ?></h6>
+                <?php endif; ?>
+                <?php if (!empty($legal_links)) : ?>
+                <ul>
+                    <?php foreach ($legal_links as $lnk) :
+                        $href = webshop_resolve_cms_path_href((string) $lnk['href'], $ws_base);
+                        $title = (string) $lnk['title'];
+                        if ($title === '' || $href === '') {
+                            continue;
+                        }
+                    ?>
+                    <li><a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></a></li>
+                    <?php endforeach; ?>
+                </ul>
+                <?php endif; ?>
             </div>
+            <?php endif; ?>
+            <?php if ($certs_heading !== '' || $certs_html !== '' || !empty($certifications) || $office_heading !== '' || $office_address !== '') : ?>
+            <div class="footer-col footer-col--certs">
+                <?php if ($certs_heading !== '') : ?>
+                <h6><?= htmlspecialchars($certs_heading, ENT_QUOTES, 'UTF-8') ?></h6>
+                <?php endif; ?>
+                <?php if ($certs_html !== '') : ?>
+                <?php if (strpos($certs_html, '<') === false) : ?>
+                <div class="footer-certs">
+                    <?php foreach (preg_split('/\s*\|\s*|[,\r\n]+/', $certs_html) as $_hb_cert_html_part) :
+                        $_hb_cert_html_part = trim((string) $_hb_cert_html_part);
+                        if ($_hb_cert_html_part === '') {
+                            continue;
+                        }
+                    ?>
+                    <span class="badge badge-border"><?= htmlspecialchars($_hb_cert_html_part, ENT_QUOTES, 'UTF-8') ?></span>
+                    <?php endforeach; ?>
+                </div>
+                <?php else : ?>
+                <div class="footer-certs"><?= function_exists('webshop_normalize_html_media_urls') ? webshop_normalize_html_media_urls($certs_html, $uploadsBase) : $certs_html ?></div>
+                <?php endif; ?>
+                <?php elseif (!empty($certifications)) : ?>
+                <div class="footer-certs">
+                    <?php foreach ($certifications as $cert) :
+                        $cert = trim((string) $cert);
+                        if ($cert === '') {
+                            continue;
+                        }
+                    ?>
+                    <span class="badge badge-border"><?= htmlspecialchars($cert, ENT_QUOTES, 'UTF-8') ?></span>
+                    <?php endforeach; ?>
+                </div>
+                <?php endif; ?>
+                <?php if ($office_heading !== '' || $office_address !== '') : ?>
+                <div class="hb-footer-office">
+                    <?php if ($office_heading !== '') : ?>
+                    <h6 class="hb-footer-office-title"><?= htmlspecialchars($office_heading, ENT_QUOTES, 'UTF-8') ?></h6>
+                    <?php endif; ?>
+                    <?php if ($office_address !== '') : ?>
+                    <p class="hb-footer-office-address"><?= nl2br(htmlspecialchars($office_address, ENT_QUOTES, 'UTF-8'), false) ?></p>
+                    <?php endif; ?>
+                </div>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
         </div>
+        <?php if ($copyright !== '') : ?>
+        <div class="footer-bottom">
+            <p><?= htmlspecialchars($copyright, ENT_QUOTES, 'UTF-8') ?></p>
+        </div>
+        <?php endif; ?>
     </div>
 </footer>
+<?php endif; ?>
 <?php
-$_gp_csrf = array('name' => '', 'hash' => '');
-if (function_exists('webshop_csrf_pair')) {
-    $_gp_csrf = webshop_csrf_pair();
-}
-?>
-<?php
-$wl_seed = (isset($wishlist_lookup) && is_array($wishlist_lookup)) ? $wishlist_lookup : null;
-$_gp_wl_lookup = is_array($wl_seed) ? $wl_seed : array();
-if (function_exists('webshop_view_wishlist_lookup')) {
-    $_gp_wl_lookup = webshop_view_wishlist_lookup($wl_seed);
-}
-$_gp_logged_in = !empty($webshop_is_logged_in);
-if (function_exists('webshop_is_customer_logged_in')) {
-    $_gp_logged_in = webshop_is_customer_logged_in();
-}
+$_gp_csrf = function_exists('webshop_csrf_pair') ? webshop_csrf_pair() : array('name' => '', 'hash' => '');
+$_gp_wl_lookup = function_exists('webshop_view_wishlist_lookup')
+    ? webshop_view_wishlist_lookup(isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : null)
+    : (isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : array());
+$_gp_logged_in = function_exists('webshop_is_customer_logged_in')
+    ? webshop_is_customer_logged_in()
+    : !empty($webshop_is_logged_in);
 ?>
 <script>window.GP_CSRF=<?= json_encode($_gp_csrf, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
 <script>window.GP_PLP_CTX=Object.assign(window.GP_PLP_CTX||{},<?= json_encode(array(
@@ -199,4 +220,5 @@ if (function_exists('webshop_is_customer_logged_in')) {
     'is_logged_in'    => (bool) $_gp_logged_in,
     'wishlist_lookup' => $_gp_wl_lookup,
 ), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>);</script>
-<script defer src="<?= htmlspecialchars(webshop_theme_assets_url('js/webshop-csrf.js?ver=20260526c'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script defer src="<?= htmlspecialchars(webshop_theme_assets_url('js/webshop-csrf.js?ver=20260526h'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script defer src="<?= htmlspecialchars(webshop_theme_assets_url('js/webshop-wishlist.js?ver=20260526h'), ENT_QUOTES, 'UTF-8') ?>"></script>

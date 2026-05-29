@@ -190,14 +190,60 @@ class Elintom_api_response {
      * @param object $obj
      * @return bool
      */
+    /**
+     * Match Webshop_api_model::checkIsCategoryActiveForWebshop — only hide explicit off values.
+     *
+     * @param object $obj
+     * @return bool
+     */
     private function category_row_visible_for_webshop($obj) {
-        if (isset($obj->in_eshop) && (int) $obj->in_eshop !== 1) {
-            return false;
+        if (isset($obj->in_eshop)) {
+            $ie = $obj->in_eshop;
+            if ($ie === '0' || $ie === 0 || $ie === false || $ie === 'false') {
+                return false;
+            }
         }
-        if (isset($obj->is_active) && (int) $obj->is_active !== 1) {
-            return false;
+        if (isset($obj->is_active)) {
+            $ia = $obj->is_active;
+            if ($ia === '0' || $ia === 0 || $ia === false || $ia === 'false') {
+                return false;
+            }
         }
         return true;
+    }
+
+    /**
+     * When API returns only child buckets (parent rows missing), promote visible rows to main for grids/carousels.
+     *
+     * @param array $tree
+     * @return array
+     */
+    public function ensure_categories_main_populated(array $tree) {
+        if ($this->categories_main_count($tree) > 0) {
+            return $tree;
+        }
+        $promoted = array();
+        foreach ($tree as $k => $bucket) {
+            if ($k === 'main' || !is_array($bucket)) {
+                continue;
+            }
+            foreach ($bucket as $idKey => $row) {
+                $obj = is_object($row) ? $row : (object) $row;
+                $this->coerce_category_id_on_object($obj);
+                if (!isset($obj->id) || $obj->id === '' || $obj->id === null) {
+                    continue;
+                }
+                if (!$this->category_row_visible_for_webshop($obj)) {
+                    continue;
+                }
+                $key = is_numeric($obj->id) ? (int) $obj->id : $obj->id;
+                $promoted[$key] = $obj;
+            }
+        }
+        if (!empty($promoted)) {
+            $tree['main'] = $promoted;
+        }
+        return $tree;
     }
 
     /**
@@ -334,6 +380,20 @@ class Elintom_api_response {
             }
             $pid = (int) $pk;
             if (!isset($data['main'][$pid])) {
+                foreach ($data[$pk] as $idKey => $row) {
+                    $obj = is_object($row) ? $row : (object) $row;
+                    if (!$this->category_row_visible_for_webshop($obj)) {
+                        continue;
+                    }
+                    $this->coerce_category_id_on_object($obj);
+                    if (!isset($obj->id) || $obj->id === '' || $obj->id === null) {
+                        continue;
+                    }
+                    $key = is_numeric($obj->id) ? (int) $obj->id : $obj->id;
+                    if (!isset($data['main'][$key])) {
+                        $data['main'][$key] = $obj;
+                    }
+                }
                 unset($data[$pk]);
             }
         }

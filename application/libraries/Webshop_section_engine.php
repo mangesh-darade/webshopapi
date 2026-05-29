@@ -207,6 +207,9 @@ class Webshop_section_engine
         $html = array();
         foreach ($sections as $section) {
             $sec = is_object($section) ? (array) $section : (is_array($section) ? $section : array());
+            if (function_exists('webshop_cms_section_row_is_enabled') && !webshop_cms_section_row_is_enabled($sec)) {
+                continue;
+            }
             $type = $this->normalize_section_type($sec);
 
             // `header` and `footer` are page chrome — the theme's header.php /
@@ -403,10 +406,12 @@ class Webshop_section_engine
         }
         return array(
             'title' => isset($cfg['title']) && trim((string) $cfg['title']) !== '' ? (string) $cfg['title'] : '',
+            'subtitle' => isset($cfg['subtitle']) ? trim((string) $cfg['subtitle']) : '',
             'columns_desktop' => $cols,
             'items' => $items,
             'config' => array(
                 'title' => isset($cfg['title']) ? (string) $cfg['title'] : '',
+                'subtitle' => isset($cfg['subtitle']) ? (string) $cfg['subtitle'] : '',
                 'columns_desktop' => $cols,
             ),
         );
@@ -569,9 +574,19 @@ class Webshop_section_engine
         $title = isset($sectionData['title']) ? trim((string) $sectionData['title']) : '';
         $isProduct = in_array($type, array('product_grid', 'product_carousel'), true);
         $label = $isProduct ? 'products' : 'categories';
+        $apiHint = '';
+        if (!$isProduct && isset($this->CI->webshop_model) && method_exists($this->CI->webshop_model, 'get_api_client')) {
+            $client = $this->CI->webshop_model->get_api_client();
+            if ($client && method_exists($client, 'get_last_error')) {
+                $apiErr = trim((string) $client->get_last_error());
+                if ($apiErr !== '') {
+                    $apiHint = ' API: ' . $apiErr;
+                }
+            }
+        }
         $hint = $isProduct
             ? 'Enable products for the webshop in ElintOm (Catalog) and ensure this section is Active on the page.'
-            : 'Enable categories for the webshop in ElintOm (Catalog) and ensure this section is Active on the page.';
+            : 'Enable categories for the webshop in ElintOm (Catalog) and ensure this section is Active on the page.' . $apiHint;
         $heading = $title !== '' ? htmlspecialchars($title, ENT_QUOTES, 'UTF-8') : ucfirst(str_replace('_', ' ', $type));
         return '<section class="gp-component gp-cms-section-empty gp-cms-section-empty--' . htmlspecialchars($type, ENT_QUOTES, 'UTF-8') . '" aria-label="' . $heading . '">'
             . '<div class="container" style="padding:2rem 1rem;text-align:center;">'
@@ -780,19 +795,69 @@ class Webshop_section_engine
         $limit = isset($cfg['limit']) ? (int) $cfg['limit'] : 0;
         $m = $this->CI->webshop_model;
         $tree = $m->get_categories();
-        if (!is_array($tree) || empty($tree['main'])) {
+        if (!is_array($tree)) {
+            log_message('debug', 'Webshop_section_engine: get_categories returned non-array for category section');
             return array();
         }
+        if (empty($tree['main']) || !is_array($tree['main'])) {
+            $mainCount = isset($tree['main']) && is_array($tree['main']) ? count($tree['main']) : 0;
+            log_message('debug', 'Webshop_section_engine: category section has empty main bucket (count=' . $mainCount . ')');
+            return array();
+        }
+        $filterIds = $this->resolve_category_ids_from_section_config($cfg);
         $items = array();
         foreach ($tree['main'] as $cid => $row) {
-            $items[] = function_exists('webshop_category_section_item')
+            $item = function_exists('webshop_category_section_item')
                 ? webshop_category_section_item($row)
                 : $this->category_row_to_section_item($row, $cid);
+            if ((int) $item['id'] <= 0) {
+                continue;
+            }
+            if (!empty($filterIds) && !in_array((int) $item['id'], $filterIds, true)) {
+                continue;
+            }
+            $items[] = $item;
             if ($limit > 0 && count($items) >= $limit) {
                 break;
             }
         }
+        if ($items === array()) {
+            log_message('debug', 'Webshop_section_engine: category section filtered to zero rows (main=' . count($tree['main']) . ')');
+        }
         return $items;
+    }
+
+    /**
+     * Optional CMS config: category_ids, categories, or category_id (single).
+     *
+     * @param array $cfg
+     * @return array<int,int>
+     */
+    private function resolve_category_ids_from_section_config(array $cfg)
+    {
+        $ids = array();
+        foreach (array('category_ids', 'categories', 'category_id') as $key) {
+            if (!isset($cfg[$key])) {
+                continue;
+            }
+            $raw = $cfg[$key];
+            if ($key === 'category_id' && is_numeric($raw) && (int) $raw > 0) {
+                $ids[] = (int) $raw;
+                continue;
+            }
+            if (!is_array($raw)) {
+                continue;
+            }
+            foreach ($raw as $v) {
+                if (is_array($v) && isset($v['id'])) {
+                    $v = $v['id'];
+                }
+                if (is_numeric($v) && (int) $v > 0) {
+                    $ids[] = (int) $v;
+                }
+            }
+        }
+        return array_values(array_unique($ids));
     }
 
     /**

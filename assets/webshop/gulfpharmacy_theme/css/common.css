@@ -738,3 +738,6 @@ p {
     width: 100%;
   }
 }
+
+/* Herbinn storefront footer (4-column layout on shop pages) */
+@import url('../herbinnwellness/css/herbinn-footer.css');

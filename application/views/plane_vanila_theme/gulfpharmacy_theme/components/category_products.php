@@ -143,6 +143,9 @@ if (!empty($products)) {
     <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/header.css?ver=20260525g') ?>">
     <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/category-products.css?ver=20260528f') ?>">
     <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/wishlist-fav.css?ver=20260526a') ?>">
+    <?php if (is_file(FCPATH . 'assets/webshop/herbinnwellness/css/herbinn-footer.css')) : ?>
+    <link rel="stylesheet" href="<?= htmlspecialchars(rtrim(base_url('assets/webshop/herbinnwellness/'), '/') . '/css/herbinn-footer.css?ver=20260529a', ENT_QUOTES, 'UTF-8') ?>">
+    <?php endif; ?>
 </head>
 <body>
 <div class="gp-site-wrapper cp-shell">

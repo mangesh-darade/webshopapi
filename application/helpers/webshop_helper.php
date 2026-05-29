@@ -14,6 +14,10 @@ function webshop_fixup_cms_media_relative_path($path_part) {
     if (preg_match('#^webshop/cms_pages/#i', $path_part)) {
         return $path_part;
     }
+    // CMS html_block images uploaded under uploads/webshop/uploads/images/ (not cms_pages).
+    if (preg_match('#^webshop/uploads/#i', $path_part)) {
+        return $path_part;
+    }
     if (preg_match('#^webshop/(?!cms_pages/)(.+)$#i', $path_part, $m)) {
         return 'webshop/cms_pages/' . $m[1];
     }
@@ -472,6 +476,41 @@ function webshop_cms_html_content_redundant_with_title($content, $title)
 }
 
 /**
+ * Replace {{api_base_url}} / {{customer_assets_folder}} tokens in CMS HTML blocks.
+ *
+ * @param string $html
+ * @return string
+ */
+function webshop_replace_cms_html_placeholders($html)
+{
+    if (!is_string($html) || strpos($html, '{{') === false) {
+        return (string) $html;
+    }
+    $api_base = '';
+    $folder = '';
+    if (function_exists('get_instance')) {
+        $CI = get_instance();
+        if ($CI && isset($CI->config)) {
+            $CI->config->load('elintom_api', true);
+            $api_base = trim((string) $CI->config->item('elintom_api_base_url', 'elintom_api'));
+            $folder = trim((string) $CI->config->item('elintom_customer_assets_folder', 'elintom_api'), '/');
+        }
+    }
+    if ($api_base !== '') {
+        $api_base = rtrim(str_replace('\\', '/', $api_base), '/') . '/';
+        $html = str_replace(array('{{api_base_url}}', '{{ELINTOM_API_BASE_URL}}'), $api_base, $html);
+    }
+    if ($folder !== '') {
+        $html = str_replace(
+            array('{{customer_assets_folder}}', '{{ELINTOM_CUSTOMER_ASSETS_FOLDER}}'),
+            $folder,
+            $html
+        );
+    }
+    return $html;
+}
+
+/**
  * Decode entity-encoded CMS HTML (common when JSON/API stores escaped tags) then normalize media URLs.
  *
  * @param string $html
@@ -492,6 +531,7 @@ function webshop_prepare_cms_html_for_output($html, $uploads_base)
         }
         $s = $next;
     }
+    $s = webshop_replace_cms_html_placeholders($s);
     $s = webshop_normalize_html_media_urls($s, $uploads_base);
     return webshop_fix_cms_script_hash_selectors($s);
 }
@@ -4294,6 +4334,25 @@ if (!function_exists('webshop_ws_row_is_active')) {
     }
 }
 
+if (!function_exists('webshop_cms_section_row_is_enabled')) {
+    /**
+     * CMS page_section_mapping row (is_enabled / is_active from ElintOm).
+     *
+     * @param array|object $section
+     * @return bool
+     */
+    function webshop_cms_section_row_is_enabled($section) {
+        $s = is_object($section) ? (array) $section : (is_array($section) ? $section : array());
+        foreach (array('is_enabled', 'is_active', 'enabled', 'active') as $key) {
+            if (!array_key_exists($key, $s)) {
+                continue;
+            }
+            return webshop_ws_row_is_active($s[$key]);
+        }
+        return true;
+    }
+}
+
 if (!function_exists('webshop_filter_active_setting_section_rows')) {
     /**
      * Normalize section row list and keep only is_active === 1 rows.
@@ -4361,6 +4420,24 @@ if (!function_exists('webshop_clear_elintom_settings_cache')) {
         $CI = get_instance();
         if (isset($CI->session)) {
             $CI->session->unset_userdata('elintom_cache_getsettings');
+        }
+    }
+}
+
+if (!function_exists('webshop_clear_elintom_categories_cache')) {
+    /**
+     * Drop session category tree cache (after enabling categories in ElintOm Catalog).
+     */
+    function webshop_clear_elintom_categories_cache() {
+        if (!function_exists('get_instance')) {
+            return;
+        }
+        $CI = get_instance();
+        if (isset($CI->session)) {
+            $CI->session->unset_userdata('elintom_cache_categories');
+        }
+        if (isset($CI->webshop_model) && method_exists($CI->webshop_model, 'clear_categories_cache')) {
+            $CI->webshop_model->clear_categories_cache();
         }
     }
 }

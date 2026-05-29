@@ -1,6 +1,12 @@
 /* Category carousel layout — fixed-width cards (category-card.css) */
 .dynamic-category-carousel{width:100%;max-width:100%;overflow:hidden}
-.cms-cc-title{font-size:clamp(1.35rem,2.5vw,1.75rem);font-weight:800;color:#214548;margin:0 0 20px}
+.cms-cc-header{text-align:left;margin:0 0 1.5rem;max-width:min(100%,42rem)}
+.cms-cc-title{font-size:clamp(1.35rem,2.5vw,1.75rem);font-weight:800;color:#214548;margin:0 0 .4rem;line-height:1.25}
+.cms-cc-subtitle{margin:0;font-size:clamp(.95rem,1.5vw,1.1rem);font-weight:400;color:#214548;line-height:1.5}
+.home-cms-section--category_carousel .cms-cc-header .cms-cc-title,
+.home-cms-section--category_carousel .cms-cc-header .cms-cc-subtitle{display:block;text-align:left;width:100%;justify-content:flex-start}
+.home-cms-section--category_carousel .cms-cc-header .cms-cc-title::before,
+.home-cms-section--category_carousel .cms-cc-header .cms-cc-title::after{display:none}
 .gp-cc-wrap{
     position:relative;
     display:block;

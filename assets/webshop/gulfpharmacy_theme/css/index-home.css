@@ -76,10 +76,10 @@ body{margin:0;font-family:Inter,system-ui,sans-serif;background:#fff;color:var(-
 .home-cms-body .gp-html-block:not(.gp-home-support-band){max-width:100%}
 .home-cms-body .gp-html-block:not(.gp-home-support-band) p{line-height:1.7;color:#374151}
 
-/* Tighten gap between category block and support band when both are CMS sections */
+/* Space between category block and following html_block (e.g. View All Formulas) — no divider line */
 .home-cms-section--category_grid + .home-cms-section--html_block,
 .home-cms-section--category_carousel + .home-cms-section--html_block{
   margin-top:28px;
-  padding-top:28px;
-  border-top:1px solid var(--gp-border);
+  padding-top:0;
+  border-top:none;
 }

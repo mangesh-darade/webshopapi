@@ -46,6 +46,9 @@ $_gp_header_slots = function_exists('webshop_header_gather_display_slots')
 ?>
 <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/header.css?ver=20260526f') ?>">
 <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/header-drawers.css') ?>">
+<?php if (is_file(FCPATH . 'assets/webshop/herbinnwellness/css/herbinn-footer.css')) : ?>
+<link rel="stylesheet" href="<?= htmlspecialchars(rtrim(base_url('assets/webshop/herbinnwellness/'), '/') . '/css/herbinn-footer.css?ver=20260529a', ENT_QUOTES, 'UTF-8') ?>">
+<?php endif; ?>
 <header class="gp-header" id="gp-header">
     <?php if (!empty($_gp_header_slots['announcement'])) : ?>
     <div class="gp-header-announcement" role="region" aria-label="Store announcement">
