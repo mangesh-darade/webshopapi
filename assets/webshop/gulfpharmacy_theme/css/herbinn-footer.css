@@ -1,10 +1,10 @@
-﻿/* Herbinn / ElintOm storefront footer ΓÇö scoped to avoid clashing with shop PLP CSS */
+/* Herbinn / ElintOm storefront footer ΓÇö scoped to avoid clashing with shop PLP CSS */
 .hb-site-footer {
   --hb-primary: #2d5a27;
-  --hb-text-dark: #212529;
-  --hb-text-muted: #6c757d;
+  --hb-text-dark: #1a1d21;
+  --hb-text-muted: #495057;
   --hb-white: #ffffff;
-  --hb-border: #dee2e6;
+  --hb-border: #ced4da;
   --hb-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 

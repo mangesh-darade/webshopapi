@@ -1,4 +1,4 @@
-﻿/* Herbinn CMS pages ΓÇö global styles (home, about, services, etc.) */
+/* Herbinn CMS pages ΓÇö global styles (home, about, services, etc.) */
 /* ============================================================
    HERBINN ΓÇö Vanilla CSS Design System (No Bootstrap)
    ============================================================ */
@@ -11,11 +11,13 @@
   --cta-hover: #D65A1D;
   --accent-blue: #0077B6;
   --accent-light: #E0F2F1;
-  --text-dark: #212529;
-  --text-muted: #6C757D;
-  --bg-light: #F8F9FA;
+  /* WCAG AA–friendly text on white / --bg-light (≥ 4.5:1) */
+  --text-dark: #1a1d21;
+  --text-muted: #495057;
+  --text-muted-strong: #3d4349;
+  --bg-light: #f1f3f5;
   --white: #ffffff;
-  --border-light: #dee2e6;
+  --border-light: #ced4da;
   --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --radius-sm: 8px;
   --radius-md: 16px;
@@ -87,7 +89,7 @@ p:last-child {
 .section-sm { padding-block: 3rem; }
 .section-header { text-align: center; margin-bottom: 3rem; }
 .section-header h2 { font-size: clamp(1.8rem, 3vw, 2.5rem); margin-bottom: 0.75rem; }
-.section-header p { color: var(--text-muted); font-size: 1.1rem; }
+.section-header p { color: var(--text-muted-strong); font-size: 1.1rem; }
 
 /* ---------- Background Utilities ---------- */
 .bg-light { background-color: var(--bg-light); }
@@ -104,7 +106,33 @@ p:last-child {
 .fw-bold { font-weight: 700; }
 .small { font-size: 0.875rem; }
 .lead { font-size: 1.2rem; }
-.opacity-75 { opacity: 0.75; }
+/* Prefer darker copy over opacity (opacity hurts contrast on gray backgrounds). */
+.opacity-75 { color: var(--text-muted); opacity: 1; }
+
+/* Readable body copy on tinted CMS sections (About, Why Choose, etc.). */
+.bg-light,
+.bg-premium-gradient,
+.page-header {
+  color: var(--text-dark);
+}
+
+.bg-light .text-muted,
+.bg-premium-gradient .text-muted,
+.page-header .text-muted,
+.page-header p,
+.split-row .text-muted,
+.cap-item p,
+.section-header p {
+  color: var(--text-muted-strong);
+}
+
+.bg-light h2,
+.bg-light h3,
+.split-row h2,
+.split-row h3,
+.page-header h1 {
+  color: var(--text-dark);
+}
 
 /* ---------- Flex Utilities ---------- */
 .flex { display: flex; }
@@ -328,7 +356,12 @@ a.btn:visited,
 
 .badge-primary { background: var(--primary-color); color: var(--white); }
 .badge-light { background: var(--bg-light); color: var(--primary-color); }
-.badge-border { background: transparent; border: 1px solid var(--border-light); color: var(--text-muted); padding: 0.45rem 0.9rem; }
+.badge-border {
+  background: var(--white);
+  border: 1px solid var(--border-light);
+  color: var(--text-muted-strong);
+  padding: 0.45rem 0.9rem;
+}
 
 /* Tag pills */
 .tag {
@@ -567,11 +600,23 @@ a.btn:visited,
 .page-header {
   padding-block: 5rem;
   text-align: center;
-  background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+  background: linear-gradient(135deg, #f3f5f7 0%, #e8ecef 100%);
+  border-bottom: 1px solid var(--border-light);
 }
 
-.page-header h1 { font-size: clamp(2rem, 4vw, 3.2rem); margin-bottom: 1rem; }
-.page-header p { color: var(--text-muted); font-size: 1.15rem; max-width: 640px; margin-inline: auto; }
+.page-header h1 {
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  margin-bottom: 1rem;
+  color: var(--text-dark);
+}
+
+.page-header p {
+  color: var(--text-muted-strong);
+  font-size: 1.15rem;
+  max-width: 640px;
+  margin-inline: auto;
+  line-height: 1.65;
+}
 
 /* ============================================================
    CTA SECTION
@@ -950,6 +995,12 @@ textarea.form-control { resize: vertical; min-height: 110px; }
   align-items: center;
   padding-block: 3.5rem;
   border-bottom: 1px solid var(--border-light);
+  color: var(--text-dark);
+}
+
+.split-row p.text-muted {
+  color: var(--text-muted-strong);
+  line-height: 1.65;
 }
 
 .split-row:last-child { border-bottom: none; }
@@ -1020,7 +1071,7 @@ textarea.form-control { resize: vertical; min-height: 110px; }
   font-weight: 700;
 }
 .cap-item svg { color: var(--primary-color); }
-.cap-item p { color: var(--text-muted); font-size: 0.88rem; }
+.cap-item p { color: var(--text-muted-strong); font-size: 0.9rem; line-height: 1.55; }
 
 /* ============================================================
    CONTACT INFO ITEM
@@ -1481,7 +1532,7 @@ textarea.form-control { resize: vertical; min-height: 110px; }
 
         .stat-highlight { text-align: center; padding: 2rem 1.5rem; }
         .stat-highlight .num { font-size: 2.8rem; font-weight: 800; color: var(--primary-color); line-height: 1; }
-        .stat-highlight .label { color: var(--text-muted); font-size: 0.9rem; margin-top: 0.35rem; }
+        .stat-highlight .label { color: var(--text-muted-strong); font-size: 0.9rem; margin-top: 0.35rem; }
 
         .why-card {
             background: var(--white);
@@ -1494,8 +1545,8 @@ textarea.form-control { resize: vertical; min-height: 110px; }
         }
         .why-card:hover { box-shadow: var(--shadow-md); transform: translateY(-4px); }
         .why-card .icon { font-size: 2rem; margin-bottom: 0.85rem; color: var(--primary-color); }
-        .why-card h3 { font-size: 1.05rem; margin-bottom: 0.5rem; }
-        .why-card p { font-size: 0.88rem; color: var(--text-muted); }
+        .why-card h3 { font-size: 1.05rem; margin-bottom: 0.5rem; color: var(--text-dark); }
+        .why-card p { font-size: 0.9rem; color: var(--text-muted-strong); line-height: 1.55; }
 
         .cat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
         .cat-pill {
@@ -1617,6 +1668,7 @@ textarea.form-control { resize: vertical; min-height: 110px; }
 /* ---------- Global Accreditation band (CMS html_block — herbin_html certs-band) ---------- */
 .certs-band {
   padding: 2.2rem 0;
+  background: var(--white);
   border-top: 1px solid var(--border-light);
   border-bottom: 1px solid var(--border-light);
 }
@@ -1634,7 +1686,8 @@ textarea.form-control { resize: vertical; min-height: 110px; }
   margin: 0;
   color: var(--text-dark);
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
   flex-shrink: 0;
   text-align: center;
 }
