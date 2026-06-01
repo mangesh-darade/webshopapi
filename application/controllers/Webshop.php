@@ -8774,6 +8774,19 @@ XSL;
         $apiFailMessage = is_array($apiResult) && isset($apiResult['msg'])
             ? trim((string) $apiResult['msg'])
             : '';
+        if ($apiFailMessage === '' && is_array($apiResult) && isset($apiResult['message'])) {
+            $apiFailMessage = trim((string) $apiResult['message']);
+        }
+        if ($apiResult === null && method_exists($this->webshop_api_model, 'get_api_client')) {
+            $apiClient = $this->webshop_api_model->get_api_client();
+            if (is_object($apiClient) && method_exists($apiClient, 'get_last_error')) {
+                $transportErr = trim((string) $apiClient->get_last_error());
+                if ($transportErr !== '') {
+                    $apiFailMessage = $transportErr;
+                    log_message('error', 'contact_us_submit: ' . $transportErr);
+                }
+            }
+        }
 
         $finalMessage = 'Sorry, we could not save your message. Please try again.';
         if ($apiFailMessage !== '') {

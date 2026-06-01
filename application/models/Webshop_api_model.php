@@ -2346,6 +2346,75 @@ class Webshop_api_model extends CI_Model {
         return ['status' => 'ERROR', 'msg' => $msg];
     }
 
+    /**
+     * Submit contact form lead to ElintOm (sma_leads via submitcontactlead API action).
+     *
+     * @param array $data name, phone, email, message, source (optional)
+     * @return array{status:string,msg?:string,lead_id?:int}
+     */
+    public function submit_contact_lead(array $data) {
+        $name = isset($data['name']) ? trim((string) $data['name']) : '';
+        if ($name === '' && isset($data['full_name'])) {
+            $name = trim((string) $data['full_name']);
+        }
+        $phone = isset($data['phone']) ? trim((string) $data['phone']) : '';
+        if ($phone === '' && isset($data['mobile'])) {
+            $phone = trim((string) $data['mobile']);
+        }
+        $email = isset($data['email']) ? trim((string) $data['email']) : '';
+        $message = isset($data['message']) ? trim((string) $data['message']) : '';
+        if ($message === '' && isset($data['comments'])) {
+            $message = trim((string) $data['comments']);
+        }
+        $source = isset($data['source']) ? trim((string) $data['source']) : 'webshop_contact_form';
+
+        if ($name === '' || $phone === '') {
+            return array('status' => 'ERROR', 'msg' => 'Name and phone are required.');
+        }
+
+        $payload = array(
+            'name'    => $name,
+            'phone'   => $phone,
+            'email'   => $email,
+            'message' => $message,
+            'source'  => $source !== '' ? $source : 'webshop_contact_form',
+        );
+
+        try {
+            $res = $this->api->submit_contact_lead($payload);
+        } catch (Exception $e) {
+            log_message('error', 'Webshop_api_model::submit_contact_lead transport error: ' . $e->getMessage());
+            return array('status' => 'ERROR', 'msg' => 'Unable to reach the server. Please try again.');
+        }
+
+        if ($res && isset($res->status) && strtoupper((string) $res->status) === 'SUCCESS') {
+            $msg = 'Thank you. Your message has been submitted successfully.';
+            if (isset($res->msg) && trim((string) $res->msg) !== '') {
+                $msg = (string) $res->msg;
+            } elseif (isset($res->message) && trim((string) $res->message) !== '') {
+                $msg = (string) $res->message;
+            }
+            $out = array('status' => 'SUCCESS', 'msg' => $msg);
+            if (isset($res->lead_id)) {
+                $out['lead_id'] = (int) $res->lead_id;
+            }
+            return $out;
+        }
+
+        $apiErr = method_exists($this->api, 'get_last_error') ? $this->api->get_last_error() : null;
+        if (!$res && $apiErr) {
+            log_message('error', 'Webshop_api_model::submit_contact_lead api error: ' . $apiErr);
+            return array('status' => 'ERROR', 'msg' => $apiErr);
+        }
+
+        $msg = 'Sorry, we could not save your message. Please try again.';
+        if ($res && isset($res->msg) && trim((string) $res->msg) !== '') {
+            $msg = (string) $res->msg;
+        } elseif ($res && isset($res->message) && trim((string) $res->message) !== '') {
+            $msg = (string) $res->message;
+        }
+        return array('status' => 'ERROR', 'msg' => $msg);
+    }
 
     public function get_product_reviews($product_id, $limit = 100) {
         $pid = (int) $product_id;
