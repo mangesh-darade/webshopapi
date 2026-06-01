@@ -35,9 +35,9 @@ $elintom_switch_profiles = array(
         'customer_assets_folder'             => 'localhost',
         'mdata_include_http_host_segment'    => false,
         'media_use_http_host'                => false,
-        'webshop_theme'                      => 'gulfpharmacy',
-        'theme_view_folder'                  => 'gulfpharmacy_theme',
-        'theme_assets_directory'             => 'gulfpharmacy_theme',
+        'webshop_theme'                   => 'gulfpharmacy',
+        'theme_view_folder'               => 'herbinnwellness',
+        'theme_assets_directory'          => 'herbinnwellness',
     ),
     'localhost_elintom' => array(
         'api_base_url'                    => 'http://localhost/ElintOm/',
@@ -49,8 +49,8 @@ $elintom_switch_profiles = array(
         'mdata_include_http_host_segment' => false,
         'media_use_http_host'             => false,
         'webshop_theme'                   => 'gulfpharmacy',
-        'theme_view_folder'               => 'gulfpharmacy_theme',
-        'theme_assets_directory'          => 'gulfpharmacy_theme',
+        'theme_view_folder'               => 'herbinnwellness',
+        'theme_assets_directory'          => 'herbinnwellness',
     ),
    
 );

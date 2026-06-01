@@ -1,0 +1,76 @@
+---
+description: ELINT ERP + CMS + Webshop MVC refactor rules (PHP 8.4, CI 3.1.13)
+globs: application/controllers/Webshop*.php,application/models/Webshop*.php,application/helpers/webshop_helper.php,application/views/plane_vanila_theme/**/*.php,application/libraries/Webshop_*.php,assets/webshop/**/*
+alwaysApply: false
+---
+
+# ELINT Webshop Refactor Rules
+
+## Stack
+- PHP 8.4, CodeIgniter 3.1.13, ElintOm API-first via `Webshop_api_model`
+
+## MVC Boundaries
+
+**Controller** (`Webshop.php`): routing, validation, auth, redirects, `$this->input->post/get(..., true)`, call model/helper, `load_view()`. No SQL, no HTML/CSS/JS, no complex business logic.
+
+**Model** (`Webshop_api_model`, `Webshop_model`): SELECT/INSERT/UPDATE/DELETE, joins, reusable queries. No HTML.
+
+**View** (`plane_vanila_theme/{tenant}/`): HTML/Bootstrap only. No SQL, no `$this->input`, no API calls. Use helpers for formatting.
+
+**Helper** (`webshop_helper.php`): pricing, tax, discounts, formatting, theme paths. No SQL.
+
+## View Loading (this codebase)
+
+```php
+// ✅ Webshop storefront
+$this->load_view('components/category_products', $this->data);
+
+// ✅ Theme partials (passes controller data to header/footer)
+webshop_require_theme_header();
+webshop_require_theme_footer();
+
+// ✅ Theme-relative component
+$this->load->view(webshop_plane_vanila_view('components/cart_view'), $this->data);
+
+// ❌ Never in webshop
+page_construct();
+cms_page_construct();
+load_theme_page(); // does not exist
+```
+
+## Theme Resolution
+
+- **View folder**: `elintom_theme_view_folder` → e.g. `herbinnwellness`, `gulfpharmacy_theme`
+- **Behavior flag**: `webshop_theme` → `restaurant`, `nw`, `gulfpharmacy`
+- Do **not** gate header/footer on `$theme === 'nw' || 'gulfpharmacy'` — use `webshop_require_theme_header()` / `webshop_require_theme_footer()` which resolve the active plane_vanila theme folder.
+
+## AJAX
+
+Prefer dedicated endpoints: `webshop/add_to_cart`, `webshop/search_suggest`. Standard JSON:
+
+```json
+{ "status": true, "message": "Success", "data": {} }
+```
+
+Use `$this->input->post('field', true)`, CSRF, prepared queries, session checks.
+
+## PHP 8.4
+
+Use null coalescing (`??`), strict checks, typed `@param`/`@return`. Avoid `mysql_*`, `create_function()`, `each()`.
+
+## New Database Tables
+
+Required columns: `id`, `created_by`, `updated_by`, `created_at`, `updated_at`, `is_active`.
+
+## Refactor Checklist (per feature)
+
+1. Move DB logic → model
+2. Move calculations/formatting → helper
+3. Thin controller to validate → model/helper → load_view
+4. Views use `webshop_require_theme_*` and pre-computed controller data
+5. Complete files only — no snippets or "remaining code same"
+
+## Reference Docs
+
+- `application/docs/WEBSHOP_API_ARCHITECTURE.md`
+- `application/docs/THEME_COMPONENT_FLOW.md`

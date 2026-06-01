@@ -2788,150 +2788,32 @@ XSL;
 
     public function category_products()
     {
-
-        $this->data['get_category_id'] = $product_category = $this->uri->segment(3);
-        $isCategoryActive = $this->webshop_model->checkIsCategoryActiveForWebshop($product_category);
-        if(! $isCategoryActive) {
+        $getCategoryId = $this->uri->segment(3);
+        if (!$this->webshop_model->checkIsCategoryActiveForWebshop($getCategoryId)) {
             redirect('webshop/index');
         }
 
-        $this->data['idHash'] = md5($product_category);
-
-        $this->data['active_search_category'] = $product_category;
-
-        if ($this->uri->segment(4)) {
-            $this->data['get_subcategory_id'] = $product_category = $this->uri->segment(4);
-        }
-        $this->data["category_is_active"] = $this->webshop_model->categoryActive($product_category);
-
-        //$this->data['product_variants'] = $this->webshop_model->get_category_product_variants($product_category);
-        // $this->data['listItems'] = $this->webshop_model->get_category_products($product_category);
-        $idHash = md5($product_category);
-        $specialItems = $this->getTodaysSpecialItemsForGivenCategory($product_category);
-        $specialItemsId = [];
-        $special_text = '';
-        if (!empty($specialItems)) {
-            foreach ($specialItems as $item) {
-                $specialItemsId[] = $item['product_id'];
-                if (!empty($item['title'])) {
-                    $special_text =   $item['title'];
-                }
-            }
-        }
-        $this->data['special_item_text'] = $special_text;
-
-        $page = (int) $this->input->get('page', true);
-        if ($page < 1) {
-            $page = 1;
-        }
+        $getSubcategoryId = $this->uri->segment(4) ?: null;
+        $page = max(1, (int) $this->input->get('page', true));
         $limit = 12;
-        $data = $this->webshop_model->get_products_list('category', $idHash, $usedHash = TRUE, $limit, $page);
 
-        $products = [];
-        $specialItemsList = [];
-        $apiCatalog = $this->uses_elintom_catalog_api();
-        $restaurantOpen = 'true';
-        $restaurantStatusText = 'Open';
-        if (!$apiCatalog) {
-            $restaurantWorking = $this->webshop_model->restaurantWorking();
-            $restaurantOpen = isset($restaurantWorking['is_working']) ? $restaurantWorking['is_working'] : 'true';
-            $restaurantStatusText = isset($restaurantWorking['working_flag_text']) ? $restaurantWorking['working_flag_text'] : 'Open';
-        }
-        if (!empty($data['items'])) {
-            foreach ($data['items'] as &$item) {
-                $row = is_array($item) ? $item : (array) $item;
-                if ($apiCatalog) {
-                    $item['product_is_active'] = 'true';
-                    $item['product_info_text'] = '';
-                    $item['category_is_active'] = 'true';
-                    $item['category_info_text'] = array('All*');
-                } else {
-                    list($available, $availabilityText) = $this->webshop_model->productAvailable($row['id']);
-                    list($categoryActive, $categoryInfoText) = $this->webshop_model->categoryActive($row['category_id']);
-                    $item['product_is_active'] = $available;
-                    $item['product_info_text'] = $availabilityText;
-                    $item['category_is_active'] = $categoryActive;
-                    $item['category_info_text'] = $categoryInfoText;
-                }
-                $item['restaurant_is_active'] = $restaurantOpen;
-                $item['restaurant_status_text'] = $restaurantStatusText;
+        $this->data = array_merge(
+            $this->data,
+            webshop_prepare_category_products_page_data($this, $getCategoryId, $getSubcategoryId, $page, $limit)
+        );
 
-                list($item['ratings_avarage'], $item['ratings_count']) = $this->resolve_product_rating_fields($row['id'], $row);
+        $wantsJson = $this->input->get('format') === 'json'
+            || $this->input->get('get_data') === '1'
+            || (isset($this->webshop_settings->webshop_theme) && $this->webshop_settings->webshop_theme === 'restaurant');
 
-                if (!in_array($row['id'], $specialItemsId, true)) {
-                    $products[] = $item;
-                } else {
-                    $specialItemsList[] = $item;
-                }
-            }
-            unset($item);
+        if ($wantsJson) {
+            $this->data['listItems'] = webshop_format_category_products_json_items($this->data['listItems'], $this->sma, 'price');
+            $this->data['special_items'] = webshop_format_category_products_json_items($this->data['special_items'], $this->sma, 'special_price');
+            $this->output->set_content_type('application/json')->set_output(json_encode($this->data));
+            return;
         }
 
-        /* get_products_list() already enriches stock + variants for API category lists — avoid duplicate HTTP. */
-        $this->data['listItems'] = $products;
-
-        foreach ($specialItemsList as $key => $item1) {
-            foreach ($specialItems as $item2) {
-                if ($item2['product_id'] == $item1['id']) {
-                    $specialItemsList[$key]['special_price'] = $item2['special_price'];
-                    break;
-                }
-            }
-        }
-        $this->data['special_items'] = $specialItemsList;
-
-        $this->data['items_total'] = isset($data['items_total']) ? $data['items_total'] : 0;
-
-        $gid = $this->data['get_category_id'];
-        $this->data['subcategories'] = (isset($this->data['categories'][$gid]) && is_array($this->data['categories'][$gid]))
-            ? $this->data['categories'][$gid]
-            : array();
-
-        if (!$this->webshop_catalog_bootstrap) {
-            $this->data['recent_viewed'] = $this->webshop_model->get_recent_viewed_product();
-        } else {
-            $this->data['recent_viewed'] = array();
-        }
-        $categoryEntityId = (int) $this->data['get_category_id'];
-        $categoryTagRows = method_exists($this->webshop_model, 'get_entity_tag_rows')
-            ? $this->webshop_model->get_entity_tag_rows('category', $categoryEntityId)
-            : array();
-        if (!is_array($categoryTagRows)) {
-            $categoryTagRows = array();
-        }
-        $this->data['entity_tag_groups'] = $this->group_entity_tags_for_view($categoryTagRows);
-
-        $categoryTagMap = method_exists($this->webshop_model, 'get_entity_tag_map')
-            ? $this->webshop_model->get_entity_tag_map('category', $categoryEntityId)
-            : array();
-        if (!is_array($categoryTagMap)) {
-            $categoryTagMap = array();
-        }
-        $category_meta_tags = $this->build_entity_meta_tags($categoryTagMap);
-        if ($category_meta_tags !== '') {
-            $this->data['meta_tags'] = $category_meta_tags;
-        }
-        $this->data['entity_meta_title'] = $this->resolve_entity_meta_title($categoryTagMap);
-
-
-        if ($this->input->get('format') === 'json' || $this->input->get('get_data') === '1' || $this->webshop_settings->webshop_theme == 'restaurant') {
-
-            foreach ($this->data['listItems'] as &$item) {
-                $item['proudctIdHash'] = md5($item['id']);
-                $item['formatedPrice'] = $this->sma->formatMoney($item['price']);
-            }
-
-            foreach ($this->data['special_items'] as &$special_item) {
-                $special_item['proudctIdHash'] = md5($special_item['id']);
-                $special_item['formatedPrice'] = $this->sma->formatMoney($special_item['special_price']);
-            }
-            if ($this->input->get('format') === 'json' || $this->input->get('get_data') === '1' || $this->webshop_settings->webshop_theme == 'restaurant') {
-                $this->output->set_content_type('application/json')->set_output(json_encode($this->data));
-                return;
-            }
-        }
-        
-        $this->load_view("components/category_products", $this->data);
+        $this->load_view('components/category_products', $this->data);
     }
 
     public function getTodaysSpecialItemsForGivenCategory($categoryId)

@@ -2702,6 +2702,25 @@ function webshop_product_list_card_pricing(array $product, $Settings = null) {
     $out['price'] = webshop_checkout_resolve_product_price($product, 0, 0);
     $mrp = isset($product['mrp']) ? (float) $product['mrp'] : 0.0;
     $out['mrp'] = $mrp;
+    if ((float) $out['price'] <= 0 && !empty($product['list_display_price']) && (float) $product['list_display_price'] > 0) {
+        $out['price'] = (float) $product['list_display_price'];
+    }
+    if ((float) $out['mrp'] <= 0 && !empty($product['list_display_mrp']) && (float) $product['list_display_mrp'] > 0) {
+        $out['mrp'] = (float) $product['list_display_mrp'];
+    }
+    if (empty($out['has_variants']) && !empty($product['list_default_variant_id'])) {
+        $out['has_variants'] = true;
+        $out['variant_id'] = (int) $product['list_default_variant_id'];
+        $out['variant_price'] = isset($product['list_variant_price']) ? (float) $product['list_variant_price'] : 0.0;
+        $out['variant_unit_quantity'] = isset($product['list_variant_unit_quantity']) ? (float) $product['list_variant_unit_quantity'] : 1.0;
+        $out['variant_name'] = isset($product['list_variant_name']) ? (string) $product['list_variant_name'] : '';
+        $out['price_from'] = !empty($product['list_price_from']);
+        $out['price_min'] = isset($product['list_price_min']) ? (float) $product['list_price_min'] : $out['price'];
+        $out['price_max'] = isset($product['list_price_max']) ? (float) $product['list_price_max'] : $out['price'];
+    }
+    if (empty($out['discount_percent']) && !empty($product['list_discount_percent'])) {
+        $out['discount_percent'] = (int) $product['list_discount_percent'];
+    }
     if ($mrp > $out['price'] && $out['price'] > 0) {
         $out['discount_percent'] = (int) round((($mrp - $out['price']) / $mrp) * 100);
     }
@@ -6348,5 +6367,520 @@ if (!function_exists('webshop_redirect_product_grid_page_one_segment')) {
         $CI->load->helper('url');
         redirect(webshop_product_grid_page_url(rtrim(base_url('webshop/' . $slug), '/'), 1), 'location', 301);
         exit;
+    }
+}
+
+if (!function_exists('webshop_uses_elintom_catalog_api')) {
+    /**
+     * @param object|null $model Webshop_api_model instance
+     * @return bool
+     */
+    function webshop_uses_elintom_catalog_api($model = null) {
+        if ($model === null && function_exists('get_instance')) {
+            $CI =& get_instance();
+            $model = isset($CI->webshop_model) ? $CI->webshop_model : null;
+        }
+        return is_object($model)
+            && method_exists($model, 'uses_elintom_catalog_api')
+            && $model->uses_elintom_catalog_api();
+    }
+}
+
+if (!function_exists('webshop_resolve_product_rating_fields')) {
+    /**
+     * @param int|string $productId
+     * @param array      $rowFallback
+     * @param object|null $model
+     * @return array [float average, int count]
+     */
+    function webshop_resolve_product_rating_fields($productId, array $rowFallback = array(), $model = null) {
+        if ($rowFallback !== array()) {
+            $avgFromRow = null;
+            $cntFromRow = null;
+            if (isset($rowFallback['ratings_avarage']) && $rowFallback['ratings_avarage'] !== '' && $rowFallback['ratings_avarage'] !== null) {
+                $avgFromRow = (float) $rowFallback['ratings_avarage'];
+            } elseif (isset($rowFallback['ratings_average'])) {
+                $avgFromRow = (float) $rowFallback['ratings_average'];
+            }
+            if (isset($rowFallback['ratings_count'])) {
+                $cntFromRow = (int) $rowFallback['ratings_count'];
+            }
+            if ($avgFromRow !== null || ($cntFromRow !== null && $cntFromRow > 0)) {
+                return array(
+                    $avgFromRow !== null ? $avgFromRow : 0.0,
+                    $cntFromRow !== null ? $cntFromRow : 0,
+                );
+            }
+        }
+
+        if (webshop_uses_elintom_catalog_api($model)) {
+            return array(0.0, 0);
+        }
+
+        if ($model === null && function_exists('get_instance')) {
+            $CI =& get_instance();
+            $model = isset($CI->webshop_model) ? $CI->webshop_model : null;
+        }
+        if (!is_object($model) || !method_exists($model, 'get_product_rating')) {
+            return array(0.0, 0);
+        }
+
+        $ratingInfo = $model->get_product_rating($productId);
+        $avg = 0.0;
+        $cnt = 0;
+        if (is_object($ratingInfo)) {
+            $avg = isset($ratingInfo->average) ? (float) $ratingInfo->average : 0.0;
+            $cnt = isset($ratingInfo->count) ? (int) $ratingInfo->count : 0;
+        } elseif (is_array($ratingInfo)) {
+            $avg = isset($ratingInfo['average']) ? (float) $ratingInfo['average'] : 0.0;
+            $cnt = isset($ratingInfo['count']) ? (int) $ratingInfo['count'] : 0;
+        }
+        if ($avg == 0.0 && $cnt === 0 && $rowFallback !== array()) {
+            if (isset($rowFallback['ratings_avarage']) && $rowFallback['ratings_avarage'] !== '' && $rowFallback['ratings_avarage'] !== null) {
+                $avg = (float) $rowFallback['ratings_avarage'];
+            }
+            if (isset($rowFallback['ratings_count'])) {
+                $cnt = (int) $rowFallback['ratings_count'];
+            }
+        }
+        return array($avg, $cnt);
+    }
+}
+
+if (!function_exists('webshop_build_entity_meta_tags')) {
+    /**
+     * @param array $entity_tags
+     * @return string
+     */
+    function webshop_build_entity_meta_tags($entity_tags) {
+        if (empty($entity_tags) || !is_array($entity_tags)) {
+            return '';
+        }
+        $meta_parts = array();
+        foreach ($entity_tags as $property_name => $value) {
+            $property_name = trim((string) $property_name);
+            $value = trim((string) $value);
+            if ($property_name === '' || $value === '') {
+                continue;
+            }
+            $normalized = strtolower(str_replace(array('-', ' '), '_', $property_name));
+            if ($normalized === 'meta_description' || $normalized === 'description') {
+                $meta_parts[] = '<meta name="description" content="' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '">';
+                continue;
+            }
+            if ($normalized === 'meta_keywords' || $normalized === 'keywords') {
+                $meta_parts[] = '<meta name="keywords" content="' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '">';
+                continue;
+            }
+            if ($normalized === 'canonical' || $normalized === 'canonical_url') {
+                $meta_parts[] = '<link rel="canonical" href="' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '">';
+                continue;
+            }
+            if ($normalized === 'robots' || $normalized === 'meta_robots') {
+                $meta_parts[] = '<meta name="robots" content="' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '">';
+                continue;
+            }
+            if ($normalized === 'viewport') {
+                $meta_parts[] = '<meta name="viewport" content="' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '">';
+                continue;
+            }
+            $safe_name = preg_replace('/[^a-zA-Z0-9\-_:.]/', '-', strtolower($property_name));
+            $safe_name = trim((string) $safe_name, '-');
+            if ($safe_name === '') {
+                continue;
+            }
+            $meta_parts[] = '<meta name="' . htmlspecialchars($safe_name, ENT_QUOTES, 'UTF-8') . '" content="' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '">';
+        }
+        return implode("\n", $meta_parts);
+    }
+}
+
+if (!function_exists('webshop_resolve_entity_meta_title')) {
+    /**
+     * @param array $entity_tags
+     * @return string
+     */
+    function webshop_resolve_entity_meta_title($entity_tags) {
+        if (empty($entity_tags) || !is_array($entity_tags)) {
+            return '';
+        }
+        foreach ($entity_tags as $property_name => $value) {
+            $property_name = strtolower(str_replace(array('-', ' '), '_', trim((string) $property_name)));
+            $value = trim((string) $value);
+            if ($value === '') {
+                continue;
+            }
+            if ($property_name === 'meta_title' || $property_name === 'title') {
+                return $value;
+            }
+        }
+        return '';
+    }
+}
+
+if (!function_exists('webshop_group_entity_tags_for_view')) {
+    /**
+     * @param array $rows
+     * @return array
+     */
+    function webshop_group_entity_tags_for_view($rows) {
+        if (!is_array($rows) || empty($rows)) {
+            return array();
+        }
+        $groups = array();
+        foreach ($rows as $row) {
+            $r = is_object($row) ? (array) $row : (is_array($row) ? $row : array());
+            $value = isset($r['value']) ? trim((string) $r['value']) : '';
+            if ($value === '') {
+                continue;
+            }
+            $category = isset($r['category']) ? trim((string) $r['category']) : '';
+            if ($category === '') {
+                $category = 'General';
+            }
+            $tag_name = isset($r['tag_name']) && trim((string) $r['tag_name']) !== ''
+                ? (string) $r['tag_name']
+                : (isset($r['property_name']) ? (string) $r['property_name'] : '');
+            if ($tag_name === '') {
+                continue;
+            }
+            if (!isset($groups[$category])) {
+                $groups[$category] = array();
+            }
+            $groups[$category][] = array(
+                'label' => $tag_name,
+                'value' => $value,
+            );
+        }
+        return $groups;
+    }
+}
+
+if (!function_exists('webshop_special_items_for_category')) {
+    /**
+     * @param object      $model
+     * @param int|string  $categoryId
+     * @return array [items, ids, text]
+     */
+    function webshop_special_items_for_category($model, $categoryId) {
+        $items = array();
+        if (is_object($model) && method_exists($model, 'getTodaysSpecialItemsForGivenCategoryDB')) {
+            $items = $model->getTodaysSpecialItemsForGivenCategoryDB($categoryId);
+        }
+        if (!is_array($items)) {
+            $items = array();
+        }
+        $ids = array();
+        $text = '';
+        foreach ($items as $item) {
+            $row = is_array($item) ? $item : (array) $item;
+            if (!empty($row['product_id'])) {
+                $ids[] = $row['product_id'];
+            }
+            if ($text === '' && !empty($row['title'])) {
+                $text = (string) $row['title'];
+            }
+        }
+        return array($items, $ids, $text);
+    }
+}
+
+if (!function_exists('webshop_prepare_category_products_page_data')) {
+    /**
+     * Build view data for category product listing (controller calls this).
+     *
+     * @param object      $controller Webshop controller instance
+     * @param int|string  $getCategoryId
+     * @param int|string|null $getSubcategoryId
+     * @param int         $page
+     * @param int         $limit
+     * @return array
+     */
+    function webshop_prepare_category_products_page_data($controller, $getCategoryId, $getSubcategoryId, $page, $limit = 12) {
+        $model = $controller->webshop_model;
+        $productCategory = $getSubcategoryId !== null && $getSubcategoryId !== ''
+            ? $getSubcategoryId
+            : $getCategoryId;
+
+        list($specialItems, $specialItemsId, $specialText) = webshop_special_items_for_category($model, $productCategory);
+
+        $idHash = md5($productCategory);
+        $data = $model->get_products_list('category', $idHash, true, $limit, $page);
+
+        $products = array();
+        $specialItemsList = array();
+        $apiCatalog = webshop_uses_elintom_catalog_api($model);
+        $restaurantOpen = 'true';
+        $restaurantStatusText = 'Open';
+        if (!$apiCatalog) {
+            $restaurantWorking = $model->restaurantWorking();
+            $restaurantOpen = isset($restaurantWorking['is_working']) ? $restaurantWorking['is_working'] : 'true';
+            $restaurantStatusText = isset($restaurantWorking['working_flag_text']) ? $restaurantWorking['working_flag_text'] : 'Open';
+        }
+
+        if (!empty($data['items'])) {
+            foreach ($data['items'] as $item) {
+                $row = is_array($item) ? $item : (array) $item;
+                if ($apiCatalog) {
+                    $item['product_is_active'] = 'true';
+                    $item['product_info_text'] = '';
+                    $item['category_is_active'] = 'true';
+                    $item['category_info_text'] = array('All*');
+                } else {
+                    list($available, $availabilityText) = $model->productAvailable($row['id']);
+                    list($categoryActive, $categoryInfoText) = $model->categoryActive($row['category_id']);
+                    $item['product_is_active'] = $available;
+                    $item['product_info_text'] = $availabilityText;
+                    $item['category_is_active'] = $categoryActive;
+                    $item['category_info_text'] = $categoryInfoText;
+                }
+                $item['restaurant_is_active'] = $restaurantOpen;
+                $item['restaurant_status_text'] = $restaurantStatusText;
+
+                list($item['ratings_avarage'], $item['ratings_count']) = webshop_resolve_product_rating_fields($row['id'], $row, $model);
+
+                if (!in_array($row['id'], $specialItemsId, true)) {
+                    $products[] = $item;
+                } else {
+                    $specialItemsList[] = $item;
+                }
+            }
+        }
+
+        foreach ($specialItemsList as $key => $item1) {
+            foreach ($specialItems as $item2) {
+                if ($item2['product_id'] == $item1['id']) {
+                    $specialItemsList[$key]['special_price'] = $item2['special_price'];
+                    break;
+                }
+            }
+        }
+
+        $itemsTotal = isset($data['items_total']) ? (int) $data['items_total'] : 0;
+        $totalPages = $itemsTotal > 0 ? (int) ceil($itemsTotal / $limit) : 1;
+        $categories = isset($controller->data['categories']) ? $controller->data['categories'] : array();
+        $gid = $getCategoryId;
+
+        $categoryEntityId = (int) $getCategoryId;
+        $categoryTagRows = method_exists($model, 'get_entity_tag_rows')
+            ? $model->get_entity_tag_rows('category', $categoryEntityId)
+            : array();
+        if (!is_array($categoryTagRows)) {
+            $categoryTagRows = array();
+        }
+        $categoryTagMap = method_exists($model, 'get_entity_tag_map')
+            ? $model->get_entity_tag_map('category', $categoryEntityId)
+            : array();
+        if (!is_array($categoryTagMap)) {
+            $categoryTagMap = array();
+        }
+
+        $metaTags = webshop_build_entity_meta_tags($categoryTagMap);
+        $catalogBootstrap = isset($controller->webshop_catalog_bootstrap) ? (bool) $controller->webshop_catalog_bootstrap : false;
+
+        $out = array(
+            'get_category_id'        => $getCategoryId,
+            'get_subcategory_id'     => $getSubcategoryId,
+            'idHash'                 => md5($getCategoryId),
+            'active_search_category' => $getCategoryId,
+            'category_is_active'     => $model->categoryActive($productCategory),
+            'special_item_text'      => $specialText,
+            'listItems'              => $products,
+            'special_items'          => $specialItemsList,
+            'items_total'            => $itemsTotal,
+            'current_page'           => $page,
+            'per_page'               => $limit,
+            'total_pages'            => $totalPages,
+            'subcategories'          => (isset($categories[$gid]) && is_array($categories[$gid])) ? $categories[$gid] : array(),
+            'recent_viewed'          => (!$catalogBootstrap && method_exists($model, 'get_recent_viewed_product'))
+                ? $model->get_recent_viewed_product()
+                : array(),
+            'entity_tag_groups'      => webshop_group_entity_tags_for_view($categoryTagRows),
+            'entity_meta_title'      => webshop_resolve_entity_meta_title($categoryTagMap),
+        );
+        if ($metaTags !== '') {
+            $out['meta_tags'] = $metaTags;
+        }
+        return $out;
+    }
+}
+
+if (!function_exists('webshop_format_category_products_json_items')) {
+    /**
+     * @param array       $items
+     * @param object|null $sma SMA formatter library
+     * @param string      $priceKey
+     * @return array
+     */
+    function webshop_format_category_products_json_items(array $items, $sma, $priceKey = 'price') {
+        foreach ($items as &$item) {
+            $item['proudctIdHash'] = md5($item['id']);
+            $amount = isset($item[$priceKey]) ? $item[$priceKey] : (isset($item['price']) ? $item['price'] : 0);
+            $item['formatedPrice'] = is_object($sma) && method_exists($sma, 'formatMoney')
+                ? $sma->formatMoney($amount)
+                : (string) $amount;
+        }
+        unset($item);
+        return $items;
+    }
+}
+
+if (!function_exists('webshop_category_products_view_context')) {
+    /**
+     * Resolve display variables for category_products view (no request/input reads).
+     *
+     * @param array $data Controller view data
+     * @return array
+     */
+    function webshop_category_products_view_context(array $data) {
+        $selectedCatId = isset($data['get_category_id']) ? (int) $data['get_category_id'] : 0;
+        $categoryName = 'Products';
+        $categoryRow = null;
+        $categories = isset($data['categories']['main']) ? $data['categories']['main'] : (isset($data['categories']) ? $data['categories'] : array());
+        if (isset($categories[$selectedCatId])) {
+            $c = $categories[$selectedCatId];
+            $categoryRow = is_object($c) ? (array) $c : (is_array($c) ? $c : array());
+            $categoryName = isset($categoryRow['name']) ? (string) $categoryRow['name'] : $categoryName;
+        }
+        if (isset($data['entity_meta_title']) && trim((string) $data['entity_meta_title']) !== '') {
+            $categoryName = trim((string) $data['entity_meta_title']);
+        }
+        $categoryShortDesc = '';
+        $categoryLongDesc = '';
+        if ($categoryRow !== null && function_exists('webshop_category_card_copy')) {
+            $catCopy = webshop_category_card_copy($categoryRow, 'grid');
+            $categoryShortDesc = isset($catCopy['short']) ? (string) $catCopy['short'] : '';
+            $categoryLongDesc = isset($catCopy['long']) ? (string) $catCopy['long'] : '';
+        }
+
+        $products = isset($data['listItems']) && is_array($data['listItems']) ? $data['listItems'] : array();
+        $subcategories = isset($data['subcategories']) && is_array($data['subcategories']) ? $data['subcategories'] : array();
+        $totalItems = isset($data['items_total']) ? (int) $data['items_total'] : count($products);
+        $currentPage = isset($data['current_page']) ? max(1, (int) $data['current_page']) : 1;
+        $perPage = isset($data['per_page']) ? max(1, (int) $data['per_page']) : 12;
+        $totalPages = isset($data['total_pages']) ? (int) $data['total_pages'] : ($totalItems > 0 ? (int) ceil($totalItems / $perPage) : 1);
+
+        $uploadsBase = isset($data['uploads']) ? (string) $data['uploads'] : '';
+        $thumbsBase = isset($data['thumbs']) ? (string) $data['thumbs'] : '';
+        $settings = isset($data['Settings']) ? $data['Settings'] : null;
+        $symbol = is_object($settings) && isset($settings->symbol) ? $settings->symbol : '';
+        $shopName = is_object($settings) && isset($settings->site_name) ? $settings->site_name : 'Shop';
+        $noImgSrc = function_exists('webshop_no_image_src') ? webshop_no_image_src($uploadsBase, $thumbsBase) : '';
+
+        $deliveryEta = 'Fast delivery · Same-day dispatch where available';
+        $ws = isset($data['webshop_settings']) ? $data['webshop_settings'] : null;
+        if (is_object($ws)) {
+            foreach (array('delivery_eta', 'delivery_time_text', 'delivery_note') as $dk) {
+                if (!empty($ws->{$dk})) {
+                    $deliveryEta = trim((string) $ws->{$dk});
+                    break;
+                }
+            }
+        }
+
+        $wishlistLookup = function_exists('webshop_view_wishlist_lookup')
+            ? webshop_view_wishlist_lookup(isset($data['wishlist_lookup']) && is_array($data['wishlist_lookup']) ? $data['wishlist_lookup'] : null)
+            : (isset($data['wishlist_lookup']) && is_array($data['wishlist_lookup']) ? $data['wishlist_lookup'] : array());
+        $loggedIn = function_exists('webshop_is_customer_logged_in')
+            ? webshop_is_customer_logged_in()
+            : !empty($data['webshop_is_logged_in']);
+
+        return array(
+            'selectedCatId'      => $selectedCatId,
+            'categoryName'       => $categoryName,
+            'categoryShortDesc'  => $categoryShortDesc,
+            'categoryLongDesc'   => $categoryLongDesc,
+            'products'           => $products,
+            'subcategories'      => $subcategories,
+            'category_brands'    => isset($data['category_brands']) && is_array($data['category_brands']) ? $data['category_brands'] : array(),
+            'totalItems'         => $totalItems,
+            'currentPage'        => $currentPage,
+            'perPage'            => $perPage,
+            'totalPages'         => $totalPages,
+            'uploadsBase'        => $uploadsBase,
+            'thumbsBase'         => $thumbsBase,
+            'symbol'             => $symbol,
+            'shopName'           => $shopName,
+            'noImgSrc'           => $noImgSrc,
+            'noImgSrcAttr'       => htmlspecialchars($noImgSrc, ENT_QUOTES, 'UTF-8'),
+            'deliveryEta'        => $deliveryEta,
+            'wishlistLookup'     => $wishlistLookup,
+            'loggedIn'           => $loggedIn,
+            'meta_tags'          => isset($data['meta_tags']) ? $data['meta_tags'] : '',
+            'settings'           => $settings,
+        );
+    }
+}
+
+if (!function_exists('webshop_product_list_item_hash')) {
+    /**
+     * @param array|object $item
+     * @return string
+     */
+    function webshop_product_list_item_hash($item) {
+        $row = is_array($item) ? $item : (array) $item;
+        if (isset($row['proudctIdHash']) && (string) $row['proudctIdHash'] !== '') {
+            return (string) $row['proudctIdHash'];
+        }
+        if (isset($row['productIdHash']) && (string) $row['productIdHash'] !== '') {
+            return (string) $row['productIdHash'];
+        }
+        return isset($row['id']) ? md5($row['id']) : '';
+    }
+}
+
+if (!function_exists('webshop_product_list_card_display_state')) {
+    /**
+     * Badge and purchase UI state for PLP product cards.
+     *
+     * @param array|object $item
+     * @param string       $isActive
+     * @return array
+     */
+    function webshop_product_list_card_display_state($item, $isActive = 'true') {
+        $row = is_array($item) ? $item : (array) $item;
+        $purchaseState = function_exists('webshop_product_list_purchase_state')
+            ? webshop_product_list_purchase_state($row, $isActive)
+            : array('can_purchase' => true, 'label' => '', 'limited' => false, 'qty' => 0.0, 'unavailable' => false);
+
+        $newProd = false;
+        foreach (array('created_at', 'date', 'product_added_date', 'added') as $dk) {
+            if (!empty($row[$dk])) {
+                $ts = @strtotime((string) $row[$dk]);
+                if ($ts && (time() - $ts) < 90 * 86400) {
+                    $newProd = true;
+                    break;
+                }
+            }
+        }
+
+        $rxProd = false;
+        foreach (array('prescription_required', 'prescription', 'rx', 'is_rx', 'need_rx') as $rk) {
+            if (!empty($row[$rk]) && $row[$rk] !== '0' && $row[$rk] !== 0
+                && strtolower((string) $row[$rk]) !== 'no'
+                && strtolower((string) $row[$rk]) !== 'false') {
+                $rxProd = true;
+                break;
+            }
+        }
+
+        $rAvg = isset($row['ratings_avarage']) ? (float) $row['ratings_avarage'] : 0.0;
+        $rCount = isset($row['ratings_count']) ? (int) $row['ratings_count'] : 0;
+        $discount = isset($row['list_discount_percent']) ? (int) $row['list_discount_percent'] : 0;
+
+        return array(
+            'can_purchase'  => !empty($purchaseState['can_purchase']),
+            'status_label'  => isset($purchaseState['label']) ? (string) $purchaseState['label'] : '',
+            'unavailable'   => !empty($purchaseState['unavailable']),
+            'limited_stock' => !empty($purchaseState['limited']),
+            'stock_qty'     => isset($purchaseState['qty']) ? (float) $purchaseState['qty'] : 0.0,
+            'new_product'   => $newProd,
+            'rx_product'    => $rxProd,
+            'bestseller'    => ($rCount >= 12) || ($rAvg >= 4.5 && $rCount >= 4) || ($discount >= 28 && $rCount >= 2),
+            'rating_avg'    => $rAvg,
+            'rating_count'  => $rCount,
+            'star_fill'     => (int) round(max(0, min(5, $rAvg))),
+            'review_phrase' => $rCount === 0 ? 'No reviews yet' : ($rCount === 1 ? '1 review' : $rCount . ' reviews'),
+        );
     }
 }
