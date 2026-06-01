@@ -9,7 +9,7 @@ $productReviews = isset($product_reviews) && is_array($product_reviews) ? $produ
 $uploadsBase = isset($uploads) ? (string) $uploads : '';
 $thumbsBase = isset($thumbs) ? (string) $thumbs : '';
 $productId = isset($product['id']) ? (int) $product['id'] : 0;
-$productName = isset($product['name']) ? (string) $product['name'] : 'Product';
+$productName = (string) webshop_product_display_name($product);
 $productDescp = isset($product['product_details']) ? (string) $product['product_details'] : '';
 $brandName = isset($product['brand_name']) ? (string) $product['brand_name'] : '';
 $rating = isset($product['ratings_avarage']) ? (float) $product['ratings_avarage'] : 0;
@@ -21,6 +21,16 @@ $pdVariantsUi = function_exists('webshop_product_detail_variants_ui')
     : array('has_variants' => false, 'items' => array(), 'default' => null);
 $pdHasVariants = !empty($pdVariantsUi['has_variants']);
 $pdDefaultVariant = $pdHasVariants && !empty($pdVariantsUi['default']) ? $pdVariantsUi['default'] : null;
+$pdVariantItems = ($pdHasVariants && !empty($pdVariantsUi['items']) && is_array($pdVariantsUi['items'])) ? $pdVariantsUi['items'] : array();
+$pdShowVariantSection = false;
+if (!empty($pdVariantItems)) {
+    if (count($pdVariantItems) > 1) {
+        $pdShowVariantSection = true;
+    } else {
+        $singleName = isset($pdVariantItems[0]['name']) ? strtolower(trim((string) $pdVariantItems[0]['name'])) : '';
+        $pdShowVariantSection = ($singleName !== '');
+    }
+}
 $overselling = isset($webshop_settings) && is_object($webshop_settings) && !empty($webshop_settings->overselling);
 
 if ($pdDefaultVariant) {
@@ -68,8 +78,12 @@ foreach ($galleryImages as $img) {
     $file = isset($row['photo']) ? trim((string) $row['photo']) : '';
     if ($file === '' && isset($row['image'])) { $file = trim((string) $row['image']); }
     if ($file === '') { continue; }
+    $fullSrc = webshop_product_image_src($uploadsBase, $thumbsBase, array('image' => $file));
+    if ($fullSrc === '') {
+        $fullSrc = $noImgSrc;
+    }
     $gallery[] = array(
-        'full' => webshop_media_src($uploadsBase, $file),
+        'full' => $fullSrc,
         'thumb' => webshop_product_image_src($uploadsBase, $thumbsBase, array('image' => $file)),
     );
 }
@@ -79,7 +93,7 @@ if (empty($gallery)) {
 }
 $pd_assets = isset($assets) ? $assets : base_url('assets/webshop/');
 ?>
-<link rel="stylesheet" href="<?= webshop_theme_assets_url('css/theme-product-details.css?ver=20260526e') ?>">
+<link rel="stylesheet" href="<?= webshop_theme_assets_url('css/theme-product-details.css?ver=20260528f') ?>">
 <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/wishlist-fav.css?ver=20260526e') ?>">
 
 <div class="pd-wrap<?= $pdInStock ? '' : ' pd-wrap--oos'; ?>">
@@ -87,10 +101,10 @@ $pd_assets = isset($assets) ? $assets : base_url('assets/webshop/');
     <div class="pd-card pd-gallery">
       <div class="pd-thumbs" id="pdThumbs">
         <?php foreach ($gallery as $i => $img) { ?>
-          <div class="pd-thumb <?= $i === 0 ? 'active' : ''; ?>" data-full="<?= htmlspecialchars($img['full'], ENT_QUOTES, 'UTF-8'); ?>"><img loading="lazy" src="<?= htmlspecialchars($img['thumb'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?= htmlspecialchars($productName, ENT_QUOTES, 'UTF-8'); ?>" onerror="this.onerror=null;this.src='<?= $noImgSrcAttr ?>';"></div>
+          <div class="pd-thumb <?= $i === 0 ? 'active' : ''; ?>" data-full="<?= htmlspecialchars($img['full'], ENT_QUOTES, 'UTF-8'); ?>"><img loading="lazy" src="<?= htmlspecialchars($img['thumb'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?= htmlspecialchars($productName, ENT_QUOTES, 'UTF-8'); ?>" data-fallback-src="<?= $noImgSrcAttr ?>"></div>
         <?php } ?>
       </div>
-      <div class="pd-mainimg" id="pdMain"><img id="pdMainImg" src="<?= htmlspecialchars($gallery[0]['full'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?= htmlspecialchars($productName, ENT_QUOTES, 'UTF-8'); ?>" width="600" height="600" fetchpriority="high" decoding="sync" onerror="this.onerror=null;this.src='<?= $noImgSrcAttr ?>';"></div>
+      <div class="pd-mainimg" id="pdMain"><img id="pdMainImg" src="<?= htmlspecialchars($gallery[0]['full'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?= htmlspecialchars($productName, ENT_QUOTES, 'UTF-8'); ?>" width="600" height="600" fetchpriority="high" decoding="sync" data-fallback-src="<?= $noImgSrcAttr ?>"></div>
     </div>
     <div class="pd-card pd-summary">
       <div class="pd-head-row">
@@ -134,16 +148,16 @@ $pd_assets = isset($assets) ? $assets : base_url('assets/webshop/');
       <div class="pd-price"><span class="pd-price-now" id="price-current"><?= htmlspecialchars((string) $formattedPrice, ENT_QUOTES, 'UTF-8'); ?></span><?php if ($formattedMrp !== '') { ?><span class="pd-mrp" id="price-mrp"><?= htmlspecialchars((string) $formattedMrp, ENT_QUOTES, 'UTF-8'); ?></span><?php } ?><?php if ($discountPercent > 0) { ?><span class="pd-off" id="price-off"><?= (int) $discountPercent; ?>% OFF</span><?php } else { ?><span class="pd-off" id="price-off" style="display:none"></span><?php } ?></div>
       <div class="pd-stock <?= $pdInStock ? 'ok' : 'no'; ?>" id="pdStock"><?= $pdInStock ? 'In Stock' : 'Out of Stock'; ?></div>
       <?php if (!$pdInStock) { ?><p class="pd-unavailable-note" id="pdOosNote">This product cannot be added to the cart or purchased while it is out of stock.</p><?php } else { ?><p class="pd-unavailable-note" id="pdOosNote" style="display:none"></p><?php } ?>
-      <?php if ($pdHasVariants && !empty($pdVariantsUi['items'])) { ?>
+      <?php if ($pdShowVariantSection) { ?>
       <div class="pd-variants" id="pdVariants" role="group" aria-label="Product options">
         <div class="pd-variants-label">Select option</div>
         <div class="pd-variants-list">
-          <?php foreach ($pdVariantsUi['items'] as $vi => $vRow) {
-              $isFirst = ($vi === 0);
+          <?php foreach ($pdVariantItems as $vi => $vRow) {
+              $isSelected = ((int) $vRow['id'] === (int) $pdSelectedVariantId);
               $vInStock = !empty($vRow['in_stock']) || $overselling;
           ?>
           <button type="button"
-            class="pd-variant-btn<?= $isFirst ? ' active' : ''; ?><?= $vInStock ? '' : ' pd-variant-btn--oos'; ?>"
+            class="pd-variant-btn<?= $isSelected ? ' active' : ''; ?><?= $vInStock ? '' : ' pd-variant-btn--oos'; ?>"
             data-variant-id="<?= (int) $vRow['id']; ?>"
             data-variant-name="<?= htmlspecialchars((string) $vRow['name'], ENT_QUOTES, 'UTF-8'); ?>"
             data-variant-price="<?= htmlspecialchars((string) $vRow['variant_price'], ENT_QUOTES, 'UTF-8'); ?>"
@@ -155,7 +169,7 @@ $pd_assets = isset($assets) ? $assets : base_url('assets/webshop/');
             data-formatted-mrp="<?= htmlspecialchars((string) $vRow['formatted_mrp'], ENT_QUOTES, 'UTF-8'); ?>"
             data-discount-percent="<?= (int) $vRow['discount_percent']; ?>"
             data-in-stock="<?= $vInStock ? '1' : '0'; ?>"
-            aria-pressed="<?= $isFirst ? 'true' : 'false'; ?>">
+            aria-pressed="<?= $isSelected ? 'true' : 'false'; ?>">
             <span class="pd-variant-name"><?= htmlspecialchars((string) $vRow['name'], ENT_QUOTES, 'UTF-8'); ?></span>
             <span class="pd-variant-price"><?= htmlspecialchars((string) $vRow['formatted_price'], ENT_QUOTES, 'UTF-8'); ?></span>
             <?php if (!$vInStock && !$overselling) { ?><span class="pd-variant-badge">Out of stock</span><?php } ?>
@@ -223,9 +237,14 @@ $pd_assets = isset($assets) ? $assets : base_url('assets/webshop/');
 
 </div>
 <?php $_pd_csrf = function_exists('webshop_csrf_pair') ? webshop_csrf_pair() : array('name' => '', 'hash' => ''); ?>
-<script>window.GP_CSRF=<?= json_encode($_pd_csrf, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+<?= $this->load->view(webshop_plane_vanila_view('components/js_bootstrap_var'), array(
+    'var_name'  => 'GP_CSRF',
+    'var_value' => $_pd_csrf,
+), true) ?>
 <script src="<?= webshop_theme_assets_url('js/webshop-csrf.js?ver=20260526c') ?>"></script>
-<script>window.GP_PD_CTX=<?= json_encode(array(
+<?= $this->load->view(webshop_plane_vanila_view('components/js_bootstrap_var'), array(
+    'var_name'  => 'GP_PD_CTX',
+    'var_value' => array(
     'no_image_src'        => $noImgSrc,
     'base_url'            => base_url('webshop/'),
     'webshop_request_url' => base_url('webshop/webshop_request'),
@@ -241,5 +260,7 @@ $pd_assets = isset($assets) ? $assets : base_url('assets/webshop/');
     'wishlist_lookup'     => function_exists('webshop_view_wishlist_lookup')
         ? webshop_view_wishlist_lookup(isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : null)
         : (isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : array()),
-), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+    ),
+), true) ?>
+<script defer src="<?= webshop_theme_assets_url('js/image-fallback.js?ver=20260528a') ?>"></script>
 <script defer src="<?= webshop_theme_assets_url('js/theme-product-details.js?ver=20260526h') ?>"></script>

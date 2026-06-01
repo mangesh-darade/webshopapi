@@ -25,8 +25,26 @@
         setTimeout(updateEdges, 50);
     }
 
+    function bindButtons(scope) {
+        var root = scope || document;
+        var buttons = root.querySelectorAll('.gp-carousel-btn[data-carousel-id][data-direction]');
+        for (var i = 0; i < buttons.length; i++) {
+            (function (btn) {
+                if (btn.__gp_btn_wired) return;
+                btn.__gp_btn_wired = true;
+                btn.addEventListener('click', function () {
+                    var id = btn.getAttribute('data-carousel-id');
+                    var dir = parseInt(btn.getAttribute('data-direction'), 10);
+                    if (!id || !dir) return;
+                    window.gpc_scroll(id, dir);
+                });
+            })(buttons[i]);
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         var nodes = document.querySelectorAll('.gp-carousel');
         for (var i = 0; i < nodes.length; i++) wireOne(nodes[i]);
+        bindButtons(document);
     });
 })();

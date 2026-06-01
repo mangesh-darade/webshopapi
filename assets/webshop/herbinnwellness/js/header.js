@@ -157,13 +157,10 @@
             setActive(Math.max(activeIndex - 1, 0));
         } else if (e.key === 'Enter') {
             e.preventDefault();
-            var enterQ = input.value.trim();
             if (activeIndex >= 0 && lastItems[activeIndex]) {
                 window.location.href = lastItems[activeIndex].url;
             } else if (lastItems.length) {
                 window.location.href = lastItems[0].url;
-            } else if (enterQ.length >= MIN_CHARS && searchBase) {
-                window.location.href = searchBase + '/search_products?search=' + encodeURIComponent(enterQ);
             }
         } else if (e.key === 'Escape') {
             hideSuggest();
@@ -212,13 +209,7 @@
                     render(q, items);
                 }
             })
-            .catch(function () {
-                if (input.value.trim().toLowerCase() !== key) return;
-                list.innerHTML = '';
-                emptyEl.textContent = 'Search unavailable. Please try again.';
-                emptyEl.hidden = false;
-                showSuggest();
-            });
+            .catch(function () { /* aborted or network error — silent */ });
     }
 
     function renderLoading() {

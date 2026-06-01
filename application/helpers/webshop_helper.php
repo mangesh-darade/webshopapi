@@ -6093,6 +6093,121 @@ if (!function_exists('webshop_herbinn_footer_field_is_structural')) {
     }
 }
 
+if (!function_exists('webshop_herbinn_footer_link_dedupe_key')) {
+    /**
+     * Stable key for deduping footer nav rows (path-only when href is a URL).
+     *
+     * @param string $href
+     * @param string $title
+     * @return string
+     */
+    function webshop_herbinn_footer_link_dedupe_key($href, $title = '')
+    {
+        $href = strtolower(trim((string) $href));
+        if ($href !== '') {
+            $path = parse_url($href, PHP_URL_PATH);
+            if (is_string($path) && $path !== '') {
+                return rtrim($path, '/');
+            }
+            return $href;
+        }
+        $title = strtolower(trim((string) $title));
+        return $title !== '' ? 'title:' . $title : '';
+    }
+}
+
+if (!function_exists('webshop_herbinn_dedupe_footer_links')) {
+    /**
+     * @param array $links Each row: title, href
+     * @return array
+     */
+    function webshop_herbinn_dedupe_footer_links(array $links)
+    {
+        $seen = array();
+        $out = array();
+        foreach ($links as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $title = isset($row['title']) ? (string) $row['title'] : '';
+            $href = isset($row['href']) ? (string) $row['href'] : '';
+            $key = webshop_herbinn_footer_link_dedupe_key($href, $title);
+            if ($key === '' || isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $out[] = array('title' => $title, 'href' => $href);
+        }
+        return $out;
+    }
+}
+
+if (!function_exists('webshop_herbinn_footer_links_minus')) {
+    /**
+     * Remove rows from $links that already appear in $existing (by href path or title).
+     *
+     * @param array $links
+     * @param array $existing
+     * @return array
+     */
+    function webshop_herbinn_footer_links_minus(array $links, array $existing)
+    {
+        $seen = array();
+        foreach ($existing as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $key = webshop_herbinn_footer_link_dedupe_key(
+                isset($row['href']) ? (string) $row['href'] : '',
+                isset($row['title']) ? (string) $row['title'] : ''
+            );
+            if ($key !== '') {
+                $seen[$key] = true;
+            }
+        }
+        $out = array();
+        foreach ($links as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $key = webshop_herbinn_footer_link_dedupe_key(
+                isset($row['href']) ? (string) $row['href'] : '',
+                isset($row['title']) ? (string) $row['title'] : ''
+            );
+            if ($key === '' || isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $out[] = $row;
+        }
+        return $out;
+    }
+}
+
+if (!function_exists('webshop_theme_has_stylesheet')) {
+    /**
+     * @param string $relative e.g. css/herbinn-footer.css
+     * @return bool
+     */
+    function webshop_theme_has_stylesheet($relative)
+    {
+        $relative = ltrim(str_replace('\\', '/', (string) $relative), '/');
+        if ($relative === '') {
+            return false;
+        }
+        $dir = function_exists('webshop_theme_assets_directory_name')
+            ? webshop_theme_assets_directory_name()
+            : (function_exists('webshop_plane_vanila_theme_folder') ? webshop_plane_vanila_theme_folder() : '');
+        $dir = trim((string) $dir, '/');
+        if ($dir === '') {
+            return false;
+        }
+        return is_file(FCPATH . 'assets' . DIRECTORY_SEPARATOR . 'webshop' . DIRECTORY_SEPARATOR
+            . str_replace('/', DIRECTORY_SEPARATOR, $dir) . DIRECTORY_SEPARATOR
+            . str_replace('/', DIRECTORY_SEPARATOR, $relative));
+    }
+}
+
 if (!function_exists('webshop_herbinn_footer_layout_from_storefront')) {
     /**
      * Four-column Herbinn footer layout from sma_webshop_header_footer (footer section).
@@ -6276,6 +6391,14 @@ if (!function_exists('webshop_herbinn_footer_layout_from_storefront')) {
                 }
             }
         }
+
+        $layout['company_links'] = webshop_herbinn_dedupe_footer_links($layout['company_links']);
+        $layout['legal_links'] = webshop_herbinn_dedupe_footer_links($layout['legal_links']);
+        $layout['extra_links'] = webshop_herbinn_dedupe_footer_links($layout['extra_links']);
+        $layout['extra_links'] = webshop_herbinn_footer_links_minus(
+            $layout['extra_links'],
+            array_merge($layout['company_links'], $layout['legal_links'])
+        );
 
         return $layout;
     }

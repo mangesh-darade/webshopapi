@@ -34,4 +34,5 @@
 .gp-home-support-band p{margin:0 0 8px;font-size:clamp(1rem,2vw,1.125rem);line-height:1.65;color:#0f172a}
 .gp-home-support-band p:last-child{margin-bottom:0;color:var(--gp-muted);font-size:.95rem}
 .gp-home-support-band a{color:var(--gp-primary);font-weight:700;text-decoration:none}
-.gp-home-support-band a:hover{text-decoration:underline;color:var(--gp-primary-light)}
+.gp-home-support-band a:not(.btn):hover{text-decoration:underline;color:var(--gp-primary-light)}
+.gp-home-support-band a.btn:hover{text-decoration:none}

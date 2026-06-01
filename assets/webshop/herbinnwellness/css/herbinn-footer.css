@@ -1,19 +1,43 @@
 /* Herbinn / ElintOm storefront footer — scoped to avoid clashing with shop PLP CSS */
+.home-shell .hb-site-footer,
 .hb-site-footer {
   --hb-primary: #2d5a27;
-  --hb-text-dark: #212529;
-  --hb-text-muted: #6c757d;
+  --hb-text-dark: #1a1d21;
+  --hb-text-muted: #495057;
   --hb-white: #ffffff;
-  --hb-border: #dee2e6;
+  --hb-border: #ced4da;
   --hb-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 footer.hb-site-footer,
+.home-shell footer.hb-site-footer,
 .hb-site-footer {
   padding-block: 4rem 3rem;
   background: var(--hb-white);
   color: var(--hb-text-dark);
   border-top: 1px solid var(--hb-border);
+  margin-top: 2rem;
+  clear: both;
+}
+
+/* Catalog / product listing pages: override legacy shop list styles on footer links */
+.cp-shell .hb-site-footer ul,
+.home-shell .hb-site-footer ul {
+  list-style: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.cp-shell .hb-site-footer ul a,
+.home-shell .hb-site-footer ul a {
+  color: var(--hb-text-muted) !important;
+  text-decoration: none !important;
+}
+
+.cp-shell .hb-site-footer ul a:hover,
+.home-shell .hb-site-footer ul a:hover {
+  color: var(--hb-primary) !important;
+  text-decoration: none !important;
 }
 
 .hb-site-footer .container {

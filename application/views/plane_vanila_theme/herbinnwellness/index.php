@@ -13,6 +13,7 @@ if ($shopName === '') {
 $pageTitle = !empty($page_title) ? $page_title : $shopName;
 $metaTagsHtml = isset($meta_tags) ? (string) $meta_tags : '';
 if ($metaTagsHtml !== '') {
+    // Avoid duplicate <title> in head when API meta already contains one.
     $metaTagsHtml = preg_replace('/<title\b[^>]*>.*?<\/title>/is', '', $metaTagsHtml);
     if (function_exists('webshop_rewrite_root_relative_asset_urls')) {
         $metaTagsHtml = webshop_rewrite_root_relative_asset_urls($metaTagsHtml);
@@ -44,13 +45,17 @@ if (!empty($_banner_items)) {
     }
 }
 unset($_banner_items);
+/* Hero banner only here; header logo is resolved in header.php (CMS + Storefront logo_image row via helpers). */
 $cmsHomeFromApi = $isCmsHome && is_object($home_page_cms)
     && isset($home_page_cms->cms_loaded_from_api) && $home_page_cms->cms_loaded_from_api;
 if ($isDynamic) {
+    /* CMS page route (`cms_page`): show only this page's banner — never inherit global storefront banner */
     $banner_image = $dynamicBanner;
 } elseif ($cmsHomeFromApi) {
+    /* Home loaded from ElintOm API: hero uses CMS page banner image only (no global store fallback when CMS clears banner) */
     $banner_image = $dynamicBanner;
 } elseif ($isCmsHome) {
+    /* API unavailable — stub home_page_cms: keep legacy store banner fallback */
     $banner_image = $dynamicBanner !== '' ? $dynamicBanner : $storeBanner;
 } elseif (!isset($home_has_category_grid) || $home_has_category_grid) {
     $banner_image = $storeBanner;
@@ -97,26 +102,12 @@ if ($bodyHtml !== '') {
     $bodyHtml = $extracted['html'];
     $cmsBodyEmbeddedAssets = trim((string) $extracted['style_blocks'] . "\n" . (string) $extracted['link_tags']);
 }
-$hasCmsHeroSlider = $bodyHtml !== '' && (stripos($bodyHtml, 'hero-slider') !== false || stripos($bodyHtml, 'id="homeHero"') !== false);
-$_hb_cms_slug = isset($dynamic_cms_slug) ? trim((string) $dynamic_cms_slug) : '';
-$bodyClasses = 'herbinn-marketing' . ($hasCmsHeroSlider ? ' has-cms-hero-slider' : '');
-if ($_hb_cms_slug === '/products') {
-    $bodyClasses .= ' hb-products-page';
-}
 ?>
 <!doctype html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <?php
-    $_hb_favicon = function_exists('webshop_resolve_storefront_favicon_url')
-        ? webshop_resolve_storefront_favicon_url(isset($uploads) ? (string) $uploads : '')
-        : '';
-    ?>
-    <?php if ($_hb_favicon !== '') : ?>
-    <link rel="icon" type="image/png" href="<?= htmlspecialchars($_hb_favicon, ENT_QUOTES, 'UTF-8') ?>">
-    <?php endif; ?>
     <title><?= htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8') ?></title>
     <?= $metaTagsHtml ?>
     <?php if ($_gp_lcp_preconnect_url !== '' && function_exists('webshop_external_origin_preconnect_tag')): ?>
@@ -130,21 +121,30 @@ if ($_hb_cms_slug === '/products') {
     <?php endif; ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
-    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/herbinn-site.css?ver=20260526i') ?>">
-    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/herbinn-overrides.css?ver=20260526i') ?>">
-    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/storefront-layout.css?ver=20260526i') ?>">
-    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/common.css?ver=20260526h') ?>">
-    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/header.css?ver=20260526h') ?>">
-    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/cms-blocks.css?ver=20260526h') ?>">
-    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/wishlist-fav.css?ver=20260526h') ?>">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/common.css') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/header.css?ver=20260526f') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/cms-blocks.css') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/index-home.css') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/components.css') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/wishlist-fav.css?ver=20260526a') ?>">
+    <?php if (function_exists('webshop_theme_has_stylesheet') && webshop_theme_has_stylesheet('css/cms-herbinn-global.css')) : ?>
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/cms-herbinn-global.css?ver=20260601a') ?>">
+    <?php endif; ?>
+    <?php if (function_exists('webshop_theme_has_stylesheet') && webshop_theme_has_stylesheet('css/herbinn-footer.css')) : ?>
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/herbinn-footer.css?ver=20260601b') ?>">
+    <?php endif; ?>
+    <?php $gp_footer_styles_in_head = true; ?>
+    <?php if (function_exists('webshop_async_stylesheet_tag')): ?>
+    <?= webshop_async_stylesheet_tag($assets . 'css/techmarket-font-awesome.css') ?>
+
+    <?php endif; ?>
     <?php if (!empty($cmsBodyEmbeddedAssets)): ?>
     <?= $cmsBodyEmbeddedAssets ?>
 
     <?php endif; ?>
 </head>
-<body class="<?= htmlspecialchars($bodyClasses, ENT_QUOTES, 'UTF-8') ?>">
+<body>
 <div class="home-shell">
     <?php
     $gp_header_logo_fetchpriority = ($_gp_logo_url !== '' && !$hasHeroBanner);
@@ -152,8 +152,8 @@ if ($_hb_cms_slug === '/products') {
     unset($gp_header_logo_fetchpriority);
     ?>
 
-    <?php if (!$hasCmsHeroSlider && trim((string) $banner_image) !== ''): ?>
-    <section class="hero page-hero-fallback" aria-label="<?= htmlspecialchars('Promotional banner', ENT_QUOTES, 'UTF-8') ?>">
+    <?php if (trim((string) $banner_image) !== ''): ?>
+    <section class="hero" aria-label="<?= htmlspecialchars('Promotional banner', ENT_QUOTES, 'UTF-8') ?>">
         <div class="hero-inner">
             <?php $bSrc = (strpos($banner_image, 'http') === 0) ? $banner_image : webshop_media_src($uploads, $banner_image); ?>
             <img src="<?= htmlspecialchars($bSrc, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8') ?>" decoding="async" fetchpriority="high">
@@ -179,7 +179,9 @@ if ($_hb_cms_slug === '/products') {
         <?php endif; ?>
 
         <?php if ($bodyHtml !== ''): ?>
-            <div class="home-cms-body gp-body-content"><?= $bodyHtml ?></div>
+            <section class="section section--body">
+                <div class="panel panel--body gp-body-content home-cms-body"><?= $bodyHtml ?></div>
+            </section>
         <?php elseif ($isDynamic): ?>
             <section class="section section--body">
                 <div class="panel panel--body gp-cms-page-head">
@@ -230,6 +232,7 @@ if ($_hb_cms_slug === '/products') {
                         'uploads' => $uploads,
                         'thumbs' => $thumbs,
                         'title' => '',
+                        /* Legacy fallback only: CMS uses product_grid / product_carousel explicitly in sections */
                         'show_carousel' => false,
                         'show_grid' => true,
                     ), true) ?>
@@ -245,17 +248,10 @@ if ($_hb_cms_slug === '/products') {
         <?php endif; ?>
     </main>
 
-    <?php require_once webshop_plane_vanila_view_file('footer'); ?>
+    <?php $gp_footer_styles_in_head = true; require_once webshop_plane_vanila_view_file('footer'); ?>
 </div>
-<script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
-<script defer src="<?= webshop_theme_assets_url('js/herbinn-home.js?ver=20260526h') ?>"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-  if (typeof AOS !== 'undefined') {
-    AOS.init({ once: true, offset: 80 });
-  }
-});
-window.HB_INDEX_CTX=<?= json_encode(array('baseUrl' => base_url('webshop'), 'assets' => $assets), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
-</script>
+<script defer src="<?= webshop_theme_assets_url('js/main.js?ver=200406') ?>"></script>
+<script defer src="<?= webshop_theme_assets_url('js/index.js') ?>"></script>
+<script>window.GP_INDEX_CTX=<?= json_encode(array('baseUrl' => base_url('webshop'), 'assets' => $assets), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;const baseUrl=window.GP_INDEX_CTX.baseUrl;const assets=window.GP_INDEX_CTX.assets;</script>
 </body>
 </html>

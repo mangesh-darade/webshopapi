@@ -3,10 +3,17 @@
 $ws = isset($webshop_settings) && is_object($webshop_settings) ? $webshop_settings : new stdClass();
 $S  = isset($Settings) && is_object($Settings) ? $Settings : new stdClass();
 $shop_name = webshop_store_display_name($S, $ws);
+if ($shop_name === '') {
+    $shop_name = 'Shop';
+}
 $uploadsBase = isset($uploads) ? (string) $uploads : '';
 $logo_url = function_exists('webshop_resolve_header_logo_url')
     ? webshop_resolve_header_logo_url($uploadsBase, $S, $ws, '')
     : '';
+if ($logo_url === '' && function_exists('webshop_resolve_storefront_logo_image_url')) {
+    $_gp_uploads_base = $uploadsBase !== '' ? rtrim($uploadsBase, '/') . '/' : '';
+    $logo_url = webshop_resolve_storefront_logo_image_url($_gp_uploads_base);
+}
 $logo_src = $logo_url;
 $webshop_url = base_url('webshop');
 $ws_base = rtrim($webshop_url, '/');
@@ -32,7 +39,20 @@ $misc_lines = isset($hb_footer['misc_lines']) && is_array($hb_footer['misc_lines
 $certifications = isset($hb_footer['certifications']) && is_array($hb_footer['certifications']) ? $hb_footer['certifications'] : array();
 $certs_html = isset($hb_footer['certifications_html']) ? trim((string) $hb_footer['certifications_html']) : '';
 
-$show_footer = !empty($hb_footer['has_data'])
+$_hb_cert_items = array();
+foreach ($certifications as $_hb_cert) {
+    $_hb_parts = preg_split('/\s*\|\s*|[,\r\n]+/', (string) $_hb_cert);
+    foreach ($_hb_parts as $_hb_part) {
+        $_hb_part = trim((string) $_hb_part);
+        if ($_hb_part !== '') {
+            $_hb_cert_items[] = $_hb_part;
+        }
+    }
+}
+$certifications = $_hb_cert_items;
+
+$show_footer = $logo_src !== ''
+    || !empty($hb_footer['has_data'])
     || $tagline !== ''
     || $copyright !== ''
     || !empty($company_links)
@@ -42,8 +62,16 @@ $show_footer = !empty($hb_footer['has_data'])
     || !empty($certifications)
     || $certs_html !== ''
     || $office_address !== '';
+
+$_gp_footer_styles_in_head = !empty($gp_footer_styles_in_head);
+$_hb_footer_css = (!$_gp_footer_styles_in_head && function_exists('webshop_theme_has_stylesheet') && webshop_theme_has_stylesheet('css/herbinn-footer.css'))
+    ? webshop_theme_assets_url('css/herbinn-footer.css?ver=20260601b')
+    : '';
 ?>
 <?php if ($show_footer) : ?>
+<?php if (!$_gp_footer_styles_in_head && $_hb_footer_css !== '') : ?>
+<link rel="stylesheet" href="<?= htmlspecialchars($_hb_footer_css, ENT_QUOTES, 'UTF-8') ?>">
+<?php endif; ?>
 <footer class="bg-white hb-site-footer">
     <div class="container">
         <div class="footer-grid">
@@ -72,11 +100,11 @@ $show_footer = !empty($hb_footer['has_data'])
                 <?php endif; ?>
             </div>
             <?php if ($company_heading !== '' || !empty($company_links) || !empty($extra_links)) : ?>
-            <div>
+            <div class="footer-col footer-col--company">
                 <?php if ($company_heading !== '') : ?>
                 <h6><?= htmlspecialchars($company_heading, ENT_QUOTES, 'UTF-8') ?></h6>
                 <?php endif; ?>
-                <?php if (!empty($company_links)) : ?>
+                <?php if (!empty($company_links) || !empty($extra_links)) : ?>
                 <ul>
                     <?php foreach ($company_links as $lnk) :
                         $href = webshop_resolve_cms_path_href((string) $lnk['href'], $ws_base);
@@ -99,25 +127,11 @@ $show_footer = !empty($hb_footer['has_data'])
                     <li><a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></a></li>
                     <?php endforeach; ?>
                 </ul>
-                <?php elseif (!empty($extra_links)) : ?>
-                <ul>
-                    <?php foreach ($extra_links as $lnk) :
-                        $href = function_exists('webshop_resolve_cms_path_href')
-                            ? webshop_resolve_cms_path_href((string) $lnk['href'], $ws_base)
-                            : (string) $lnk['href'];
-                        $title = (string) $lnk['title'];
-                        if ($title === '' || $href === '') {
-                            continue;
-                        }
-                    ?>
-                    <li><a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></a></li>
-                    <?php endforeach; ?>
-                </ul>
                 <?php endif; ?>
             </div>
             <?php endif; ?>
             <?php if ($legal_heading !== '' || !empty($legal_links)) : ?>
-            <div>
+            <div class="footer-col footer-col--legal">
                 <?php if ($legal_heading !== '') : ?>
                 <h6><?= htmlspecialchars($legal_heading, ENT_QUOTES, 'UTF-8') ?></h6>
                 <?php endif; ?>
@@ -137,12 +151,25 @@ $show_footer = !empty($hb_footer['has_data'])
             </div>
             <?php endif; ?>
             <?php if ($certs_heading !== '' || $certs_html !== '' || !empty($certifications) || $office_heading !== '' || $office_address !== '') : ?>
-            <div>
+            <div class="footer-col footer-col--certs">
                 <?php if ($certs_heading !== '') : ?>
                 <h6><?= htmlspecialchars($certs_heading, ENT_QUOTES, 'UTF-8') ?></h6>
                 <?php endif; ?>
                 <?php if ($certs_html !== '') : ?>
+                <?php if (strpos($certs_html, '<') === false) : ?>
+                <div class="footer-certs">
+                    <?php foreach (preg_split('/\s*\|\s*|[,\r\n]+/', $certs_html) as $_hb_cert_html_part) :
+                        $_hb_cert_html_part = trim((string) $_hb_cert_html_part);
+                        if ($_hb_cert_html_part === '') {
+                            continue;
+                        }
+                    ?>
+                    <span class="badge badge-border"><?= htmlspecialchars($_hb_cert_html_part, ENT_QUOTES, 'UTF-8') ?></span>
+                    <?php endforeach; ?>
+                </div>
+                <?php else : ?>
                 <div class="footer-certs"><?= function_exists('webshop_normalize_html_media_urls') ? webshop_normalize_html_media_urls($certs_html, $uploadsBase) : $certs_html ?></div>
+                <?php endif; ?>
                 <?php elseif (!empty($certifications)) : ?>
                 <div class="footer-certs">
                     <?php foreach ($certifications as $cert) :

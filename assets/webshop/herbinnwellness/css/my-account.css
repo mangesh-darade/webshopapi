@@ -8,7 +8,7 @@
   margin: 0 auto;
   padding: 28px max(20px, env(safe-area-inset-left)) 48px max(20px, env(safe-area-inset-right));
   background: var(--gp-page-bg);
-  min-height: 0;
+  min-height: calc(100vh - var(--gp-header-h) - 120px);
   box-sizing: border-box;
 }
 

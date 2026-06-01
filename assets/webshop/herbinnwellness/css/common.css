@@ -9,7 +9,7 @@
   --gp-border: #e5e7eb;
   --gp-bg: #fff;
   --gp-page-bg: #f8fafc;
-  --gp-header-h: 96px;
+  --gp-header-h: 70px;
   /* Category listing page (cp-) — aliases so one palette drives shell + PLP */
   --cp-page: var(--gp-page-bg);
   --cp-card: var(--gp-bg);
@@ -738,3 +738,6 @@ p {
     width: 100%;
   }
 }
+
+/* Herbinn storefront footer (4-column layout on shop pages) */
+@import url('herbinn-footer.css');

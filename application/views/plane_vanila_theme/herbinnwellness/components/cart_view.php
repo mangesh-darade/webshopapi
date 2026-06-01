@@ -190,8 +190,11 @@ $cv_cart_flash = function_exists('webshop_checkout_flash_error_message')
         </div>
     <?php endif; ?>
 </div>
-<script>window.GP_CART_CTX=<?= json_encode(array(
-    'request_url' => base_url('webshop/webshop_request'),
-    'currency'    => isset($Settings->symbol) ? (string) $Settings->symbol : '$',
-), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+<?= $this->load->view(webshop_plane_vanila_view('components/js_bootstrap_var'), array(
+    'var_name'  => 'GP_CART_CTX',
+    'var_value' => array(
+        'request_url' => base_url('webshop/webshop_request'),
+        'currency'    => isset($Settings->symbol) ? (string) $Settings->symbol : '$',
+    ),
+), true) ?>
 <script defer src="<?= webshop_theme_assets_url('js/cart.js') ?>"></script>

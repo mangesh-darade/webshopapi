@@ -1,32 +1,53 @@
 document.addEventListener("DOMContentLoaded", function () {
   const sameCheckElement = document.getElementById("billtocopy");
-  const billingDiv = document.getElementById("userbilling");
   const shippingDiv = document.getElementById("usershipping");
   const sameAddressCheckInput = document.getElementById(
     "billing_and_shipping_address_is_same"
   );
 
+  if (!sameCheckElement || !shippingDiv || !sameAddressCheckInput) {
+    return;
+  }
+
+  function toggleShippingInputs(enabled) {
+    const shippingInputs = shippingDiv.querySelectorAll(
+      "input, select, textarea, button"
+    );
+    shippingInputs.forEach((field) => {
+      if (enabled) {
+        field.removeAttribute("disabled");
+      } else {
+        field.setAttribute("disabled", "disabled");
+      }
+    });
+  }
+
   function checkSameBillNShip() {
     if (sameCheckElement.checked) {
+      shippingDiv.hidden = true;
       shippingDiv.style.display = "none";
+      toggleShippingInputs(false);
       sameAddressCheckInput.value = "1";
       return;
     }
+    shippingDiv.hidden = false;
     shippingDiv.style.display = "block";
+    toggleShippingInputs(true);
     sameAddressCheckInput.value = "0";
   }
   checkSameBillNShip();
 
   sameCheckElement.addEventListener("change", (event) => {
-    // console.log(event.target.checked);
     if (event.target.checked) {
+      shippingDiv.hidden = true;
       shippingDiv.style.display = "none";
-      // sameCheckElement.value = "1";
+      toggleShippingInputs(false);
       sameAddressCheckInput.value = "1";
       return;
     }
+    shippingDiv.hidden = false;
     shippingDiv.style.display = "block";
-    // sameCheckElement.value = "0";
+    toggleShippingInputs(true);
     sameAddressCheckInput.value = "0";
   });
 

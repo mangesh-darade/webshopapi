@@ -10,23 +10,11 @@ if ($shop_name === '') {
     $shop_name = 'Shop';
 }
 $cms_nav   = isset($cms_nav_pages) && is_array($cms_nav_pages) ? $cms_nav_pages : array();
-if (empty($cms_nav) && function_exists('get_instance')) {
-    $_hb_ci_hdr = get_instance();
-    if (isset($_hb_ci_hdr->data['cms_nav_pages']) && is_array($_hb_ci_hdr->data['cms_nav_pages'])) {
-        $cms_nav = $_hb_ci_hdr->data['cms_nav_pages'];
-    } elseif (isset($_hb_ci_hdr->webshop_model) && method_exists($_hb_ci_hdr->webshop_model, 'get_cms_nav_pages')) {
-        $cms_nav = $_hb_ci_hdr->webshop_model->get_cms_nav_pages();
-        if (!is_array($cms_nav)) {
-            $cms_nav = array();
-        }
-    }
-    unset($_hb_ci_hdr);
-}
 $cart_cnt  = isset($cart_items) && is_array($cart_items) ? count($cart_items) : 0;
 $wish_cnt  = isset($wishlist_count) ? (int)$wishlist_count : 0;
 $webshop_url = base_url('webshop');
 
-// Pull user session for profile dropdown + sidebar greeting (works via CI view loader or require_once).
+// Pull user session for profile dropdown + sidebar greeting without leaking session details client-side.
 $_hb_ci = function_exists('get_instance') ? get_instance() : null;
 $ws_sess = (is_object($_hb_ci) && isset($_hb_ci->session))
     ? $_hb_ci->session->userdata('webshop')
@@ -56,8 +44,11 @@ $_gp_header_slots = function_exists('webshop_header_gather_display_slots')
     ? webshop_header_gather_display_slots()
     : array('announcement' => array(), 'top_html' => array(), 'phone' => array());
 ?>
-<link rel="stylesheet" href="<?= webshop_theme_assets_url('css/header.css?ver=20260526h') ?>">
+<link rel="stylesheet" href="<?= webshop_theme_assets_url('css/header.css?ver=20260526f') ?>">
 <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/header-drawers.css') ?>">
+<?php if (empty($gp_footer_styles_in_head) && function_exists('webshop_theme_has_stylesheet') && webshop_theme_has_stylesheet('css/herbinn-footer.css')) : ?>
+<link rel="stylesheet" href="<?= htmlspecialchars(webshop_theme_assets_url('css/herbinn-footer.css?ver=20260601b'), ENT_QUOTES, 'UTF-8') ?>">
+<?php endif; ?>
 <header class="gp-header" id="gp-header">
     <?php if (!empty($_gp_header_slots['announcement'])) : ?>
     <div class="gp-header-announcement" role="region" aria-label="Store announcement">
@@ -102,7 +93,7 @@ $_gp_header_slots = function_exists('webshop_header_gather_display_slots')
         <!-- Logo -->
         <a class="gp-logo" href="<?= $webshop_url ?>">
             <?php if ($logo_url !== ''): ?>
-                <img src="<?= htmlspecialchars($logo_url, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($shop_name, ENT_QUOTES, 'UTF-8') ?>" class="gp-logo-img" width="220" height="72"<?= $gp_logo_lcp_hint ? ' fetchpriority="high" decoding="sync"' : ' decoding="async"' ?> onerror="this.style.display='none';var fb=document.getElementById('gp-logo-text-fallback');if(fb){fb.style.display='inline';fb.removeAttribute('aria-hidden');}">
+                <img src="<?= htmlspecialchars($logo_url, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($shop_name, ENT_QUOTES, 'UTF-8') ?>" class="gp-logo-img" width="180" height="48"<?= $gp_logo_lcp_hint ? ' fetchpriority="high" decoding="sync"' : ' decoding="async"' ?> onerror="this.style.display='none';var fb=document.getElementById('gp-logo-text-fallback');if(fb){fb.style.display='inline';fb.removeAttribute('aria-hidden');}">
                 <span id="gp-logo-text-fallback" class="gp-logo-text" style="display:none" aria-hidden="true"><?= htmlspecialchars($shop_name, ENT_QUOTES, 'UTF-8') ?></span>
             <?php else: ?>
                 <span class="gp-logo-text"><?= htmlspecialchars($shop_name, ENT_QUOTES, 'UTF-8') ?></span>

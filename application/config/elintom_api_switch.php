@@ -26,7 +26,7 @@ $detected_host_for_api = $normalize_host(isset($_SERVER['HTTP_HOST']) ? $_SERVER
 
 $elintom_switch_profiles = array(
  
-    'gulfpharmacy_production' => array(
+    'herbinnwellness_production' => array(
         'api_base_url'                       => 'https://testingpos.elintpos.in/',
         'api_private_key'                    => '3e8676ed23c627117437c7e6a1bbd6e9',
         'ssl_verify'                         => true,
@@ -39,6 +39,7 @@ $elintom_switch_profiles = array(
         'theme_view_folder'               => 'herbinnwellness',
         'theme_assets_directory'          => 'herbinnwellness',
     ),
+    
     'localhost_elintom' => array(
         'api_base_url'                    => 'http://localhost/ElintOm/',
         'api_private_key'                 => '3e8676ed23c627117437c7e6a1bbd6e9',
@@ -57,8 +58,8 @@ $elintom_switch_profiles = array(
 
 $host_to_profile = array(
     'localhost'                         => 'localhost_elintom',
-    'webshop.elintpos.in'               => 'gulfpharmacy_production',
-    'herbinnmicromedicines.elintpos.in' => 'herbinnwellness_production',
+    'webshop.elintpos.in'               => 'herbinnwellness_production',
+    'herbinnwebshop.elintpos.in'        => 'herbinnwellness_production',
 );
 
 $elintom_active_profile = isset($host_to_profile[$detected_host_for_api])  ? $host_to_profile[$detected_host_for_api] : '';

@@ -6,12 +6,21 @@ $theme = (isset($webshop_settings) && is_object($webshop_settings) && isset($web
 
 $selectedCatId  = isset($get_category_id) ? (int) $get_category_id : 0;
 $categoryName   = 'Products';
+$categoryRow    = null;
 if (isset($categories['main'][$selectedCatId])) {
     $c = $categories['main'][$selectedCatId];
-    $categoryName = is_object($c) ? (string) $c->name : (isset($c['name']) ? (string) $c['name'] : $categoryName);
+    $categoryRow = is_object($c) ? (array) $c : (is_array($c) ? $c : array());
+    $categoryName = isset($categoryRow['name']) ? (string) $categoryRow['name'] : $categoryName;
 }
 if (isset($entity_meta_title) && trim((string) $entity_meta_title) !== '') {
     $categoryName = trim((string) $entity_meta_title);
+}
+$categoryShortDesc = '';
+$categoryLongDesc  = '';
+if ($categoryRow !== null && function_exists('webshop_category_card_copy')) {
+    $catCopy = webshop_category_card_copy($categoryRow, 'grid');
+    $categoryShortDesc = isset($catCopy['short']) ? (string) $catCopy['short'] : '';
+    $categoryLongDesc  = isset($catCopy['long']) ? (string) $catCopy['long'] : '';
 }
 
 $products      = isset($listItems) && is_array($listItems) ? $listItems : array();
@@ -25,8 +34,9 @@ $totalPages    = $totalItems > 0 ? (int) ceil($totalItems / $perPage) : 1;
 
 $uploadsBase   = isset($uploads) ? (string) $uploads : '';
 $thumbsBase    = isset($thumbs)  ? (string) $thumbs  : '';
-$symbol        = isset($Settings->symbol) ? $Settings->symbol : '';
-$shopName      = isset($Settings->site_name) ? $Settings->site_name : 'Shop';
+$_cpSettings   = isset($Settings) && is_object($Settings) ? $Settings : null;
+$symbol        = ($_cpSettings !== null && isset($_cpSettings->symbol)) ? (string) $_cpSettings->symbol : '';
+$shopName      = ($_cpSettings !== null && isset($_cpSettings->site_name)) ? (string) $_cpSettings->site_name : 'Shop';
 
 // Shared fallback so <img> 404s degrade to the same placeholder as products with no image field
 // (mirrors the onerror pattern in webshop_normalize_html_media_urls()).
@@ -130,25 +140,27 @@ if (!empty($products)) {
     <?php if ($_cp_lcp_img !== ''): ?>
     <link rel="preload" as="image" href="<?= htmlspecialchars($_cp_lcp_img, ENT_QUOTES, 'UTF-8') ?>" fetchpriority="high">
     <?php endif; ?>
-    <?php if (function_exists('webshop_theme_storefront_stylesheets')) {
-        webshop_theme_storefront_stylesheets(array(
-            'css/category-products.css',
-            'css/wishlist-fav.css',
-        ));
-    } else { ?>
     <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/common.css') ?>">
-    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/header.css') ?>">
-    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/header-drawers.css') ?>">
-    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/herbinn-site.css') ?>">
-    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/herbinn-overrides.css') ?>">
-    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/storefront-layout.css') ?>">
-    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/category-products.css') ?>">
-    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/wishlist-fav.css') ?>">
-    <?php } ?>
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/header.css?ver=20260525g') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/category-products.css?ver=20260528f') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/wishlist-fav.css?ver=20260526a') ?>">
+    <?php if (function_exists('webshop_theme_has_stylesheet') && webshop_theme_has_stylesheet('css/cms-herbinn-global.css')) : ?>
+    <link rel="stylesheet" href="<?= htmlspecialchars(webshop_theme_assets_url('css/cms-herbinn-global.css?ver=20260601a'), ENT_QUOTES, 'UTF-8') ?>">
+    <?php endif; ?>
+    <?php if (function_exists('webshop_theme_has_stylesheet') && webshop_theme_has_stylesheet('css/herbinn-footer.css')) : ?>
+    <link rel="stylesheet" href="<?= htmlspecialchars(webshop_theme_assets_url('css/herbinn-footer.css?ver=20260601b'), ENT_QUOTES, 'UTF-8') ?>">
+    <?php endif; ?>
+    <?php $gp_footer_styles_in_head = true; ?>
 </head>
-<body class="herbinn-storefront">
+<body>
 <div class="gp-site-wrapper cp-shell">
-    <?php webshop_require_theme_header(); ?>
+    <?php
+    if ($theme === 'nw' || $theme === 'gulfpharmacy') {
+        require_once webshop_plane_vanila_view_file('header');
+    } elseif (is_file(VIEWPATH . 'webshop/header.php')) {
+        require_once(VIEWPATH . 'webshop/header.php');
+    }
+    ?>
 
     <!-- Breadcrumb -->
     <nav class="cp-breadcrumb" aria-label="Breadcrumb">
@@ -196,7 +208,15 @@ if (!empty($products)) {
         <!-- Main -->
         <main class="cp-main">
             <div class="cp-header-bar">
-                <h1 class="cp-header-title"><?= htmlspecialchars($categoryName, ENT_QUOTES, 'UTF-8') ?></h1>
+                <div class="cp-header-intro">
+                    <h1 class="cp-header-title"><?= htmlspecialchars($categoryName, ENT_QUOTES, 'UTF-8') ?></h1>
+                    <?php if ($categoryShortDesc !== ''): ?>
+                    <p class="cp-header-short"><?= htmlspecialchars(html_entity_decode($categoryShortDesc, ENT_QUOTES, 'UTF-8'), ENT_QUOTES, 'UTF-8') ?></p>
+                    <?php endif; ?>
+                    <?php if ($categoryLongDesc !== '' && $categoryLongDesc !== $categoryShortDesc): ?>
+                    <div class="cp-header-long"><?= nl2br(htmlspecialchars(html_entity_decode($categoryLongDesc, ENT_QUOTES, 'UTF-8'), ENT_QUOTES, 'UTF-8')) ?></div>
+                    <?php endif; ?>
+                </div>
                 <span class="cp-header-count">
                     <?= $totalItems ?> result<?= $totalItems != 1 ? 's' : '' ?>
                     <?php if ($totalPages > 1): ?>
@@ -218,7 +238,7 @@ if (!empty($products)) {
                     $row       = is_array($item) ? $item : (array) $item;
                     $itemId    = function_exists('webshop_product_list_item_id') ? webshop_product_list_item_id($row) : (isset($row['id']) ? (int) $row['id'] : 0);
                     $hash      = $getHash($row);
-                    $name      = isset($row['name']) ? $row['name'] : (isset($row['product_name']) ? $row['product_name'] : 'Product');
+                    $name      = webshop_product_display_name($row);
                     $cardPricing = $getCardPricing($row);
                     $price     = (float) $cardPricing['price'];
                     $mrp       = (float) $cardPricing['mrp'];
@@ -262,6 +282,7 @@ if (!empty($products)) {
                     $reviewPhrase = $rCount === 0 ? 'No reviews yet' : ($rCount === 1 ? '1 review' : $rCount . ' reviews');
                     $starFill = (int) round(max(0, min(5, $rAvg)));
                     $imgFinal = ($imgSrc !== '') ? $imgSrc : $noImgSrc;
+                    $isNoImageCard = ($imgSrc === '' || $imgFinal === $noImgSrc);
                 ?>
                     <div class="pc-card<?= $unavailable ? ' pc-card--unavailable' : '' ?>">
                         <div class="pc-media">
@@ -269,22 +290,31 @@ if (!empty($products)) {
                                 <a class="pc-img-link" href="<?= $detailUrl ?>" tabindex="-1" aria-hidden="true">
                                     <img src="<?= htmlspecialchars($imgFinal, ENT_QUOTES, 'UTF-8') ?>"
                                          alt="<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>"
-                                         class="pc-product-img"
+                                         class="pc-product-img<?= $isNoImageCard ? ' pc-product-img--placeholder' : '' ?>"
                                          <?= $_cp_idx === 0 ? 'fetchpriority="high" decoding="sync"' : 'loading="lazy" decoding="async"' ?>
-                                         onload="var f=this.closest('.pc-img-frame');if(f)f.classList.remove('is-loading');"
-                                         onerror="this.onerror=null;this.src='<?= $noImgSrcAttr ?>';var f=this.closest('.pc-img-frame');if(f)f.classList.remove('is-loading');">
+                                         data-fallback-src="<?= $noImgSrcAttr ?>">
                                 </a>
                                 <?php
-                                if (function_exists('webshop_render_wishlist_card_button')) {
-                                    webshop_render_wishlist_card_button($itemId, $listVariantId, $_cp_wl_lookup, 'pc-wish-btn');
-                                }
+                                $CI =& get_instance();
+                                $CI->load->view(webshop_plane_vanila_view('components/wishlist_card_button'), array(
+                                    'product_id'      => $itemId,
+                                    'variant_id'      => $listVariantId,
+                                    'wishlist_lookup' => $_cp_wl_lookup,
+                                    'extra_class'     => 'pc-wish-btn',
+                                ));
                                 ?>
                                 <div class="pc-badges-tl">
                                     <?php if ($rxProd && !$unavailable): ?>
                                         <span class="pc-pill pc-pill-rx">Rx</span>
                                     <?php endif; ?>
+                                    <?php if (!$unavailable && !$limitedStock): ?>
+                                        <span class="pc-pill pc-pill-in">In stock</span>
+                                    <?php endif; ?>
                                     <?php if ($limitedStock && !$unavailable): ?>
                                         <span class="pc-pill pc-pill-stock">Limited stock</span>
+                                    <?php endif; ?>
+                                    <?php if ($unavailable): ?>
+                                        <span class="pc-pill pc-pill-out">Out of stock</span>
                                     <?php endif; ?>
                                 </div>
                                 <div class="pc-badges-tr">
@@ -318,8 +348,8 @@ if (!empty($products)) {
                                 <?php endif; ?>
                             </div>
 
-                            <?php if ($statusLabel !== ''): ?>
-                                <p class="pc-stock-status pc-stock-status--unavailable" role="status"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></p>
+                            <?php if ($statusLabel !== '' && !$unavailable): ?>
+                                <p class="pc-stock-status" role="status"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></p>
                             <?php elseif ($limitedStock): ?>
                                 <p class="pc-stock-status pc-stock-status--low" role="status">Only <?= (int) $stockQty ?> left in stock</p>
                             <?php endif; ?>
@@ -334,7 +364,6 @@ if (!empty($products)) {
                             <div class="pc-actions<?= $canPurchase ? '' : ' pc-actions--unavailable' ?>">
                                 <?php if ($canPurchase): ?>
                                     <button type="button" class="pc-btn pc-btn-cart"
-                                            onclick="wsAddToCart('<?= (int) $itemId ?>', '<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>', this)"
                                             data-item-id="<?= (int) $itemId ?>" data-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>"
                                             data-product-price="<?= htmlspecialchars((string) $price, ENT_QUOTES, 'UTF-8') ?>"
                                             data-variant-id="<?= (int) $listVariantId ?>"
@@ -382,101 +411,34 @@ if (!empty($products)) {
         </main>
     </div>
 
-    <?php webshop_require_theme_footer(); ?>
+    <?php
+    if ($theme === 'nw' || $theme === 'gulfpharmacy') {
+        require_once webshop_plane_vanila_view_file('footer');
+    } elseif (is_file(VIEWPATH . 'webshop/footer.php')) {
+        require_once(VIEWPATH . 'webshop/footer.php');
+    }
+    ?>
 </div>
 
-<script>
-function wsAddToCart(itemId, hash, btn) {
-    if (!btn || btn.disabled || btn.getAttribute('aria-disabled') === 'true') {
-        return;
-    }
-    var orig = btn.getAttribute('data-label-default') || (btn.textContent || '').trim();
-    btn.disabled = true;
-    btn.textContent = 'Adding…';
-    requestAnimationFrame(function () {
-    var listPrice = btn && btn.getAttribute('data-product-price') ? btn.getAttribute('data-product-price') : '';
-    var variantId = btn ? parseInt(btn.getAttribute('data-variant-id'), 10) || 0 : 0;
-    var variantPrice = btn && btn.getAttribute('data-variant-price') ? btn.getAttribute('data-variant-price') : '0';
-    var variantUq = btn && btn.getAttribute('data-variant-unit-quantity') ? btn.getAttribute('data-variant-unit-quantity') : '1';
-    var addBody = 'action=add_to_cart&product_id=' + encodeURIComponent(itemId) + '&quantity=1&variant_id=' + encodeURIComponent(variantId);
-    if (listPrice !== '' && parseFloat(listPrice) > 0) {
-        addBody += '&product_price=' + encodeURIComponent(listPrice) + '&price=' + encodeURIComponent(listPrice);
-    }
-    if (variantId > 0) {
-        addBody += '&variant_price=' + encodeURIComponent(variantPrice) + '&variant_unit_quantity=' + encodeURIComponent(variantUq);
-    }
-    if (typeof window.webshopAppendCsrfParams === 'function') {
-        addBody = window.webshopAppendCsrfParams(addBody);
-    }
-    fetch('<?= base_url('webshop/webshop_request') ?>', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            'X-Requested-With': 'XMLHttpRequest'
-        },
-        body: addBody,
-        credentials: 'same-origin'
-    })
-    .then(function(r) {
-        if (r.status === 403) {
-            return { status: 'FAIL', error: 'csrf', message: 'Session expired. Please refresh the page and try again.' };
-        }
-        return r.json();
-    })
-    .then(function(d) {
-        if (typeof window.webshopUpdateCsrfFromJson === 'function') {
-            window.webshopUpdateCsrfFromJson(d);
-        }
-        if (d && d.error === 'csrf') {
-            btn.textContent = 'Refresh page';
-            btn.disabled = true;
-            return;
-        }
-        if (d && (d.status === 'SUCCESS' || d.success)) {
-            btn.textContent = 'Added';
-            btn.style.background = '#059669';
-            btn.style.borderColor = '#059669';
-            btn.style.color = '#fff';
-            setTimeout(function(){
-                btn.textContent = orig;
-                btn.style.background = '';
-                btn.style.borderColor = '';
-                btn.style.color = '';
-                btn.disabled = false;
-            }, 1800);
-            var badge = document.querySelector('.gp-cart-count, .cart-count, [data-cart-count]');
-            if (badge && d.cart_count !== undefined) {
-                badge.textContent = d.cart_count;
-                badge.style.display = d.cart_count > 0 ? '' : 'none';
-            }
-        } else if (d && (d.error === 'out_of_stock' || (d.message && /out of stock/i.test(d.message)))) {
-            btn.textContent = 'Out of stock';
-            btn.classList.add('is-disabled');
-            btn.setAttribute('aria-disabled', 'true');
-            setTimeout(function(){ btn.textContent = orig; btn.disabled = true; }, 2500);
-        } else {
-            btn.textContent = 'Try again';
-            setTimeout(function(){ btn.textContent = orig; btn.disabled = false; }, 2000);
-        }
-    })
-    .catch(function() {
-        btn.textContent = orig;
-        btn.disabled = false;
-    });
-    });
-}
-</script>
 <?php
 $_cp_csrf = function_exists('webshop_csrf_pair') ? webshop_csrf_pair() : array('name' => '', 'hash' => '');
 $_cp_assets = isset($assets) ? $assets : base_url('assets/webshop/');
 ?>
-<script>window.GP_CSRF=<?= json_encode($_cp_csrf, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
-<script>window.GP_PLP_CTX=<?= json_encode(array(
-    'request_url'      => base_url('webshop/webshop_request'),
-    'login_url'        => base_url('webshop/login'),
-    'is_logged_in'     => (bool) $_cp_logged_in,
-    'wishlist_lookup'  => $_cp_wl_lookup,
-), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+<?= $this->load->view(webshop_plane_vanila_view('components/js_bootstrap_var'), array(
+    'var_name'  => 'GP_CSRF',
+    'var_value' => $_cp_csrf,
+), true) ?>
+<?= $this->load->view(webshop_plane_vanila_view('components/js_bootstrap_var'), array(
+    'var_name'  => 'GP_PLP_CTX',
+    'var_value' => array(
+        'request_url'      => base_url('webshop/webshop_request'),
+        'login_url'        => base_url('webshop/login'),
+        'is_logged_in'     => (bool) $_cp_logged_in,
+        'wishlist_lookup'  => $_cp_wl_lookup,
+    ),
+), true) ?>
 <script defer src="<?= webshop_theme_assets_url('js/webshop-csrf.js?ver=20260526c') ?>"></script>
+<script defer src="<?= webshop_theme_assets_url('js/image-fallback.js?ver=20260528a') ?>"></script>
+<script defer src="<?= webshop_theme_assets_url('js/category-products.js?ver=20260528b') ?>"></script>
 </body>
 </html>

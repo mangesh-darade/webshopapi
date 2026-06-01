@@ -68,6 +68,44 @@ if ($default_addr_id < 1 && !empty($saved_addresses)) {
 $use_saved = ($customer_id > 0 && !empty($saved_addresses));
 $manage_addresses_url = base_url('webshop/your_account#addresses');
 
+// Show only 2 cards in saved-address mode while keeping selected/default priority.
+$saved_addresses_display = $saved_addresses;
+if ($use_saved && count($saved_addresses) > 2) {
+    $priority_ids = array();
+    if ($default_addr_id > 0) {
+        $priority_ids[] = $default_addr_id;
+    }
+    $posted_billing_id = isset($_POST['billing_address_id']) ? (int) $_POST['billing_address_id'] : 0;
+    $posted_shipping_id = isset($_POST['shipping_address_id']) ? (int) $_POST['shipping_address_id'] : 0;
+    if ($posted_billing_id > 0) {
+        $priority_ids[] = $posted_billing_id;
+    }
+    if ($posted_shipping_id > 0) {
+        $priority_ids[] = $posted_shipping_id;
+    }
+    $priority_ids = array_values(array_unique($priority_ids));
+
+    $saved_addresses_display = array();
+    foreach ($priority_ids as $pid) {
+        if (isset($saved_addresses[$pid])) {
+            $saved_addresses_display[$pid] = $saved_addresses[$pid];
+            if (count($saved_addresses_display) >= 2) {
+                break;
+            }
+        }
+    }
+    if (count($saved_addresses_display) < 2) {
+        foreach ($saved_addresses as $aid => $addr) {
+            if (!isset($saved_addresses_display[$aid])) {
+                $saved_addresses_display[$aid] = $addr;
+                if (count($saved_addresses_display) >= 2) {
+                    break;
+                }
+            }
+        }
+    }
+}
+
 /* -----------------------------------------------------------------------
  * Default-address pre-fill for the manual form.
  *
@@ -206,7 +244,7 @@ $checkout_submit_token = function_exists('webshop_checkout_submit_token')
                     </div>
                     <p class="section-hint">Invoice and receipt will be sent to this address.</p>
                     <div class="address-selector" role="radiogroup" aria-label="Billing address">
-                        <?php foreach ($saved_addresses as $aid => $addr):
+                        <?php foreach ($saved_addresses_display as $aid => $addr):
                             $nm = isset($addr['address_name']) ? $addr['address_name'] : '';
                             $l1 = isset($addr['line1']) ? $addr['line1'] : '';
                             $l2 = isset($addr['line2']) ? $addr['line2'] : '';
@@ -246,7 +284,7 @@ $checkout_submit_token = function_exists('webshop_checkout_submit_token')
                         </div>
                         <p class="section-hint">Where should we deliver this order?</p>
                         <div class="address-selector" role="radiogroup" aria-label="Shipping address">
-                            <?php foreach ($saved_addresses as $aid => $addr):
+                            <?php foreach ($saved_addresses_display as $aid => $addr):
                                 $nm = isset($addr['address_name']) ? $addr['address_name'] : '';
                                 $l1 = isset($addr['line1']) ? $addr['line1'] : '';
                                 $l2 = isset($addr['line2']) ? $addr['line2'] : '';

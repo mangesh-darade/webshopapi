@@ -23,18 +23,17 @@ $payCurrencyIso = isset($payment_currency_iso) ? trim((string) $payment_currency
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Payment | <?= htmlspecialchars($shopName, ENT_QUOTES, 'UTF-8') ?></title>
-    <?php if (function_exists('webshop_theme_storefront_stylesheets')) {
-        webshop_theme_storefront_stylesheets(array('css/payments.css'));
-    } else { ?>
     <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/common.css') ?>">
-    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/herbinn-site.css') ?>">
-    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/storefront-layout.css') ?>">
+    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/header.css') ?>">
     <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/payments.css') ?>">
-    <?php } ?>
 </head>
-<body class="herbinn-storefront">
-<div class="gp-site-wrapper pay-shell">
-    <?php webshop_require_theme_header(); ?>
+<body>
+<div class="pay-shell">
+    <?php
+    if ($theme === 'nw' || $theme === 'gulfpharmacy') {
+        require_once webshop_plane_vanila_view_file('header');
+    }
+    ?>
 
     <main class="pay-main">
         <div class="pay-card">
@@ -132,7 +131,11 @@ $payCurrencyIso = isset($payment_currency_iso) ? trim((string) $payment_currency
         </div>
     </main>
 
-    <?php webshop_require_theme_footer(); ?>
+    <?php
+    if ($theme === 'nw' || $theme === 'gulfpharmacy') {
+        require_once webshop_plane_vanila_view_file('footer');
+    }
+    ?>
 </div>
 <script defer src="<?= webshop_theme_assets_url('js/payments.js') ?>"></script>
 </body>

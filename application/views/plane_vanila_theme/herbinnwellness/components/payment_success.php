@@ -49,11 +49,13 @@ $os_preload_logo = function_exists('webshop_resolve_header_logo_url')
 </head>
 <body>
 <div class="os-shell">
-    <?php
-    $gp_header_logo_fetchpriority = ($os_preload_logo !== '');
-    webshop_require_theme_header();
-    unset($gp_header_logo_fetchpriority);
-    ?>
+    <?php if ($theme === 'nw' || $theme === 'gulfpharmacy'): ?>
+        <?php
+        $gp_header_logo_fetchpriority = ($os_preload_logo !== '');
+        require_once webshop_plane_vanila_view_file('header');
+        unset($gp_header_logo_fetchpriority);
+        ?>
+    <?php endif; ?>
 
     <main class="os-main">
         <div class="os-card">
@@ -122,7 +124,9 @@ $os_preload_logo = function_exists('webshop_resolve_header_logo_url')
         </div>
     </main>
 
-    <?php webshop_require_theme_footer(); ?>
+    <?php if ($theme === 'nw' || $theme === 'gulfpharmacy'): ?>
+        <?php require_once webshop_plane_vanila_view_file('footer'); ?>
+    <?php endif; ?>
 </div>
 </body>
 </html>

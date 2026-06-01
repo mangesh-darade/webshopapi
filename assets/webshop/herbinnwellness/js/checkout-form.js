@@ -19,6 +19,93 @@
     }
 
     document.addEventListener('DOMContentLoaded', function () {
+        var sameCheckElement = document.getElementById('billtocopy');
+        var shippingDiv = document.getElementById('usershipping');
+        var sameAddressCheckInput = document.getElementById('billing_and_shipping_address_is_same');
+
+        function toggleShippingInputs(enabled) {
+            if (!shippingDiv) {
+                return;
+            }
+            var shippingInputs = shippingDiv.querySelectorAll('input, select, textarea, button');
+            for (var i = 0; i < shippingInputs.length; i++) {
+                if (enabled) {
+                    shippingInputs[i].removeAttribute('disabled');
+                } else {
+                    shippingInputs[i].setAttribute('disabled', 'disabled');
+                }
+            }
+        }
+
+        function syncSameAsBillingUi() {
+            if (!sameCheckElement || !shippingDiv || !sameAddressCheckInput) {
+                return;
+            }
+            var billingRadios = document.querySelectorAll('input[name="billing_address_id"]');
+            var shippingRadios = document.querySelectorAll('input[name="shipping_address_id"]');
+            var selectedBillingId = '';
+            for (var bi = 0; bi < billingRadios.length; bi++) {
+                if (billingRadios[bi].checked) {
+                    selectedBillingId = billingRadios[bi].value;
+                    break;
+                }
+            }
+
+            if (sameCheckElement.checked) {
+                shippingDiv.hidden = true;
+                shippingDiv.style.display = 'none';
+                toggleShippingInputs(false);
+                sameAddressCheckInput.value = '1';
+
+                // Keep shipping aligned to billing when "same address" is enabled.
+                if (selectedBillingId && shippingRadios.length) {
+                    for (var si = 0; si < shippingRadios.length; si++) {
+                        shippingRadios[si].checked = (shippingRadios[si].value === selectedBillingId);
+                    }
+                }
+                return;
+            }
+            shippingDiv.hidden = false;
+            shippingDiv.style.display = 'block';
+            toggleShippingInputs(true);
+            sameAddressCheckInput.value = '0';
+
+            // When user wants a different address, prefer a different shipping selection.
+            if (shippingRadios.length) {
+                var hasDifferentChecked = false;
+                for (var sj = 0; sj < shippingRadios.length; sj++) {
+                    if (shippingRadios[sj].checked && shippingRadios[sj].value !== selectedBillingId) {
+                        hasDifferentChecked = true;
+                        break;
+                    }
+                }
+                if (!hasDifferentChecked) {
+                    var pickedDifferent = false;
+                    for (var sk = 0; sk < shippingRadios.length; sk++) {
+                        if (shippingRadios[sk].value !== selectedBillingId) {
+                            shippingRadios[sk].checked = true;
+                            pickedDifferent = true;
+                            break;
+                        }
+                    }
+                    // If only one saved address exists, keep the same selection.
+                    if (!pickedDifferent && shippingRadios.length > 0) {
+                        shippingRadios[0].checked = true;
+                    }
+                }
+            }
+        }
+
+        if (sameCheckElement && shippingDiv && sameAddressCheckInput) {
+            syncSameAsBillingUi();
+            sameCheckElement.addEventListener('change', syncSameAsBillingUi);
+            document.addEventListener('change', function (event) {
+                if (event && event.target && event.target.name === 'billing_address_id') {
+                    syncSameAsBillingUi();
+                }
+            });
+        }
+
         var billingCountry = document.getElementById('billing_country');
         var shippingCountry = document.getElementById('shipping_country');
         if (billingCountry && shippingCountry) {

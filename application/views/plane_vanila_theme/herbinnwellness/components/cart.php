@@ -14,30 +14,35 @@ $theme = (isset($webshop_settings) && is_object($webshop_settings) && isset($web
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Your Cart | <?= isset($Settings->site_name) ? html_escape($Settings->site_name) : 'Webshop' ?></title>
     <?= isset($meta_tags) ? $meta_tags : '' ?>
-    <?php if (function_exists('webshop_theme_storefront_stylesheets')) {
-        webshop_theme_storefront_stylesheets(array('css/cart.css'));
-    } else { ?>
+    <link rel="preload" href="<?= webshop_theme_assets_url('css/common.css') ?>" as="style">
     <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/common.css') ?>">
-    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/header.css') ?>">
-    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/herbinn-site.css') ?>">
-    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/storefront-layout.css') ?>">
+    <link rel="preload" href="<?= webshop_theme_assets_url('css/cart.css') ?>" as="style">
     <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/cart.css') ?>">
-    <?php } ?>
-    <style>
-    .cart-page-main{min-height:40vh}
-    .cart-container{max-width:1200px;margin:40px auto;padding:0 20px;font-family:Inter,system-ui,sans-serif}
-    .cart-title{font-size:2rem;margin:0 0 30px;color:var(--gp-text,#1a202c);font-weight:700;line-height:1.2}
-    </style>
 </head>
-<body class="herbinn-storefront">
+<body>
 <div class="gp-site-wrapper">
-    <?php webshop_require_theme_header(); ?>
+    <?php
+    if ($theme === 'nw' || $theme === 'gulfpharmacy') {
+        require_once webshop_plane_vanila_view_file('header');
+    } else {
+        if (is_file(VIEWPATH . 'webshop/header.php')) {
+            require_once(VIEWPATH . 'webshop/header.php');
+        }
+    }
+    ?>
 
     <main class="cart-page-main">
-        <?php $this->load->view(webshop_plane_vanila_view('components/cart_view'), $this->data); ?>
+        <?php $this->load->view('plane_vanila_theme/' . $theme . '_theme/components/cart_view', $this->data); ?>
     </main>
 
-    <?php webshop_require_theme_footer();
+    <?php
+    if ($theme === 'nw' || $theme === 'gulfpharmacy') {
+        require_once webshop_plane_vanila_view_file('footer');
+    } else {
+        if (is_file(VIEWPATH . 'webshop/footer.php')) {
+            require_once(VIEWPATH . 'webshop/footer.php');
+        }
+    }
     ?>
 </div>
 </body>

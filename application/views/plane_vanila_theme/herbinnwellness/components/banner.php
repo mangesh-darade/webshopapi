@@ -1,97 +1,29 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 <?php
-/**
- * Hero slider — matches herbinnwellness.com home (#homeHero).
- * CMS section_contain JSON: { "slides": [ { "badge", "title", "lead", "cta_label", "cta_href", "image" } ] }
- */
-$cfg = isset($config) && is_array($config) ? $config : array();
-$uploadsB = isset($uploads) ? (string) $uploads : '';
-$webshop_url = base_url('webshop');
-
-$slides = array();
-if (isset($cfg['slides']) && is_array($cfg['slides'])) {
-    $slides = $cfg['slides'];
-} elseif (isset($cfg['content']) && is_string($cfg['content'])) {
-    $decoded = json_decode($cfg['content'], true);
-    if (is_array($decoded) && isset($decoded['slides']) && is_array($decoded['slides'])) {
-        $slides = $decoded['slides'];
-    }
+/* banner.php — Hero banner / call-to-action section component */
+$cfg      = isset($config) && is_array($config) ? $config : array();
+$title    = isset($cfg['title'])   ? htmlspecialchars($cfg['title'],   ENT_QUOTES,'UTF-8') : '';
+$subtitle = isset($cfg['content']) ? htmlspecialchars($cfg['content'], ENT_QUOTES,'UTF-8') : '';
+$cta_text = isset($cfg['cta_text'])? htmlspecialchars($cfg['cta_text'],ENT_QUOTES,'UTF-8') : 'Shop Now';
+$cta_link = isset($cfg['link'])    ? htmlspecialchars($cfg['link'],    ENT_QUOTES,'UTF-8') : base_url('webshop/search_products');
+$uploadsB = isset($uploads) ? $uploads : '';
+$imgFile  = isset($cfg['image']) && $cfg['image'] !== '' ? $cfg['image'] : '';
+$imgSrc   = '';
+if ($imgFile !== '') {
+    $imgSrc = (strpos($imgFile,'http') === 0) ? $imgFile : ($uploadsB ? webshop_media_src($uploadsB, $imgFile) : $imgFile);
 }
-
-if (empty($slides)) {
-    $slides = array(
-        array(
-            'badge' => '30+ Years of Excellence',
-            'title' => 'Your Trusted Partner in Nutraceuticals',
-            'lead' => 'Over 3 decades of experience delivering premium supplements to the global market.',
-            'cta_label' => 'Start Your Project',
-            'cta_href' => '/contact',
-            'image' => 'images/herbinn_hero_bg_1773742461337.png',
-        ),
-        array(
-            'badge' => 'Global Scale',
-            'title' => 'State-of-the-Art Global Manufacturing',
-            'lead' => 'FDA registered & GMP certified facilities ready to scale your wellness brand worldwide.',
-            'cta_label' => 'Explore Services',
-            'cta_href' => '/services',
-            'image' => 'images/herbinn_facility_modern_1773742515470.png',
-        ),
-        array(
-            'badge' => 'Comprehensive Formats',
-            'title' => 'Diverse Product Range & Formulations',
-            'lead' => 'From serums, gummies and soft gel capsules we cater every formulation requirement.',
-            'cta_label' => 'View Products',
-            'cta_href' => '/products',
-            'image' => 'images/softgel_capsules_premium_1773742482977.png',
-        ),
-    );
-}
-
-$resolve_img = function ($img) use ($uploadsB) {
-    $img = trim((string) $img);
-    if ($img === '') {
-        return webshop_theme_assets_url('images/herbinn_hero_bg_1773742461337.png');
-    }
-    if (strpos($img, 'http') === 0) {
-        return $img;
-    }
-    if ($uploadsB !== '' && function_exists('webshop_media_src')) {
-        return webshop_media_src($uploadsB, $img);
-    }
-    if (strpos($img, 'assets/') === 0) {
-        return base_url($img);
-    }
-    return webshop_theme_assets_url(ltrim($img, '/'));
-};
+$bgColor  = isset($cfg['bg_color']) && $cfg['bg_color'] !== '' ? $cfg['bg_color'] : 'linear-gradient(135deg,#214548 0%,#2f6366 100%)';
+$textColor = isset($cfg['text_color']) && $cfg['text_color'] !== '' ? $cfg['text_color'] : '#ffffff';
 ?>
-<section class="hero-slider" id="homeHero" aria-label="Hero">
-    <?php foreach ($slides as $i => $slide) :
-        if (!is_array($slide)) {
-            continue;
-        }
-        $badge = isset($slide['badge']) ? htmlspecialchars((string) $slide['badge'], ENT_QUOTES, 'UTF-8') : '';
-        $title = isset($slide['title']) ? htmlspecialchars((string) $slide['title'], ENT_QUOTES, 'UTF-8') : '';
-        $lead = isset($slide['lead']) ? htmlspecialchars((string) $slide['lead'], ENT_QUOTES, 'UTF-8') : '';
-        $cta_label = isset($slide['cta_label']) ? htmlspecialchars((string) $slide['cta_label'], ENT_QUOTES, 'UTF-8') : 'Learn More';
-        $cta_href = isset($slide['cta_href']) ? (string) $slide['cta_href'] : $webshop_url;
-        if ($cta_href !== '' && $cta_href[0] === '/') {
-            $cta_href = rtrim($webshop_url, '/') . $cta_href;
-        }
-        $cta_href = htmlspecialchars($cta_href, ENT_QUOTES, 'UTF-8');
-        $bg = $resolve_img(isset($slide['image']) ? $slide['image'] : '');
-        $active = $i === 0 ? ' active' : '';
-    ?>
-    <div class="hero-slide<?= $active ?>" style="background-image: url('<?= htmlspecialchars($bg, ENT_QUOTES, 'UTF-8') ?>')">
-        <div class="hero-overlay"></div>
-        <div class="container hero-content">
-            <?php if ($badge !== '') : ?><span class="hero-badge"><?= $badge ?></span><?php endif; ?>
-            <?php if ($title !== '') : ?><h1><?= $title ?></h1><?php endif; ?>
-            <?php if ($lead !== '') : ?><p class="lead"><?= $lead ?></p><?php endif; ?>
-            <div class="hero-btns">
-                <a href="<?= $cta_href ?>" class="btn btn-primary btn-lg"><?= $cta_label ?></a>
-            </div>
-        </div>
+<link rel="stylesheet" href="<?= webshop_theme_assets_url('css/components.css') ?>">
+<div class="gp-component gp-banner-section" style="background:<?= $bgColor ?>;color:<?= $textColor ?>;">
+    <?php if ($imgSrc !== ''): ?>
+    <img src="<?= $imgSrc ?>" alt="<?= $title ?>" class="gp-banner-bg-img" loading="lazy">
+    <div class="gp-banner-overlay"></div>
+    <?php endif; ?>
+    <div class="gp-banner-content">
+        <?php if ($title !== ''): ?><h2 class="gp-banner-title"><?= $title ?></h2><?php endif; ?>
+        <?php if ($subtitle !== ''): ?><p class="gp-banner-sub"><?= $subtitle ?></p><?php endif; ?>
+        <a href="<?= $cta_link ?>" class="gp-banner-cta"><?= $cta_text ?></a>
     </div>
-    <?php endforeach; ?>
-    <div class="slider-dots" id="sliderDots" aria-hidden="true"></div>
-</section>
+</div>

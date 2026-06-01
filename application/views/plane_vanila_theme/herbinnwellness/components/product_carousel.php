@@ -11,31 +11,43 @@ $uploadsB = isset($uploads) ? rtrim($uploads, '/') . '/' : '';
 $uid     = 'pc' . rand(1000, 9999);
 $currency = (isset($webshop_settings) && is_object($webshop_settings) && isset($webshop_settings->currency_symbol))
           ? $webshop_settings->currency_symbol : '&#8377;';
-$appBasePath = rtrim(str_replace('\\', '/', dirname(isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : '')), '/');
-if ($appBasePath === '/' || $appBasePath === '\\' || $appBasePath === '.') {
-    $appBasePath = '';
-}
 if (empty($items)) return;
-$pc_assets = isset($assets) ? $assets : base_url('assets/webshop/');
 $_pc_wl_lookup = function_exists('webshop_view_wishlist_lookup')
     ? webshop_view_wishlist_lookup(isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : null)
     : (isset($wishlist_lookup) && is_array($wishlist_lookup) ? $wishlist_lookup : array());
+$CI =& get_instance();
 ?>
-<link rel="stylesheet" href="<?= webshop_theme_assets_url('css/product-carousel.css?ver=20260526a') ?>">
+<link rel="stylesheet" href="<?= webshop_theme_assets_url('css/product-carousel.css?ver=20260528c') ?>">
 <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/wishlist-fav.css?ver=20260526a') ?>">
+<?php
+$pcTotal = isset($total_items) ? max(0, (int) $total_items) : count($items);
+if ($pcTotal < count($items)) {
+    $pcTotal = count($items);
+}
+?>
 <section class="gp-component dynamic-product-carousel">
-    <?php if ($title !== ''): ?>
-    <h2 class="cms-pc-title"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h2>
-    <?php endif; ?>
+    <div class="gp-product-carousel-head">
+        <?php if ($title !== ''): ?>
+        <h2 class="cms-pc-title"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h2>
+        <?php endif; ?>
+        <?php
+        $pcSummary = function_exists('webshop_product_grid_summary_text')
+            ? webshop_product_grid_summary_text($pcTotal, 1, $pcTotal, 1)
+            : ($pcTotal . ' product' . ($pcTotal === 1 ? '' : 's'));
+        if ($pcSummary !== ''): ?>
+        <p class="gp-product-grid-count"><?= htmlspecialchars($pcSummary, ENT_QUOTES, 'UTF-8') ?></p>
+        <?php endif; ?>
+    </div>
     <div class="gp-carousel-wrap">
-        <button type="button" class="gp-carousel-btn gp-carousel-prev" onclick="gpc_scroll('<?= $uid ?>',-1)" aria-label="Previous">
+        <button type="button" class="gp-carousel-btn gp-carousel-prev" data-carousel-id="<?= $uid ?>" data-direction="-1" aria-label="Previous">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
         <div class="gp-carousel" id="<?= $uid ?>">
             <?php foreach ($items as $p):
                 $p     = is_object($p) ? (array)$p : (is_array($p) ? $p : array());
-                $img   = webshop_product_image_src($uploadsB, isset($thumbs) ? $thumbs : '', $p);
-                $name  = isset($p['name']) ? (string) $p['name'] : '';
+                $productImageUrl = trim((string) webshop_product_image_src($uploadsB, isset($thumbs) ? $thumbs : '', $p));
+                $productNameRaw  = (string) webshop_product_display_name($p);
+                $productNameEsc  = htmlspecialchars($productNameRaw, ENT_QUOTES, 'UTF-8');
                 $_pcSettings = isset($Settings) ? $Settings : null;
                 if (function_exists('webshop_product_list_card_pricing')) {
                     $_pcCard = webshop_product_list_card_pricing($p, $_pcSettings);
@@ -60,12 +72,28 @@ $_pc_wl_lookup = function_exists('webshop_view_wishlist_lookup')
                     $hash = md5((string)(isset($p['id']) ? $p['id'] : ''));
                 }
                 $pId = function_exists('webshop_product_list_item_id') ? webshop_product_list_item_id($p) : (isset($p['id']) ? (int) $p['id'] : 0);
+                $pcIsActive = true;
+                foreach (array('product_is_active', 'productAvailable', 'is_active', 'active', 'status') as $_pcActiveKey) {
+                    if (!array_key_exists($_pcActiveKey, $p)) {
+                        continue;
+                    }
+                    $_pcActiveRaw = strtolower(trim((string) $p[$_pcActiveKey]));
+                    if (in_array($_pcActiveRaw, array('0', 'false', 'no', 'inactive', 'disabled'), true)) {
+                        $pcIsActive = false;
+                    } elseif (in_array($_pcActiveRaw, array('1', 'true', 'yes', 'active', 'enabled'), true)) {
+                        $pcIsActive = true;
+                    }
+                    break;
+                }
                 $pcPurchase = function_exists('webshop_product_list_purchase_state')
-                    ? webshop_product_list_purchase_state($p, true)
+                    ? webshop_product_list_purchase_state($p, $pcIsActive)
                     : array('can_purchase' => true, 'label' => '', 'unavailable' => false);
                 $pcUnavailable = !empty($pcPurchase['unavailable']);
                 $pcStatusLabel = isset($pcPurchase['label']) ? (string) $pcPurchase['label'] : '';
                 $pcCanPurchase = !empty($pcPurchase['can_purchase']);
+                $pcLimitedStock = !empty($pcPurchase['limited']);
+                $pcStockFlag = $pcUnavailable ? 'Out of stock' : ($pcLimitedStock ? 'Low stock' : 'In stock');
+                $pcStockFlagClass = $pcUnavailable ? 'gp-stock-flag--out' : ($pcLimitedStock ? 'gp-stock-flag--low' : 'gp-stock-flag--in');
                 $url   = base_url('webshop/product_details/' . rawurlencode($hash));
                 if (strpos($url, '/ElintOm/') !== false && strpos($_SERVER['REQUEST_URI'], '/webshopapi/') !== false) {
                     $url = str_replace('/ElintOm/', '/webshopapi/', $url);
@@ -74,23 +102,26 @@ $_pc_wl_lookup = function_exists('webshop_view_wishlist_lookup')
             <div class="gp-carousel-item">
                 <article class="gp-pc-card<?= $pcUnavailable ? ' gp-pc-card--unavailable' : '' ?>">
                     <div class="gp-pc-img-wrap">
+                        <span class="gp-stock-flag <?= $pcStockFlagClass ?>"><?= htmlspecialchars($pcStockFlag, ENT_QUOTES, 'UTF-8') ?></span>
                         <a href="<?= $url ?>" class="gp-pc-img-link" data-product-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>">
-                        <?php if ($img !== ''): ?>
-                        <img src="<?= htmlspecialchars($img, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>" loading="lazy" class="gp-pc-img">
-                        <?php else: ?>
-                        <div class="gp-pc-img-placeholder">
-                             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
-                        </div>
-                        <?php endif; ?>
+                            <div class="gp-pc-img-placeholder"<?= $productImageUrl !== '' ? ' style="display:none"' : '' ?>>
+                                <div class="gp-no-image-wrap">
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
+                                    <span class="gp-no-image-label">No image</span>
+                                </div>
+                            </div>
+                            <?php if ($productImageUrl !== ''): ?>
+                            <img src="<?= htmlspecialchars($productImageUrl, ENT_QUOTES, 'UTF-8') ?>" alt="<?= $productNameEsc ?>" loading="lazy" class="gp-pc-img" data-fallback-target=".gp-pc-img-placeholder">
+                            <?php endif; ?>
                         </a>
-                        <?php $CI =& get_instance(); $CI->load->view(webshop_plane_vanila_view('components/wishlist_card_button'), array(
+                        <?php $CI->load->view(webshop_plane_vanila_view('components/wishlist_card_button'), array(
                             'product_id'      => $pId,
                             'variant_id'      => isset($_pcVid) ? $_pcVid : 0,
                             'wishlist_lookup' => $_pc_wl_lookup,
                         )); ?>
                     </div>
                     <div class="gp-pc-info">
-                        <a href="<?= $url ?>" class="gp-product-name" data-product-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?></a>
+                        <a href="<?= $url ?>" class="gp-product-name" data-product-hash="<?= htmlspecialchars($hash, ENT_QUOTES, 'UTF-8') ?>"><?= $productNameEsc ?></a>
                         <div class="gp-pc-pricing">
                             <?php if ($price > 0): ?>
                             <span class="gp-price-current"><?= $currency ?><?= number_format($price, 2) ?></span>
@@ -101,7 +132,7 @@ $_pc_wl_lookup = function_exists('webshop_view_wishlist_lookup')
                             <span class="gp-price-old"><?= $currency ?><?= number_format($orig, 2) ?></span>
                             <?php endif; ?>
                         </div>
-                        <?php if ($pcStatusLabel !== ''): ?>
+                        <?php if ($pcStatusLabel !== '' && !$pcUnavailable): ?>
                         <p class="gp-pc-stock-status<?= $pcUnavailable ? ' gp-pc-stock-status--unavailable' : '' ?>" role="status"><?= htmlspecialchars($pcStatusLabel, ENT_QUOTES, 'UTF-8') ?></p>
                         <?php endif; ?>
                         <?php if (!$pcCanPurchase): ?>
@@ -114,9 +145,10 @@ $_pc_wl_lookup = function_exists('webshop_view_wishlist_lookup')
             </div>
             <?php endforeach; ?>
         </div>
-        <button type="button" class="gp-carousel-btn gp-carousel-next" onclick="gpc_scroll('<?= $uid ?>',1)" aria-label="Next">
+        <button type="button" class="gp-carousel-btn gp-carousel-next" data-carousel-id="<?= $uid ?>" data-direction="1" aria-label="Next">
              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
         </button>
     </div>
 </section>
 <script defer src="<?= webshop_theme_assets_url('js/product-carousel.js') ?>"></script>
+<script defer src="<?= webshop_theme_assets_url('js/image-fallback.js?ver=20260528a') ?>"></script>

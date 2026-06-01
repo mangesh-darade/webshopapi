@@ -19,15 +19,16 @@ $extracted = webshop_extract_cms_embedded_assets($preparedBlock);
 $embeddedHead = trim((string) $extracted['style_blocks'] . "\n" . (string) $extracted['link_tags']);
 $fragment = isset($extracted['html']) ? (string) $extracted['html'] : $preparedBlock;
 $supportBand = (bool) preg_match('/questions\?|customer service|call our friendly/i', strip_tags($fragment));
-$blockClass = 'herbinn-cms-block cms-html-block' . ($supportBand ? ' hb-support-band' : '');
+$blockClass = 'gp-component gp-html-block cms-html-block' . ($supportBand ? ' gp-home-support-band' : '');
 ?>
+<link rel="stylesheet" href="<?= htmlspecialchars(webshop_theme_assets_url('css/components.css'), ENT_QUOTES, 'UTF-8') ?>">
 <?php if ($embeddedHead !== ''): ?>
 <?= $embeddedHead ?>
 
 <?php endif; ?>
 <div class="<?= $blockClass ?>">
     <?php if ($title !== ''): ?>
-    <h2 class="cms-hb-title visually-hidden"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h2>
+    <h2 class="cms-hb-title"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h2>
     <?php endif; ?>
     <?= webshop_normalize_html_media_urls($fragment, $uploadsB ? $uploadsB : '') ?>
 </div>

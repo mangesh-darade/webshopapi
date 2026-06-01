@@ -121,7 +121,7 @@
 .gp-product-img-wrap > .gp-card-fav-btn .gp-fav-btn__icon,
 .gp-pc-img-wrap > .gp-fav-btn .gp-fav-btn__icon,
 .gp-pc-img-wrap > .gp-card-fav-btn .gp-fav-btn__icon{font-size:20px}
-.gp-product-img-wrap .gp-product-badge{top:12px;left:12px;z-index:2}
+.gp-product-img-wrap .gp-product-badge{display:none !important}
 @media(max-width:600px){
     .pc-img-frame > .gp-fav-btn,
     .pc-img-frame > .gp-card-fav-btn{width:36px;height:36px;min-width:36px;top:8px;right:8px}

@@ -1,6 +1,6 @@
-/* Herbinn CMS pages — global styles (home, about, services, etc.) */
+/* Herbinn CMS pages ΓÇö global styles (home, about, services, etc.) */
 /* ============================================================
-   HERBINN — Vanilla CSS Design System (No Bootstrap)
+   HERBINN ΓÇö Vanilla CSS Design System (No Bootstrap)
    ============================================================ */
 
 /* ---------- CSS Variables ---------- */
@@ -11,11 +11,13 @@
   --cta-hover: #D65A1D;
   --accent-blue: #0077B6;
   --accent-light: #E0F2F1;
-  --text-dark: #212529;
-  --text-muted: #6C757D;
-  --bg-light: #F8F9FA;
+  /* WCAG AA–friendly text on white / --bg-light (≥ 4.5:1) */
+  --text-dark: #1a1d21;
+  --text-muted: #495057;
+  --text-muted-strong: #3d4349;
+  --bg-light: #f1f3f5;
   --white: #ffffff;
-  --border-light: #dee2e6;
+  --border-light: #ced4da;
   --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --radius-sm: 8px;
   --radius-md: 16px;
@@ -87,7 +89,7 @@ p:last-child {
 .section-sm { padding-block: 3rem; }
 .section-header { text-align: center; margin-bottom: 3rem; }
 .section-header h2 { font-size: clamp(1.8rem, 3vw, 2.5rem); margin-bottom: 0.75rem; }
-.section-header p { color: var(--text-muted); font-size: 1.1rem; }
+.section-header p { color: var(--text-muted-strong); font-size: 1.1rem; }
 
 /* ---------- Background Utilities ---------- */
 .bg-light { background-color: var(--bg-light); }
@@ -104,7 +106,33 @@ p:last-child {
 .fw-bold { font-weight: 700; }
 .small { font-size: 0.875rem; }
 .lead { font-size: 1.2rem; }
-.opacity-75 { opacity: 0.75; }
+/* Prefer darker copy over opacity (opacity hurts contrast on gray backgrounds). */
+.opacity-75 { color: var(--text-muted); opacity: 1; }
+
+/* Readable body copy on tinted CMS sections (About, Why Choose, etc.). */
+.bg-light,
+.bg-premium-gradient,
+.page-header {
+  color: var(--text-dark);
+}
+
+.bg-light .text-muted,
+.bg-premium-gradient .text-muted,
+.page-header .text-muted,
+.page-header p,
+.split-row .text-muted,
+.cap-item p,
+.section-header p {
+  color: var(--text-muted-strong);
+}
+
+.bg-light h2,
+.bg-light h3,
+.split-row h2,
+.split-row h3,
+.page-header h1 {
+  color: var(--text-dark);
+}
 
 /* ---------- Flex Utilities ---------- */
 .flex { display: flex; }
@@ -273,6 +301,32 @@ p:last-child {
 .btn-lg { padding: 1rem 2.5rem; font-size: 1.05rem; }
 .btn-full { width: 100%; }
 
+/* No underline on any CMS / page button links */
+a.btn,
+button.btn,
+.home-cms-body a.btn,
+.gp-html-block a.btn,
+.gp-body-content a.btn,
+.cta-section a.btn,
+.split-row a.btn,
+.text-center-mt a.btn,
+.hero-btns a.btn,
+.pl-hero-btns a.btn {
+  text-decoration: none !important;
+}
+
+a.btn:hover,
+a.btn:focus,
+a.btn:active,
+a.btn:visited,
+.home-cms-body a.btn:hover,
+.gp-html-block a.btn:hover,
+.gp-body-content a.btn:hover,
+.text-center-mt a.btn.btn-outline:hover,
+.text-center-mt a.btn.btn-outline:focus {
+  text-decoration: none !important;
+}
+
 /* ============================================================
    CARDS
    ============================================================ */
@@ -302,7 +356,12 @@ p:last-child {
 
 .badge-primary { background: var(--primary-color); color: var(--white); }
 .badge-light { background: var(--bg-light); color: var(--primary-color); }
-.badge-border { background: transparent; border: 1px solid var(--border-light); color: var(--text-muted); padding: 0.45rem 0.9rem; }
+.badge-border {
+  background: var(--white);
+  border: 1px solid var(--border-light);
+  color: var(--text-muted-strong);
+  padding: 0.45rem 0.9rem;
+}
 
 /* Tag pills */
 .tag {
@@ -376,7 +435,12 @@ p:last-child {
 .hero-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: linear-gradient(
+    90deg,
+    rgba(15, 23, 42, 0.52) 0%,
+    rgba(15, 23, 42, 0.42) 50%,
+    rgba(15, 23, 42, 0.38) 100%
+  );
   z-index: -1;
 }
 
@@ -425,14 +489,47 @@ p:last-child {
 .hero-slide h1 {
   font-size: clamp(2.2rem, 5vw, 3.8rem);
   color: var(--white);
-  line-height: 1.1;
+  line-height: 1.12;
   margin-bottom: 1.5rem;
+  max-width: 20ch;
+  margin-inline: auto;
+  text-wrap: balance;
 }
 
 .hero-slide .lead {
   color: rgba(255, 255, 255, 0.9);
   font-size: clamp(1.1rem, 2vw, 1.35rem);
   margin-bottom: 2rem;
+}
+
+.hero-slider .hero-content h1,
+.hero-slider .hero-content h2,
+.hero-slider .hero-content .lead {
+  color: #fff !important;
+}
+
+.hero-slider .hero-content h1 {
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+}
+
+.hero-slider .hero-content .lead {
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.25);
+}
+
+.hero-slider .hero-content .btn,
+.hero-slider .hero-content .btn-primary {
+  background: var(--cta-orange) !important;
+  border-color: var(--cta-orange) !important;
+  color: #fff !important;
+  text-decoration: none !important;
+}
+
+.hero-slider .hero-content .btn:hover,
+.hero-slider .hero-content .btn-primary:hover {
+  background: var(--cta-hover) !important;
+  border-color: var(--cta-hover) !important;
+  color: #fff !important;
+  text-decoration: none !important;
 }
 .slider-controls {
   position: absolute;
@@ -503,24 +600,71 @@ p:last-child {
 .page-header {
   padding-block: 5rem;
   text-align: center;
-  background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+  background: linear-gradient(135deg, #f3f5f7 0%, #e8ecef 100%);
+  border-bottom: 1px solid var(--border-light);
 }
 
-.page-header h1 { font-size: clamp(2rem, 4vw, 3.2rem); margin-bottom: 1rem; }
-.page-header p { color: var(--text-muted); font-size: 1.15rem; max-width: 640px; margin-inline: auto; }
+.page-header h1 {
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  margin-bottom: 1rem;
+  color: var(--text-dark);
+}
+
+.page-header p {
+  color: var(--text-muted-strong);
+  font-size: 1.15rem;
+  max-width: 640px;
+  margin-inline: auto;
+  line-height: 1.65;
+}
 
 /* ============================================================
    CTA SECTION
    ============================================================ */
 .cta-section {
   padding-block: 5rem;
-  background: var(--primary-color);
+  background: #245a22;
   color: var(--white);
   text-align: center;
+  border-top: 0;
 }
 
-.cta-section h2 { font-size: clamp(1.8rem, 3.5vw, 3rem); margin-bottom: 1rem; }
-.cta-section p { opacity: 0.78; font-size: 1.1rem; margin-bottom: 2.5rem; }
+.cta-section h2 {
+  font-size: clamp(1.8rem, 3.5vw, 3rem);
+  margin-bottom: 1rem;
+  color: #ffffff !important;
+}
+
+.cta-section p {
+  opacity: 1;
+  color: #ffffff !important;
+  font-size: 1.1rem;
+  margin-bottom: 2.5rem;
+}
+
+.cta-section h1,
+.cta-section h3,
+.cta-section h4,
+.cta-section h5,
+.cta-section h6 {
+  color: #ffffff !important;
+}
+
+.cta-section .btn-light {
+  background: #d6e4d3;
+  color: #1f2b1f;
+  border-color: #d6e4d3;
+  border: 0;
+  text-decoration: none;
+}
+
+.cta-section .btn-light:hover {
+  background: #c5d9c1;
+  color: #162116;
+  border-color: #c5d9c1;
+  border: 0;
+  text-decoration: none;
+}
 
 /* ============================================================
    FOOTER
@@ -590,14 +734,17 @@ footer ul a:hover {
   color: var(--primary-color);
 }
 
-.footer-certs {
+/* Footer certification badges only — do not style .footer-certs inside .certs-band (see herbinn-footer.css). */
+footer .footer-certs,
+.hb-site-footer .footer-certs {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
   max-width: 19rem;
 }
 
-.footer-certs .badge-border {
+footer .footer-certs .badge-border,
+.hb-site-footer .footer-certs .badge-border {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -848,6 +995,12 @@ textarea.form-control { resize: vertical; min-height: 110px; }
   align-items: center;
   padding-block: 3.5rem;
   border-bottom: 1px solid var(--border-light);
+  color: var(--text-dark);
+}
+
+.split-row p.text-muted {
+  color: var(--text-muted-strong);
+  line-height: 1.65;
 }
 
 .split-row:last-child { border-bottom: none; }
@@ -918,7 +1071,7 @@ textarea.form-control { resize: vertical; min-height: 110px; }
   font-weight: 700;
 }
 .cap-item svg { color: var(--primary-color); }
-.cap-item p { color: var(--text-muted); font-size: 0.88rem; }
+.cap-item p { color: var(--text-muted-strong); font-size: 0.9rem; line-height: 1.55; }
 
 /* ============================================================
    CONTACT INFO ITEM
@@ -929,7 +1082,7 @@ textarea.form-control { resize: vertical; min-height: 110px; }
 .contact-info-row p { color: var(--text-muted); font-size: 0.88rem; }
 
 /* ============================================================
-   ANIMATIONS — AOS override for speed
+   ANIMATIONS ΓÇö AOS override for speed
    ============================================================ */
 [data-aos] { transition-duration: 700ms !important; }
 
@@ -938,7 +1091,8 @@ textarea.form-control { resize: vertical; min-height: 110px; }
    ============================================================ */
 @media (max-width: 1024px) {
   .footer-grid { grid-template-columns: 1fr 1fr; gap: 2rem; }
-  .footer-certs { max-width: 100%; }
+  footer .footer-certs,
+  .hb-site-footer .footer-certs { max-width: 100%; }
   .split-row { grid-template-columns: 1fr; gap: 2rem; }
   .split-row.reverse { direction: ltr; }
   .hero-content { grid-template-columns: 1fr; }
@@ -1041,7 +1195,8 @@ textarea.form-control { resize: vertical; min-height: 110px; }
   .footer-grid .brand-col img { margin-inline: auto; }
   .footer-grid .brand-col p { margin-inline: auto; }
   .footer-grid ul, .footer-grid li { text-align: center; }
-  .footer-certs {
+  footer .footer-certs,
+  .hb-site-footer .footer-certs {
     margin-inline: auto;
     max-width: 18rem;
   }
@@ -1377,7 +1532,7 @@ textarea.form-control { resize: vertical; min-height: 110px; }
 
         .stat-highlight { text-align: center; padding: 2rem 1.5rem; }
         .stat-highlight .num { font-size: 2.8rem; font-weight: 800; color: var(--primary-color); line-height: 1; }
-        .stat-highlight .label { color: var(--text-muted); font-size: 0.9rem; margin-top: 0.35rem; }
+        .stat-highlight .label { color: var(--text-muted-strong); font-size: 0.9rem; margin-top: 0.35rem; }
 
         .why-card {
             background: var(--white);
@@ -1390,8 +1545,8 @@ textarea.form-control { resize: vertical; min-height: 110px; }
         }
         .why-card:hover { box-shadow: var(--shadow-md); transform: translateY(-4px); }
         .why-card .icon { font-size: 2rem; margin-bottom: 0.85rem; color: var(--primary-color); }
-        .why-card h3 { font-size: 1.05rem; margin-bottom: 0.5rem; }
-        .why-card p { font-size: 0.88rem; color: var(--text-muted); }
+        .why-card h3 { font-size: 1.05rem; margin-bottom: 0.5rem; color: var(--text-dark); }
+        .why-card p { font-size: 0.9rem; color: var(--text-muted-strong); line-height: 1.55; }
 
         .cat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
         .cat-pill {
@@ -1510,26 +1665,58 @@ textarea.form-control { resize: vertical; min-height: 110px; }
             .pl-hero { padding: 3rem 0; }
         }
 
-/* ---------- CMS fragment utilities (replace style="" attributes in html_block paste) ---------- */
+/* ---------- Global Accreditation band (CMS html_block — herbin_html certs-band) ---------- */
 .certs-band {
   padding: 2.2rem 0;
-  border-top: 1px solid #eee;
-  border-bottom: 1px solid #eee;
+  background: var(--white);
+  border-top: 1px solid var(--border-light);
+  border-bottom: 1px solid var(--border-light);
 }
+
+.certs-band > .container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  text-align: center;
+}
+
 .certs-band__title {
   margin: 0;
   color: var(--text-dark);
-  opacity: 0.8;
   font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+  text-align: center;
 }
-.certs-band__logos { justify-content: center; }
+
+.certs-band__logos {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.certs-band .footer-certs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  max-width: none;
+}
+
 .certs-logo {
   height: 60px;
-  filter: grayscale(1);
-  opacity: 0.8;
-  transition: var(--transition);
+  width: auto;
+  max-width: 140px;
+  object-fit: contain;
+  display: block;
 }
-.certs-logo:hover { filter: grayscale(0); opacity: 1; }
+
 .certs-logo--fda { height: 50px; }
 .certs-logo--fssai { height: 55px; }
 .h2-mb-1 { margin-bottom: 1rem; }
@@ -1591,6 +1778,32 @@ textarea.form-control { resize: vertical; min-height: 110px; }
 .card-format-desc { margin-bottom: 1rem; }
 .learn-more-link { font-size: 0.9rem; }
 .home-formats-grid { margin-bottom: 0; }
+
+.split-row .btn.btn-primary {
+  color: #fff !important;
+  text-decoration: none !important;
+}
+
+.split-row .btn.btn-primary:hover,
+.split-row .btn.btn-primary:focus {
+  text-decoration: none !important;
+}
+
+.text-center-mt .btn.btn-outline {
+  color: #111827 !important;
+  border-color: #111827;
+  background: #fff;
+  font-weight: 600;
+  text-decoration: none !important;
+}
+
+.text-center-mt .btn.btn-outline:hover,
+.text-center-mt .btn.btn-outline:focus {
+  color: #fff !important;
+  background: #111827;
+  border-color: #111827;
+  text-decoration: none !important;
+}
 
 /* Blog listing cards */
 .blog-grid { align-items: stretch; gap: 1.75rem; }

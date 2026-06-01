@@ -2,7 +2,7 @@
 <?php
 $theme = (isset($webshop_settings) && is_object($webshop_settings) && isset($webshop_settings->webshop_theme))
     ? (string) $webshop_settings->webshop_theme : 'gulfpharmacy';
-$name = isset($product['name']) ? $product['name'] : 'Product';
+$name = function_exists('webshop_product_display_name') ? webshop_product_display_name($product) : (isset($product['name']) ? $product['name'] : (isset($product['product_name']) ? $product['product_name'] : ''));
 $flash_msg = $this->session->flashdata('message');
 $flash_err = $this->session->flashdata('error');
 $error_field = (string) $this->session->flashdata('error_field');
@@ -21,27 +21,17 @@ $err_class = function ($field) use ($error_field) {
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Product Reviews | <?= html_escape($name) ?></title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <?php if (function_exists('webshop_theme_storefront_stylesheets')) {
-        webshop_theme_storefront_stylesheets(array('css/product-reviews.css'));
-    } else { ?>
     <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/common.css') ?>">
     <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/header.css') ?>">
-    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/header-drawers.css') ?>">
-    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/herbinn-site.css') ?>">
-    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/herbinn-overrides.css') ?>">
-    <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/storefront-layout.css') ?>">
     <link rel="stylesheet" href="<?= webshop_theme_assets_url('css/product-reviews.css') ?>">
-    <?php } ?>
-    <?php if (function_exists('webshop_csrf_pair')): ?>
-    <script>window.GP_CSRF=<?= json_encode(webshop_csrf_pair(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
-    <?php endif; ?>
 </head>
-<body class="herbinn-storefront">
+<body>
 <div class="gp-site-wrapper">
-    <?php webshop_require_theme_header(); ?>
+    <?php
+    if ($theme === 'nw' || $theme === 'gulfpharmacy') {
+        require_once webshop_plane_vanila_view_file('header');
+    }
+    ?>
     <main class="pr-main">
         <div class="pr-card">
             <h1 class="pr-title">Write a Review for <?= html_escape($name) ?></h1>
@@ -119,7 +109,11 @@ $err_class = function ($field) use ($error_field) {
             <?php endif; ?>
         </div>
     </main>
-    <?php webshop_require_theme_footer(); ?>
+    <?php
+    if ($theme === 'nw' || $theme === 'gulfpharmacy') {
+        require_once webshop_plane_vanila_view_file('footer');
+    }
+    ?>
 </div>
 <script defer src="<?= webshop_theme_assets_url('js/product-reviews.js') ?>"></script>
 </body>

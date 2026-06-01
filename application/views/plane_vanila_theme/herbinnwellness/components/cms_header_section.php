@@ -35,4 +35,6 @@ $webshop  = base_url('webshop');
         <?php endif; ?>
     </div>
 </div>
-<link rel="stylesheet" href="<?= isset($assets) ? $assets : base_url('assets/webshop/') ?><?= webshop_theme_assets_url('css/components.css') ?>">
+<?php if (function_exists('webshop_theme_assets_url')) : ?>
+<link rel="stylesheet" href="<?= htmlspecialchars(webshop_theme_assets_url('css/components.css?ver=20260601a'), ENT_QUOTES, 'UTF-8') ?>">
+<?php endif; ?>
