@@ -18,6 +18,10 @@ function webshop_fixup_cms_media_relative_path($path_part) {
     if (preg_match('#^webshop/uploads/#i', $path_part)) {
         return $path_part;
     }
+    // Storefront identity (cms_admin/storefront): files live in uploads/webshop/{file}, value is webshop/{file}.
+    if (preg_match('#^webshop/(?!cms_pages/|uploads/)[^/]+$#i', $path_part)) {
+        return $path_part;
+    }
     if (preg_match('#^webshop/(?!cms_pages/)(.+)$#i', $path_part, $m)) {
         return 'webshop/cms_pages/' . $m[1];
     }
@@ -296,6 +300,9 @@ function webshop_rewrite_cms_theme_asset_urls($html)
         if (preg_match('#^assets/webshop/[^/]+/images/(.+)$#i', $path, $m)) {
             return webshop_theme_assets_url('images/' . $m[1]);
         }
+        if (preg_match('#^assets/webshop/[^/]+/(css|js)/(.+)$#i', $path, $m)) {
+            return webshop_theme_assets_url($m[1] . '/' . $m[2]);
+        }
         if (preg_match('#^assets/images/(.+)$#i', $path, $m)) {
             return webshop_theme_assets_url('images/' . $m[1]);
         }
@@ -515,6 +522,14 @@ function webshop_replace_cms_html_placeholders($html)
         $html = str_replace(
             array('{{customer_assets_folder}}', '{{ELINTOM_CUSTOMER_ASSETS_FOLDER}}'),
             $folder,
+            $html
+        );
+    }
+    if (function_exists('webshop_theme_assets_url')) {
+        $theme_assets = webshop_theme_assets_url('');
+        $html = str_replace(
+            array('{{theme_assets_url}}', '{{THEME_ASSETS_URL}}'),
+            $theme_assets,
             $html
         );
     }
@@ -5123,6 +5138,98 @@ if (!function_exists('webshop_footer_identity_rows')) {
     }
 }
 
+if (!function_exists('webshop_storefront_header_logo_field_keys')) {
+    /**
+     * Field keys in sma_webshop_header_footer that represent the header/site logo.
+     *
+     * @return array<int, string>
+     */
+    function webshop_storefront_header_logo_field_keys() {
+        return array('logo_image', 'site_logo', 'header_logo', 'store_logo');
+    }
+}
+
+if (!function_exists('webshop_storefront_header_logo_status')) {
+    /**
+     * CMS header logo row including inactive (for show/hide). From getsettings storefront_logo when present.
+     *
+     * @return array{configured:bool,active:bool,field_key:string,value:string}
+     */
+    function webshop_storefront_header_logo_status() {
+        $empty = array(
+            'configured' => false,
+            'active'     => false,
+            'field_key'  => '',
+            'value'      => '',
+        );
+        if (function_exists('get_instance')) {
+            $CI =& get_instance();
+            if (isset($CI->api_storefront_logo) && is_object($CI->api_storefront_logo)) {
+                $o = $CI->api_storefront_logo;
+                return array(
+                    'configured' => !empty($o->configured),
+                    'active'     => !empty($o->active),
+                    'field_key'  => isset($o->field_key) ? strtolower(trim((string) $o->field_key)) : '',
+                    'value'      => isset($o->value) ? trim((string) $o->value) : '',
+                );
+            }
+            if (isset($CI->db) && $CI->db->table_exists('sma_webshop_header_footer')) {
+                foreach (webshop_storefront_header_logo_field_keys() as $field_key) {
+                    $q = $CI->db
+                        ->where('section_type', 'header')
+                        ->where('field_key', $field_key)
+                        ->limit(1)
+                        ->get('sma_webshop_header_footer');
+                    if ($q->num_rows() === 0) {
+                        continue;
+                    }
+                    $r = $q->row_array();
+                    return array(
+                        'configured' => true,
+                        'active'     => isset($r['is_active']) && (int) $r['is_active'] === 1,
+                        'field_key'  => $field_key,
+                        'value'      => isset($r['value']) ? trim((string) $r['value']) : '',
+                    );
+                }
+            }
+        }
+        return $empty;
+    }
+}
+
+if (!function_exists('webshop_storefront_identity_slots_in_use')) {
+    /**
+     * True when CMS storefront table/API exposes header or footer slots (logo toggle applies).
+     *
+     * @return bool
+     */
+    function webshop_storefront_identity_slots_in_use() {
+        $sections = function_exists('webshop_api_website_setting_sections')
+            ? webshop_api_website_setting_sections()
+            : (object) array('header' => array(), 'footer' => array());
+        foreach (array('header', 'footer') as $sec) {
+            $rows = array();
+            if (is_array($sections)) {
+                $rows = isset($sections[$sec]) ? $sections[$sec] : array();
+            } elseif (is_object($sections) && isset($sections->$sec)) {
+                $rows = $sections->$sec;
+            }
+            if (is_array($rows) && count($rows) > 0) {
+                return true;
+            }
+        }
+        if (function_exists('webshop_ws_website_setting_bundles')) {
+            foreach (webshop_ws_website_setting_bundles() as $bundle) {
+                if (is_array($bundle) && count($bundle) > 0) {
+                    return true;
+                }
+            }
+        }
+        $logo = webshop_storefront_header_logo_status();
+        return !empty($logo['configured']);
+    }
+}
+
 if (!function_exists('webshop_resolve_storefront_logo_image_url')) {
     /**
      * Pick newest logo file from local logos upload folder.
@@ -5206,21 +5313,42 @@ if (!function_exists('webshop_resolve_storefront_logo_image_url')) {
      * @return string
      */
     function webshop_resolve_storefront_logo_image_url($uploads_base) {
-        // Highest priority: newest uploaded logo from local logos folder.
-        $latestUploadedLogo = webshop_latest_uploaded_logo_url($uploads_base);
-        if ($latestUploadedLogo !== '') {
-            return $latestUploadedLogo;
-        }
+        $cms_logo = function_exists('webshop_storefront_header_logo_status')
+            ? webshop_storefront_header_logo_status()
+            : array('configured' => false, 'active' => false, 'field_key' => '', 'value' => '');
 
-        $row = function_exists('webshop_website_setting_lookup_row_in_section')
-            ? webshop_website_setting_lookup_row_in_section('logo_image', 'header') : null;
-        if (!$row) {
-            $row = webshop_website_setting_lookup_row('logo_image');
-        }
-        if (!$row) {
+        if (!empty($cms_logo['configured']) && empty($cms_logo['active'])) {
             return '';
         }
-        return webshop_resolve_storefront_media_path(webshop_ws_row_value_string($row), $uploads_base);
+
+        if (!empty($cms_logo['configured']) && !empty($cms_logo['active']) && $cms_logo['value'] !== '') {
+            $fromCms = webshop_resolve_storefront_media_path($cms_logo['value'], $uploads_base);
+            if ($fromCms !== '') {
+                return $fromCms;
+            }
+        }
+
+        foreach (webshop_storefront_header_logo_field_keys() as $field_key) {
+            $row = function_exists('webshop_website_setting_lookup_row_in_section')
+                ? webshop_website_setting_lookup_row_in_section($field_key, 'header')
+                : null;
+            if (!$row) {
+                $row = webshop_website_setting_lookup_row($field_key);
+            }
+            if (!$row) {
+                continue;
+            }
+            $fromStorefront = webshop_resolve_storefront_media_path(webshop_ws_row_value_string($row), $uploads_base);
+            if ($fromStorefront !== '') {
+                return $fromStorefront;
+            }
+        }
+
+        if (function_exists('webshop_storefront_identity_slots_in_use') && webshop_storefront_identity_slots_in_use()) {
+            return '';
+        }
+
+        return webshop_latest_uploaded_logo_url($uploads_base);
     }
 }
 
@@ -5707,8 +5835,9 @@ if (!function_exists('webshop_footer_media_link_rows')) {
 
 if (!function_exists('webshop_resolve_header_logo_url')) {
     /**
-     * Public webshop header logo: **only** ElintOm Storefront `logo_image` (getsettings `website_setting[]` / sma_website_setting).
-     * CMS page logos, POS Settings logos, and legacy webshop_settings keys are intentionally not used.
+     * Public webshop header/footer logo from ElintOm Storefront (sma_webshop_header_footer).
+     * Respects CMS Active toggle: inactive logo row returns empty (shop name text fallback).
+     * CMS page logos and legacy POS logos/ folder are not used when storefront slots are configured.
      *
      * @param string      $uploads_base       View $uploads / mdata uploads root
      * @param object|null $Settings           Unused (signature retained for callers)

@@ -1,0 +1,189 @@
+﻿/* Herbinn / ElintOm storefront footer ΓÇö scoped to avoid clashing with shop PLP CSS */
+.hb-site-footer {
+  --hb-primary: #2d5a27;
+  --hb-text-dark: #212529;
+  --hb-text-muted: #6c757d;
+  --hb-white: #ffffff;
+  --hb-border: #dee2e6;
+  --hb-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+footer.hb-site-footer,
+.hb-site-footer {
+  padding-block: 4rem 3rem;
+  background: var(--hb-white);
+  color: var(--hb-text-dark);
+  border-top: 1px solid var(--hb-border);
+}
+
+.hb-site-footer .container {
+  width: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
+  padding-inline: 1.5rem;
+  box-sizing: border-box;
+}
+
+.hb-site-footer .footer-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.35fr);
+  gap: 2.5rem 3rem;
+  margin-bottom: 2.5rem;
+  align-items: start;
+}
+
+.hb-site-footer .brand-col a {
+  display: inline-block;
+  margin-bottom: 1rem;
+  text-decoration: none;
+}
+
+.hb-site-footer .brand-col img {
+  height: 64px;
+  width: auto;
+  max-width: 100%;
+  display: block;
+}
+
+.hb-site-footer .brand-col p,
+.hb-site-footer .navbar-brand-text {
+  color: var(--hb-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  max-width: 22rem;
+  margin: 0;
+}
+
+.hb-site-footer .footer-col h6,
+.hb-site-footer h6 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin: 0 0 1.1rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hb-text-dark);
+}
+
+.hb-site-footer ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.hb-site-footer ul li {
+  margin-bottom: 0.55rem;
+}
+
+.hb-site-footer ul a {
+  color: var(--hb-text-muted);
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: var(--hb-transition);
+}
+
+.hb-site-footer ul a:hover {
+  color: var(--hb-primary);
+}
+
+.hb-site-footer .footer-certs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  max-width: 19rem;
+}
+
+.hb-site-footer .footer-certs .badge-border {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.35rem;
+  padding: 0.45rem 0.55rem;
+  font-size: 0.68rem;
+  line-height: 1.25;
+  text-align: center;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+  background: transparent;
+  border: 1px solid var(--hb-border);
+  color: var(--hb-text-muted);
+  font-weight: 600;
+}
+
+.hb-site-footer .hb-footer-office {
+  margin-top: 1.5rem;
+}
+
+.hb-site-footer .hb-footer-office-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin: 0 0 0.45rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hb-primary);
+}
+
+.hb-site-footer .hb-footer-office-address {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--hb-text-muted);
+  line-height: 1.5;
+}
+
+.hb-site-footer .hb-footer-misc {
+  margin-top: 0.75rem;
+}
+
+.hb-site-footer .hb-footer-misc-line {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: var(--hb-text-muted);
+}
+
+.hb-site-footer .footer-bottom {
+  border-top: 1px solid var(--hb-border);
+  padding-top: 1.5rem;
+  margin-top: 0.25rem;
+  text-align: center;
+}
+
+.hb-site-footer .footer-bottom p {
+  color: var(--hb-text-muted);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+@media (max-width: 992px) {
+  .hb-site-footer .footer-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+  }
+
+  .hb-site-footer .footer-certs {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .hb-site-footer .footer-grid {
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+    text-align: center;
+  }
+
+  .hb-site-footer .brand-col img {
+    margin-inline: auto;
+  }
+
+  .hb-site-footer .brand-col p {
+    margin-inline: auto;
+  }
+
+  .hb-site-footer .footer-certs {
+    margin-inline: auto;
+    max-width: 18rem;
+  }
+
+  .hb-site-footer .hb-footer-office {
+    text-align: center;
+  }
+}

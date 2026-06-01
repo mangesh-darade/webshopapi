@@ -38,6 +38,14 @@ class MY_Controller extends CI_Controller {
             } else {
                 $this->api_website_setting = isset($api_data->website_setting) ? $api_data->website_setting : array();
             }
+            $logo_status = isset($api_data->storefront_logo) ? $api_data->storefront_logo : null;
+            if (is_array($logo_status)) {
+                $this->api_storefront_logo = (object) $logo_status;
+            } elseif (is_object($logo_status)) {
+                $this->api_storefront_logo = $logo_status;
+            } else {
+                $this->api_storefront_logo = null;
+            }
             $this->_normalize_settings_from_api();
             if (!isset($this->Settings->active_webshop)) {
                 $this->Settings->active_webshop = 1;
