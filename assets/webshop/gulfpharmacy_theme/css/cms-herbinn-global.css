@@ -689,14 +689,17 @@ footer ul a:hover {
   color: var(--primary-color);
 }
 
-.footer-certs {
+/* Footer certification badges only — do not style .footer-certs inside .certs-band (see herbinn-footer.css). */
+footer .footer-certs,
+.hb-site-footer .footer-certs {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
   max-width: 19rem;
 }
 
-.footer-certs .badge-border {
+footer .footer-certs .badge-border,
+.hb-site-footer .footer-certs .badge-border {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1037,7 +1040,8 @@ textarea.form-control { resize: vertical; min-height: 110px; }
    ============================================================ */
 @media (max-width: 1024px) {
   .footer-grid { grid-template-columns: 1fr 1fr; gap: 2rem; }
-  .footer-certs { max-width: 100%; }
+  footer .footer-certs,
+  .hb-site-footer .footer-certs { max-width: 100%; }
   .split-row { grid-template-columns: 1fr; gap: 2rem; }
   .split-row.reverse { direction: ltr; }
   .hero-content { grid-template-columns: 1fr; }
@@ -1140,7 +1144,8 @@ textarea.form-control { resize: vertical; min-height: 110px; }
   .footer-grid .brand-col img { margin-inline: auto; }
   .footer-grid .brand-col p { margin-inline: auto; }
   .footer-grid ul, .footer-grid li { text-align: center; }
-  .footer-certs {
+  footer .footer-certs,
+  .hb-site-footer .footer-certs {
     margin-inline: auto;
     max-width: 18rem;
   }
@@ -1609,26 +1614,56 @@ textarea.form-control { resize: vertical; min-height: 110px; }
             .pl-hero { padding: 3rem 0; }
         }
 
-/* ---------- CMS fragment utilities (replace style="" attributes in html_block paste) ---------- */
+/* ---------- Global Accreditation band (CMS html_block — herbin_html certs-band) ---------- */
 .certs-band {
   padding: 2.2rem 0;
-  border-top: 1px solid #eee;
-  border-bottom: 1px solid #eee;
+  border-top: 1px solid var(--border-light);
+  border-bottom: 1px solid var(--border-light);
 }
+
+.certs-band > .container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  text-align: center;
+}
+
 .certs-band__title {
   margin: 0;
   color: var(--text-dark);
-  opacity: 0.8;
   font-weight: 700;
+  font-size: 1rem;
+  flex-shrink: 0;
+  text-align: center;
 }
-.certs-band__logos { justify-content: center; }
+
+.certs-band__logos {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.certs-band .footer-certs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  max-width: none;
+}
+
 .certs-logo {
   height: 60px;
-  filter: grayscale(1) contrast(1.14) brightness(0.72);
-  opacity: 0.95;
-  transition: var(--transition);
+  width: auto;
+  max-width: 140px;
+  object-fit: contain;
+  display: block;
 }
-.certs-logo:hover { filter: grayscale(0) contrast(1.05) brightness(1); opacity: 1; }
+
 .certs-logo--fda { height: 50px; }
 .certs-logo--fssai { height: 55px; }
 .h2-mb-1 { margin-bottom: 1rem; }
