@@ -2401,7 +2401,11 @@ if (!function_exists('webshop_settings_local_phone_length')) {
 }
 
 /**
- * Fallback when thumbs/uploads have no product or category photo (tries standard paths, then SVG data URI).
+ * Fallback when thumbs/uploads have no product or category photo.
+ *
+ * Preferred path is a real PNG at uploads/thumbs/no_image.png
+ * relative to the media uploads base. Only when that cannot be
+ * resolved do we fall back to an inline SVG data URI.
  *
  * @param string $uploads_base
  * @param string $thumbs_base  Usually …/uploads/thumbs/
@@ -2409,9 +2413,16 @@ if (!function_exists('webshop_settings_local_phone_length')) {
  */
 function webshop_no_image_src($uploads_base, $thumbs_base = '') {
     $noImageRel = 'thumbs/no_image.png';
-    if (function_exists('webshop_media_exists_local') && webshop_media_exists_local($uploads_base, $noImageRel)) {
-        return webshop_media_src($uploads_base, $noImageRel);
+
+    // When uploads_base is configured, always try to build a URL
+    // for uploads/thumbs/no_image.png first (remote-friendly).
+    if ($uploads_base !== '') {
+        $fallbackUrl = webshop_media_src($uploads_base, $noImageRel);
+        if ($fallbackUrl !== '') {
+            return $fallbackUrl;
+        }
     }
+
     // Stable offline-safe placeholder: avoids repeated 404s when remote uploads path is unavailable.
     $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180"><rect fill="#f1f5f9" width="180" height="180" rx="12"/><path fill="#e2e8f0" d="M52 58h76v48H52z"/><circle cx="64" cy="54" r="7" fill="#cbd5e1"/><path fill="#cbd5e1" d="M44 122h92v10H44z"/><text x="90" y="108" text-anchor="middle" fill="#64748b" font-family="system-ui,sans-serif" font-size="12">No image</text></svg>';
     return 'data:image/svg+xml;charset=UTF-8,' . rawurlencode($svg);
@@ -2434,8 +2445,14 @@ function webshop_product_image_src($uploads_base, $thumbs_base, $row) {
     if ($img !== '') {
         $normalized = webshop_media_normalize_relative($uploads_base, $img);
         $rel = isset($normalized['relative']) ? (string) $normalized['relative'] : '';
-        if ($rel !== '' && webshop_media_exists_local($uploads_base, $rel)) {
-            return webshop_media_src($uploads_base, $img);
+        if ($rel !== '') {
+            if (webshop_media_exists_local($uploads_base, $rel)) {
+                return webshop_media_src($uploads_base, $img);
+            }
+            $remote = webshop_media_src($uploads_base, $img);
+            if ($remote !== '') {
+                return $remote;
+            }
         }
     }
     return webshop_no_image_src($uploads_base, $thumbs_base);
