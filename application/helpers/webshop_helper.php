@@ -4501,24 +4501,6 @@ if (!function_exists('webshop_clear_elintom_categories_cache')) {
     }
 }
 
-if (!function_exists('webshop_storefront_preset_field_keys')) {
-    /**
-     * Known Storefront field_key presets (admin should use these — reduces typos).
-     *
-     * @return array<int, string>
-     */
-    function webshop_storefront_preset_field_keys() {
-        return array(
-            'logo_image', 'banner_image', 'favicon',
-            'announcement_bar', 'top_bar_html', 'phone_strip',
-            'about_us', 'contact_us', 'privacy_policy', 'terms_and_conditions',
-            'phone', 'mobile', 'hotline', 'email', 'address',
-            'media_facebook_link', 'media_instagram_link', 'media_twitter_link',
-            'media_linkedin_link', 'media_youtube_link', 'media_tiktok_link',
-        );
-    }
-}
-
 if (!function_exists('webshop_footer_row_has_semantic_fallback')) {
     /**
      * True when empty value may be filled from POS/biller Settings (phone, address, about, email).
@@ -4604,25 +4586,61 @@ if (!function_exists('webshop_footer_content_row_should_display')) {
     }
 }
 
-if (!function_exists('webshop_header_row_is_structural_field')) {
+if (!function_exists('webshop_storefront_value_is_tracking_config')) {
     /**
-     * Header rows handled elsewhere (logo, banner, favicon, social) — not display strips.
+     * GA4 / GTM ids or snippets in VALUE — omit from header/footer text strips (any field_key).
      *
-     * @param string $field_key
+     * @param string $value
      * @return bool
      */
-    function webshop_header_row_is_structural_field($field_key) {
-        $fk = strtolower(trim((string) $field_key));
+    function webshop_storefront_value_is_tracking_config($value) {
+        $raw = trim((string) $value);
+        if ($raw === '') {
+            return false;
+        }
+        if (function_exists('webshop_normalize_ga_measurement_id') && webshop_normalize_ga_measurement_id($raw) !== '') {
+            return true;
+        }
+        return (bool) preg_match('/googletagmanager\\.com/i', $raw);
+    }
+}
+
+if (!function_exists('webshop_storefront_omit_from_section_content')) {
+    /**
+     * Skip row in footer columns / header strips (assets, tracking, social).
+     *
+     * @param string $field_key
+     * @param string $value
+     * @return bool
+     */
+    function webshop_storefront_omit_from_section_content($field_key, $value = '') {
+        $fk = trim((string) $field_key);
         if ($fk === '') {
             return true;
         }
         if (webshop_footer_row_is_header_only_field($fk)) {
             return true;
         }
+        if (webshop_storefront_value_is_tracking_config($value)) {
+            return true;
+        }
         if (function_exists('webshop_footer_row_is_social_field') && webshop_footer_row_is_social_field($fk)) {
             return true;
         }
         return false;
+    }
+}
+
+if (!function_exists('webshop_header_row_is_structural_field')) {
+    /**
+     * Header rows handled elsewhere (logo, banner, favicon, social, tracking) — not display strips.
+     *
+     * @param string $field_key
+     * @param string $value
+     * @return bool
+     */
+    function webshop_header_row_is_structural_field($field_key, $value = '') {
+        return webshop_storefront_omit_from_section_content($field_key, $value);
     }
 }
 
@@ -4682,10 +4700,11 @@ if (!function_exists('webshop_header_gather_display_slots')) {
         );
         foreach (webshop_website_setting_section_rows('header') as $item) {
             $fk = webshop_ws_row_field_key($item);
-            if ($fk === '' || webshop_header_row_is_structural_field($fk)) {
+            $raw_val = webshop_ws_row_value_string($item);
+            if (webshop_header_row_is_structural_field($fk, $raw_val)) {
                 continue;
             }
-            $val = webshop_storefront_resolve_row_display_value($fk, webshop_ws_row_value_string($item));
+            $val = webshop_storefront_resolve_row_display_value($fk, $raw_val);
             $kind = webshop_header_slot_kind_resolve($fk, $val);
             if ($kind === '') {
                 continue;
@@ -5189,13 +5208,14 @@ if (!function_exists('webshop_footer_identity_rows')) {
                         continue;
                     }
                     $fk  = webshop_ws_row_field_key($item);
-                    $val = webshop_storefront_resolve_row_display_value($fk, webshop_ws_row_value_string($item));
+                    $raw = webshop_ws_row_value_string($item);
+                    if (webshop_storefront_omit_from_section_content($fk, $raw)) {
+                        continue;
+                    }
+                    $val = webshop_storefront_resolve_row_display_value($fk, $raw);
                     $lab = webshop_ws_row_label_string($item, $fk);
 
                     if ($fk === '' && $val === '' && $lab === '') {
-                        continue;
-                    }
-                    if ($fk !== '' && webshop_footer_row_is_header_only_field($fk)) {
                         continue;
                     }
 
@@ -5235,10 +5255,11 @@ if (!function_exists('webshop_footer_identity_rows')) {
                 if (isset($header_keys[$fk])) {
                     continue;
                 }
-                if (webshop_footer_row_is_header_only_field($fk)) {
+                $raw = webshop_ws_row_value_string($item);
+                if (webshop_storefront_omit_from_section_content($fk, $raw)) {
                     continue;
                 }
-                $val = webshop_storefront_resolve_row_display_value($fk, webshop_ws_row_value_string($item));
+                $val = webshop_storefront_resolve_row_display_value($fk, $raw);
 
                 $seen_keys[$fk] = true;
                 $out[] = array(
@@ -5537,8 +5558,16 @@ if (!function_exists('webshop_footer_row_is_header_only_field')) {
      * @return bool
      */
     function webshop_footer_row_is_header_only_field($field_key) {
-        static $keys = array('logo_image', 'banner_image', 'favicon', 'header_logo', 'store_logo', 'site_logo');
-        return in_array(strtolower(trim((string) $field_key)), $keys, true);
+        $fk = strtolower(trim((string) $field_key));
+        if ($fk === '') {
+            return false;
+        }
+        if (preg_match('/^(logo|banner|favicon|header_logo|store_logo|site_logo)(_|$)/', $fk)) {
+            return true;
+        }
+        return in_array($fk, array(
+            'logo_image', 'banner_image', 'favicon', 'header_logo', 'store_logo', 'site_logo',
+        ), true);
     }
 }
 
@@ -5586,13 +5615,14 @@ if (!function_exists('webshop_footer_gather_display_rows')) {
 
         $push = function ($item, $section) use (&$content, &$social, &$seen_social) {
             $fk = webshop_ws_row_field_key($item);
-            if ($fk === '' || webshop_footer_row_is_header_only_field($fk)) {
+            $raw = webshop_ws_row_value_string($item);
+            if (webshop_storefront_omit_from_section_content($fk, $raw)) {
                 return;
             }
             $row = array(
                 'field_key'   => $fk,
                 'label'       => webshop_ws_row_label_string($item, $fk),
-                'value'       => webshop_storefront_resolve_row_display_value($fk, webshop_ws_row_value_string($item)),
+                'value'       => webshop_storefront_resolve_row_display_value($fk, $raw),
                 'icons'       => webshop_ws_row_icons_string($item),
                 'sort_order'  => webshop_ws_row_sort_order($item),
                 'section'     => $section,
@@ -5632,7 +5662,8 @@ if (!function_exists('webshop_footer_gather_display_rows')) {
         foreach (webshop_ws_website_setting_bundles() as $items) {
             foreach ($items as $item) {
                 $fk = webshop_ws_row_field_key($item);
-                if ($fk === '' || webshop_footer_row_is_header_only_field($fk)) {
+                $raw = webshop_ws_row_value_string($item);
+                if (webshop_storefront_omit_from_section_content($fk, $raw)) {
                     continue;
                 }
                 if (webshop_footer_row_is_social_field($fk)) {
@@ -5641,7 +5672,7 @@ if (!function_exists('webshop_footer_gather_display_rows')) {
                         $social[] = array(
                             'field_key'   => $fk,
                             'label'       => webshop_ws_row_label_string($item, $fk),
-                            'value'       => webshop_storefront_resolve_row_display_value($fk, webshop_ws_row_value_string($item)),
+                            'value'       => webshop_storefront_resolve_row_display_value($fk, $raw),
                             'icons'       => webshop_ws_row_icons_string($item),
                             'sort_order'  => webshop_ws_row_sort_order($item),
                             'section'     => 'footer',
@@ -6131,6 +6162,119 @@ if (!function_exists('webshop_herbinn_storefront_field_value')) {
             return trim(webshop_ws_row_value_string($item));
         }
         return '';
+    }
+}
+
+if (!function_exists('webshop_normalize_ga_measurement_id')) {
+    /**
+     * GA4 / Universal / Ads measurement id from CMS value (plain G-… or pasted gtag snippet).
+     *
+     * @param string $raw
+     * @return string Valid id or empty
+     */
+    function webshop_normalize_ga_measurement_id($raw) {
+        $raw = trim((string) $raw);
+        if ($raw === '') {
+            return '';
+        }
+        if (preg_match('/googletagmanager\.com\/gtag\/js\?id=([A-Za-z0-9_-]+)/i', $raw, $m)) {
+            $raw = $m[1];
+        } elseif (preg_match("/gtag\s*\(\s*['\"]config['\"]\s*,\s*['\"]([A-Za-z0-9_-]+)/i", $raw, $m)) {
+            $raw = $m[1];
+        }
+        $raw = trim($raw);
+        if (preg_match('/^(G|GT|AW|UA)-[A-Z0-9]+$/i', $raw)) {
+            return strtoupper($raw);
+        }
+        return '';
+    }
+}
+
+if (!function_exists('webshop_render_storefront_analytics_head_snippet')) {
+    /**
+     * Head tracking from active header Content Value rows (getsettings).
+     *
+     * @return string
+     */
+    function webshop_render_storefront_analytics_head_snippet() {
+        $parts = array();
+        $seen = array();
+
+        $append = function ($raw) use (&$parts, &$seen) {
+            $raw = trim((string) $raw);
+            if ($raw === '' || isset($seen[$raw])) {
+                return;
+            }
+            if (preg_match('/<script/i', $raw) && preg_match('/googletagmanager/i', $raw)) {
+                if (preg_match_all('/<script\b[^>]*>[\s\S]*?<\/script>/i', $raw, $blocks)) {
+                    foreach ($blocks[0] as $block) {
+                        if (!preg_match('/googletagmanager|gtag\s*\(/i', $block) || preg_match('/javascript:|on\w+\s*=/i', $block)) {
+                            continue;
+                        }
+                        $h = md5($block);
+                        if (!isset($seen[$h])) {
+                            $seen[$h] = true;
+                            $parts[] = $block;
+                        }
+                    }
+                }
+                $seen[$raw] = true;
+                return;
+            }
+            $ga = webshop_normalize_ga_measurement_id($raw);
+            if ($ga === '') {
+                return;
+            }
+            $ga_esc = htmlspecialchars($ga, ENT_QUOTES, 'UTF-8');
+            $markup = '<!-- Google Analytics code -->' . "\n"
+                . '<script async src="https://www.googletagmanager.com/gtag/js?id=' . $ga_esc . '"></script>' . "\n"
+                . '<script>window.dataLayer = window.dataLayer || [];function gtag(){dataLayer.push(arguments);}'
+                . "gtag('js', new Date());\ngtag('config', '" . $ga_esc . "');\n</script>";
+            if (!isset($seen[$markup])) {
+                $seen[$markup] = true;
+                $parts[] = $markup;
+            }
+            $seen[$raw] = true;
+        };
+
+        if (function_exists('webshop_website_setting_section_rows')) {
+            foreach (webshop_website_setting_section_rows('header') as $item) {
+                $append(webshop_ws_row_value_string($item));
+            }
+        }
+        if (empty($parts) && function_exists('webshop_ws_website_setting_bundles')) {
+            foreach (webshop_ws_website_setting_bundles() as $bundle) {
+                foreach ($bundle as $item) {
+                    if (!webshop_ws_row_is_active($item)) {
+                        continue;
+                    }
+                    $sec = '';
+                    if (is_object($item) && isset($item->section_type)) {
+                        $sec = strtolower(trim((string) $item->section_type));
+                    } elseif (is_array($item) && isset($item['section_type'])) {
+                        $sec = strtolower(trim((string) $item['section_type']));
+                    }
+                    if ($sec !== '' && $sec !== 'header') {
+                        continue;
+                    }
+                    $append(webshop_ws_row_value_string($item));
+                }
+            }
+        }
+
+        return empty($parts) ? '' : implode("\n", $parts) . "\n";
+    }
+}
+
+if (!function_exists('webshop_require_storefront_analytics_head')) {
+    /**
+     * Echo analytics snippets in document <head> (Storefront CMS → getsettings).
+     */
+    function webshop_require_storefront_analytics_head() {
+        $html = webshop_render_storefront_analytics_head_snippet();
+        if ($html !== '') {
+            echo $html;
+        }
     }
 }
 

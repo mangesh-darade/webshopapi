@@ -29,6 +29,7 @@ $os_preload_logo = function_exists('webshop_resolve_header_logo_url')
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <?php if (function_exists('webshop_require_storefront_analytics_head')) { webshop_require_storefront_analytics_head(); } ?>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Payment Declined | <?= htmlspecialchars($shopName, ENT_QUOTES, 'UTF-8') ?></title>

@@ -169,6 +169,7 @@ if (is_file($_wl_tl_open)) {
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <?php if (function_exists('webshop_require_storefront_analytics_head')) { webshop_require_storefront_analytics_head(); } ?>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="<?= htmlspecialchars($_pv_page_robots, ENT_QUOTES, 'UTF-8') ?>">

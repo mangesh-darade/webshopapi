@@ -20,6 +20,7 @@ $payCurrencyIso = isset($payment_currency_iso) ? trim((string) $payment_currency
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <?php if (function_exists('webshop_require_storefront_analytics_head')) { webshop_require_storefront_analytics_head(); } ?>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Payment | <?= htmlspecialchars($shopName, ENT_QUOTES, 'UTF-8') ?></title>

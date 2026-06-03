@@ -12,6 +12,7 @@ $selected_mdata_include_http_host_segment = false;
 $selected_media_use_http_host = false;
 $selected_api_ssl_verify = true;
 $selected_api_ssl_ca_bundle = '';
+$selected_http_cache_settings_seconds = null;
 
 $normalize_host = function ($raw_host) {
     $host = strtolower(trim((string) $raw_host));
@@ -43,6 +44,7 @@ $elintom_switch_profiles = array(
     'localhost_elintom' => array(
         'api_base_url'                    => 'http://localhost/ElintOm/',
         'api_private_key'                 => '3e8676ed23c627117437c7e6a1bbd6e9',
+        'http_cache_settings_seconds'     => 0,
         'ssl_verify'                      => false,
         'ssl_ca_bundle'                   => '',
         'media_uploads_base_url'          => 'http://localhost/ElintOm/assets/mdata/localhost/uploads/',
@@ -79,5 +81,6 @@ $selected_mdata_include_http_host_segment = isset($p['mdata_include_http_host_se
 $selected_media_use_http_host = isset($p['media_use_http_host']) ? (bool) $p['media_use_http_host'] : false;
 $selected_api_ssl_verify = isset($p['ssl_verify']) ? (bool) $p['ssl_verify'] : true;
 $selected_api_ssl_ca_bundle = isset($p['ssl_ca_bundle']) ? (string) $p['ssl_ca_bundle'] : '';
+$selected_http_cache_settings_seconds = isset($p['http_cache_settings_seconds']) ? (int) $p['http_cache_settings_seconds'] : null;
 
 unset($normalize_host, $host_to_profile, $elintom_switch_profiles, $elintom_active_profile, $p);

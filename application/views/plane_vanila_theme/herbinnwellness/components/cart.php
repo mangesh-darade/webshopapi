@@ -9,6 +9,7 @@ $theme = (isset($webshop_settings) && is_object($webshop_settings) && isset($web
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <?php if (function_exists('webshop_require_storefront_analytics_head')) { webshop_require_storefront_analytics_head(); } ?>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">

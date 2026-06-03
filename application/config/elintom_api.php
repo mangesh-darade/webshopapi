@@ -31,6 +31,8 @@ $config['elintom_catalog_source'] = 'api';
 $config['elintom_catalog_fallback_database'] = false;
 $config['elintom_domain_theme_map'] = array();
 
-$config['elintom_http_cache_settings_seconds'] = 45;
+$config['elintom_http_cache_settings_seconds'] = isset($selected_http_cache_settings_seconds)
+    ? (int) $selected_http_cache_settings_seconds
+    : 45;
 $config['elintom_http_cache_categories_seconds'] = 0;
 $config['elintom_http_cache_cart_products_seconds'] = 60;
