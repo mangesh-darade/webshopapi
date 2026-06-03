@@ -2229,6 +2229,9 @@ XSL;
         $candidates = $this->webshop_model->cms_url_candidates_from_path($urlPath);
         $cmsPage = $this->webshop_model->find_published_cms_page($candidates);
         if (!is_object($cmsPage)) {
+            if ($this->render_cms_api_error_page($urlPath)) {
+                return;
+            }
             show_404();
             return;
         }
@@ -2366,6 +2369,49 @@ XSL;
         } else {
             $this->load_view('cms_page', $this->data);
         }
+    }
+
+    /**
+     * Render user-friendly CMS API error page when dynamic CMS fetch fails.
+     *
+     * @param string $urlPath
+     * @return bool
+     */
+    private function render_cms_api_error_page($urlPath = '/')
+    {
+        $apiError = '';
+        if (isset($this->webshop_model) && method_exists($this->webshop_model, 'get_last_cms_api_error')) {
+            $apiError = trim((string) $this->webshop_model->get_last_cms_api_error());
+        }
+        if ($apiError === '') {
+            return false;
+        }
+
+        $safePath = '/' . ltrim((string) $urlPath, '/');
+        if ($safePath === '//') {
+            $safePath = '/';
+        }
+
+        $this->data['page_title'] = 'Page Temporarily Unavailable';
+        $this->data['cms_page_load_error'] = true;
+        $this->data['cms_api_error_message'] = $apiError;
+        $this->data['is_dynamic_cms_page'] = true;
+        $this->data['dynamic_cms_slug'] = $safePath;
+        $this->data['home_has_category_grid'] = false;
+        $this->data['home_has_product_grid'] = false;
+        $this->data['home_has_header_section'] = true;
+        $this->data['home_has_footer_section'] = true;
+        $this->data['home_section_html_block'] =
+            '<div class="container" style="padding:32px 16px;">'
+            . '<div class="alert alert-warning" style="border:1px solid #f59e0b;background:#fffbeb;color:#92400e;border-radius:10px;padding:16px;">'
+            . '<h3 style="margin:0 0 8px 0;">Page temporarily unavailable</h3>'
+            . '<p style="margin:0 0 6px 0;">We could not load this page from CMS API right now.</p>'
+            . '<p style="margin:0;"><strong>Details:</strong> ' . htmlspecialchars($apiError, ENT_QUOTES, 'UTF-8') . '</p>'
+            . '</div></div>';
+        $this->data['cms_body_html'] = $this->data['home_section_html_block'];
+
+        $this->load_view('index', $this->data);
+        return true;
     }
 
     private function hydrate_static_cms_payload($slug, $target_key)
@@ -8199,6 +8245,10 @@ XSL;
                 $canonicalSlug = $storefrontSlug;
             }
             $this->cms_page($canonicalSlug);
+            return true;
+        }
+
+        if ($this->render_cms_api_error_page('/' . ltrim((string) $storefrontSlug, '/'))) {
             return true;
         }
 

@@ -70,6 +70,9 @@ class Webshop_api_model extends CI_Model {
     /** Last add_order() failure message for checkout flash (API or transport). */
     protected $last_order_error = '';
 
+    /** Last CMS API failure details for user-facing fallback message. */
+    protected $last_cms_api_error = '';
+
     public function __construct() {
         parent::__construct();
 
@@ -440,13 +443,23 @@ class Webshop_api_model extends CI_Model {
         }
 
         $pages = null;
-        $apiPlacement = ($placement === 'all') ? null : $placement;
-        $res = $this->api->get_cms_pages($apiPlacement);
+        // Always fetch full CMS list so submenu rows are available for parent->child mapping.
+        // Placement filtering is applied locally in build_cms_nav_pages_from_rows().
+        $res = $this->api->get_cms_pages(null);
         if ($res && isset($res->status) && strtoupper((string) $res->status) === 'SUCCESS' && isset($res->pages)) {
             $pages = is_array($res->pages) ? $res->pages : (array) $res->pages;
+            if (!$this->cms_pages_have_parent_mapping($pages) && isset($res->menu_tree)) {
+                $menuTree = is_array($res->menu_tree) ? $res->menu_tree : (array) $res->menu_tree;
+                if (!empty($menuTree)) {
+                    $flatFromTree = $this->flatten_cms_menu_tree_rows($menuTree);
+                    if (!empty($flatFromTree)) {
+                        $pages = $flatFromTree;
+                    }
+                }
+            }
         }
         if ($pages === null) {
-            $pages = $this->get_cms_nav_pages_from_direct_db($apiPlacement);
+            $pages = array();
         }
 
         $out = $this->build_cms_nav_pages_from_rows($pages, $placement === 'all' ? null : $placement);
@@ -455,10 +468,104 @@ class Webshop_api_model extends CI_Model {
         return $out;
     }
 
+    public function get_last_cms_api_error() {
+        return (string) $this->last_cms_api_error;
+    }
+
     /**
-     * @param array<int,mixed>   $pages Rows from getcmspages or Cms_direct_db::list_published_pages()
+     * @param array<int,mixed> $pages
+     * @return bool
+     */
+    protected function cms_pages_have_parent_mapping(array $pages) {
+        foreach ($pages as $row) {
+            $a = is_object($row) ? (array) $row : (is_array($row) ? $row : array());
+            if (isset($a['id']) && (int) $a['id'] > 0) {
+                return true;
+            }
+            if (isset($a['parent_page_id'])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Flatten API menu_tree into pages-like rows so legacy code can keep using flat arrays.
+     *
+     * @param array<int,mixed> $menuTree
+     * @param int $parentId
+     * @return array<int,array<string,mixed>>
+     */
+    protected function flatten_cms_menu_tree_rows(array $menuTree, $parentId = 0) {
+        $out = array();
+        foreach ($menuTree as $node) {
+            $a = is_object($node) ? (array) $node : (is_array($node) ? $node : array());
+            if (empty($a)) {
+                continue;
+            }
+            $id = isset($a['id']) ? (int) $a['id'] : 0;
+            $a['parent_page_id'] = $parentId > 0 ? $parentId : (isset($a['parent_page_id']) ? (int) $a['parent_page_id'] : 0);
+            if (!isset($a['page_name']) || trim((string) $a['page_name']) === '') {
+                $a['page_name'] = isset($a['title']) ? (string) $a['title'] : '';
+            }
+            if (!isset($a['status']) || trim((string) $a['status']) === '') {
+                $a['status'] = 'published';
+            }
+            $children = isset($a['children']) && is_array($a['children']) ? $a['children'] : array();
+            unset($a['children']);
+            $out[] = $a;
+            if ($id > 0 && !empty($children)) {
+                $out = array_merge($out, $this->flatten_cms_menu_tree_rows($children, $id));
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Return CMS pages payload with backward-compatible flat list plus nested menu tree.
+     *
+     * @param string $placement header|footer|all
+     * @return array{pages:array<int,array<string,mixed>>,menu_tree:array<int,array<string,mixed>>}
+     */
+    public function get_cms_pages_payload($placement = 'all') {
+        $placement = strtolower(trim((string) $placement));
+        if (!in_array($placement, array('header', 'footer', 'all'), true)) {
+            $placement = 'all';
+        }
+
+        $pages = array();
+        $menuTree = array();
+        $apiPlacement = ($placement === 'all') ? null : $placement;
+        $res = $this->api->get_cms_pages($apiPlacement);
+
+        if ($res && isset($res->status) && strtoupper((string) $res->status) === 'SUCCESS') {
+            if (isset($res->pages)) {
+                $pages = is_array($res->pages) ? $res->pages : (array) $res->pages;
+            }
+            if (isset($res->menu_tree)) {
+                $menuTree = is_array($res->menu_tree) ? $res->menu_tree : (array) $res->menu_tree;
+            }
+        }
+
+        if (empty($pages)) {
+            $pages = array();
+        }
+        $pages = $this->normalize_cms_pages_rows($pages);
+
+        if (empty($menuTree)) {
+            $menuTree = $this->build_cms_menu_tree_from_rows($pages);
+        }
+
+        return array(
+            'pages' => $pages,
+            'menu_tree' => $menuTree,
+        );
+    }
+
+    /**
+     * @param array<int,mixed> $pages Rows from getcmspages API
      * @param string|null      $placement header|footer — extra filter when API returns all rows
-     * @return array<int,array{title:string,url:string,href:string,nav_order:int}>
+     * @return array<int,array<string,mixed>>
      */
     protected function build_cms_nav_pages_from_rows(array $pages, $placement = null) {
         $out = array();
@@ -491,6 +598,9 @@ class Webshop_api_model extends CI_Model {
                 $seenHome = true;
             }
             $out[] = array(
+                'id'        => isset($a['id']) ? (int) $a['id'] : 0,
+                'parent_page_id' => isset($a['parent_page_id']) ? (int) $a['parent_page_id'] : 0,
+                'submenu_order' => isset($a['submenu_order']) ? (int) $a['submenu_order'] : 0,
                 'title'     => $title,
                 'url'       => $url,
                 'href'      => $href,
@@ -498,6 +608,99 @@ class Webshop_api_model extends CI_Model {
             );
         }
         return $this->sort_cms_nav_pages($out);
+    }
+
+    /**
+     * @param array<int,mixed> $pages
+     * @return array<int,array<string,mixed>>
+     */
+    protected function normalize_cms_pages_rows(array $pages) {
+        $out = array();
+        foreach ($pages as $row) {
+            $a = is_object($row) ? (array) $row : (is_array($row) ? $row : array());
+            if (empty($a)) {
+                continue;
+            }
+            $a['id'] = isset($a['id']) ? (int) $a['id'] : 0;
+            $a['parent_page_id'] = isset($a['parent_page_id']) ? (int) $a['parent_page_id'] : 0;
+            $a['submenu_order'] = isset($a['submenu_order']) ? (int) $a['submenu_order'] : 0;
+            $a['nav_order'] = isset($a['nav_order']) ? (int) $a['nav_order'] : 0;
+            $out[] = $a;
+        }
+        return $out;
+    }
+
+    /**
+     * Build nested menu tree from flat pages.
+     *
+     * @param array<int,array<string,mixed>> $pages
+     * @return array<int,array<string,mixed>>
+     */
+    protected function build_cms_menu_tree_from_rows(array $pages) {
+        $nodes = array();
+        $childrenMap = array();
+        foreach ($pages as $row) {
+            $id = isset($row['id']) ? (int) $row['id'] : 0;
+            if ($id <= 0) {
+                continue;
+            }
+            $parentId = isset($row['parent_page_id']) ? (int) $row['parent_page_id'] : 0;
+            if ($parentId === $id || $parentId < 0) {
+                $parentId = 0;
+            }
+            $row['parent_page_id'] = $parentId;
+            $row['children'] = array();
+            $nodes[$id] = $row;
+            if (!isset($childrenMap[$parentId])) {
+                $childrenMap[$parentId] = array();
+            }
+            $childrenMap[$parentId][] = $id;
+        }
+
+        $self = $this;
+        $build = function ($parentId) use (&$build, $self, &$nodes, &$childrenMap) {
+            $items = array();
+            if (!isset($childrenMap[$parentId])) {
+                return $items;
+            }
+            foreach ($childrenMap[$parentId] as $id) {
+                if (!isset($nodes[$id])) {
+                    continue;
+                }
+                $node = $nodes[$id];
+                $node['children'] = $build((int) $node['id']);
+                $items[] = $node;
+            }
+            usort($items, array($self, 'compare_cms_child_rows_for_tree'));
+            return $items;
+        };
+
+        $roots = $build(0);
+        usort($roots, array($this, 'compare_cms_root_rows_for_tree'));
+        return $roots;
+    }
+
+    protected function compare_cms_root_rows_for_tree($a, $b) {
+        $oa = isset($a['nav_order']) ? (int) $a['nav_order'] : 0;
+        $ob = isset($b['nav_order']) ? (int) $b['nav_order'] : 0;
+        if ($oa !== $ob) {
+            return ($oa < $ob) ? -1 : 1;
+        }
+        return strcasecmp(isset($a['page_name']) ? (string) $a['page_name'] : '', isset($b['page_name']) ? (string) $b['page_name'] : '');
+    }
+
+    protected function compare_cms_child_rows_for_tree($a, $b) {
+        $sa = isset($a['submenu_order']) ? (int) $a['submenu_order'] : 0;
+        $sb = isset($b['submenu_order']) ? (int) $b['submenu_order'] : 0;
+        if ($sa !== $sb) {
+            return ($sa < $sb) ? -1 : 1;
+        }
+        $oa = isset($a['nav_order']) ? (int) $a['nav_order'] : 0;
+        $ob = isset($b['nav_order']) ? (int) $b['nav_order'] : 0;
+        if ($oa !== $ob) {
+            return ($oa < $ob) ? -1 : 1;
+        }
+        return strcasecmp(isset($a['page_name']) ? (string) $a['page_name'] : '', isset($b['page_name']) ? (string) $b['page_name'] : '');
     }
 
     /**
@@ -511,11 +714,20 @@ class Webshop_api_model extends CI_Model {
     }
 
     /**
-     * @param array<int,array{title:string,url:string,href:string,nav_order:int}> $pages
-     * @return array<int,array{title:string,url:string,href:string,nav_order:int}>
+     * @param array<int,array<string,mixed>> $pages
+     * @return array<int,array<string,mixed>>
      */
     protected function sort_cms_nav_pages(array $pages) {
         usort($pages, function ($a, $b) {
+            $pa = isset($a['parent_page_id']) ? (int) $a['parent_page_id'] : 0;
+            $pb = isset($b['parent_page_id']) ? (int) $b['parent_page_id'] : 0;
+            if ($pa > 0 && $pb > 0 && $pa === $pb) {
+                $sa = isset($a['submenu_order']) ? (int) $a['submenu_order'] : 0;
+                $sb = isset($b['submenu_order']) ? (int) $b['submenu_order'] : 0;
+                if ($sa !== $sb) {
+                    return ($sa < $sb) ? -1 : 1;
+                }
+            }
             $oa = isset($a['nav_order']) ? (int) $a['nav_order'] : 0;
             $ob = isset($b['nav_order']) ? (int) $b['nav_order'] : 0;
             if ($oa !== $ob) {
@@ -536,28 +748,6 @@ class Webshop_api_model extends CI_Model {
             return strcmp(isset($a['url']) ? (string) $a['url'] : '', isset($b['url']) ? (string) $b['url'] : '');
         });
         return $pages;
-    }
-
-    /**
-     * Fallback nav list when getcmspages HTTP fails (requires elintom_cms_direct_db).
-     *
-     * @return array<int,array<string,mixed>>
-     */
-    /**
-     * @param string|null $placement header|footer|null (all)
-     * @return array<int,array<string,mixed>>
-     */
-    protected function get_cms_nav_pages_from_direct_db($placement = null) {
-        $this->config->load('elintom_api', true);
-        if (!(bool) $this->config->item('elintom_cms_direct_db', 'elintom_api')) {
-            return array();
-        }
-        $CI =& get_instance();
-        $CI->load->library('cms_direct_db');
-        if (!isset($CI->cms_direct_db) || !$CI->cms_direct_db->is_ready()) {
-            return array();
-        }
-        return $CI->cms_direct_db->list_published_pages(array('static'), $placement);
     }
 
     /**
@@ -854,16 +1044,10 @@ class Webshop_api_model extends CI_Model {
                 . ' status=' . $statusText . ' msg=' . $msgText;
             $benignMiss = stripos($msgText, 'not found') !== false;
             log_message($benignMiss ? 'debug' : 'error', $logLine);
-
-            if ($this->should_use_cms_direct_db_fallback($res, $msgText)) {
-                $direct = $this->get_cms_page_content_direct_db($url_path);
-                if ($direct !== null) {
-                    log_message('info', 'Webshop_api_model:get_cms_page_content direct_db ok url=' . (string) $url_path);
-                    return $direct;
-                }
-            }
+            $this->last_cms_api_error = ($msgText !== '' ? $msgText : 'CMS API request failed.');
             return null;
         }
+        $this->last_cms_api_error = '';
         $pick_first_string = function ($sources, $keys) {
             foreach ($sources as $src) {
                 if (!is_array($src)) {
@@ -1068,50 +1252,6 @@ class Webshop_api_model extends CI_Model {
             }
         }
         return trim((string) $api_meta_html);
-    }
-
-    /**
-     * Fallback when getcmspage HTTP fails (remote 500, wrong API host, etc.).
-     * Skipped when ElintOm API explicitly says the page does not exist (empty CMS admin list).
-     *
-     * @param string $url_path
-     * @return stdClass|null
-     */
-    protected function get_cms_page_content_direct_db($url_path) {
-        $this->config->load('elintom_api', true);
-        if (!(bool) $this->config->item('elintom_cms_direct_db', 'elintom_api')) {
-            return null;
-        }
-        $CI =& get_instance();
-        $CI->load->library('cms_direct_db');
-        if (!isset($CI->cms_direct_db) || !$CI->cms_direct_db->is_ready()) {
-            return null;
-        }
-        return $CI->cms_direct_db->get_page_by_url($url_path);
-    }
-
-    /**
-     * Use local sma_pages only when API did not definitively say the page is missing.
-     *
-     * @param object|null $res
-     * @param string      $msgText
-     * @return bool
-     */
-    protected function should_use_cms_direct_db_fallback($res, $msgText) {
-        $this->config->load('elintom_api', true);
-        if (!(bool) $this->config->item('elintom_cms_direct_db', 'elintom_api')) {
-            return false;
-        }
-        $msgText = strtolower(trim((string) $msgText));
-        $apiResponded = ($res !== null && is_object($res) && isset($res->status));
-        $pageMissing = $apiResponded && (
-            stripos($msgText, 'not found') !== false
-            || stripos($msgText, 'page not found') !== false
-        );
-        if ($pageMissing && !(bool) $this->config->item('elintom_cms_direct_db_on_api_not_found', 'elintom_api')) {
-            return false;
-        }
-        return true;
     }
 
     /**

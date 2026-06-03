@@ -10,6 +10,12 @@ if ($shop_name === '') {
     $shop_name = 'Shop';
 }
 $cms_nav   = isset($cms_nav_pages) && is_array($cms_nav_pages) ? $cms_nav_pages : array();
+$cms_nav_tree = array();
+if (!empty($cms_nav)) {
+    $cms_nav_tree = function_exists('webshop_build_sorted_cms_nav_tree')
+        ? webshop_build_sorted_cms_nav_tree($cms_nav)
+        : $cms_nav;
+}
 $cart_cnt  = isset($cart_items) && is_array($cart_items) ? count($cart_items) : 0;
 $wish_cnt  = isset($wishlist_count) ? (int)$wishlist_count : 0;
 $webshop_url = base_url('webshop');
@@ -50,6 +56,159 @@ $_gp_header_slots = function_exists('webshop_header_gather_display_slots')
 <link rel="stylesheet" href="<?= htmlspecialchars(webshop_theme_assets_url('css/herbinn-footer.css?ver=20260601b'), ENT_QUOTES, 'UTF-8') ?>">
 <?php endif; ?>
 <header class="gp-header" id="gp-header">
+    <style>
+        .gp-nav-item{position:relative}
+        .gp-nav-link-wrap{display:flex;align-items:center;gap:8px}
+        .gp-nav-link{font-weight:400;line-height:1.4;padding:8px 12px;border-radius:999px;transition:color .25s ease,background-color .25s ease}
+        .gp-nav-arrow{width:8px;height:8px;display:inline-block;border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;transform:rotate(45deg);transition:transform .3s ease,opacity .3s ease;margin-top:-2px;opacity:.7}
+        .gp-nav-item:hover .gp-nav-arrow,.gp-nav-item.is-open .gp-nav-arrow,.gp-nav-item:focus-within .gp-nav-arrow{transform:rotate(225deg);margin-top:2px;opacity:1}
+        .gp-submenu{
+            position:absolute;
+            top:calc(100% + 7px);
+            left:50%;
+            min-width:168px;
+            width:max-content;
+            max-width:none;
+            background:#fff;
+            border:1px solid #EEF2F7;
+            border-radius:12px;
+            box-shadow:0 8px 24px rgba(0,0,0,0.08);
+            padding:8px;
+            z-index:40;
+            opacity:0;
+            transform:translate(-50%, 8px);
+            visibility:hidden;
+            pointer-events:none;
+            transition:opacity .25s ease,transform .25s ease,visibility .25s ease;
+        }
+        .gp-nav-list>.gp-nav-item>.gp-submenu::before{
+            content:'';
+            position:absolute;
+            top:-10px;
+            left:0;
+            right:0;
+            height:10px;
+            background:transparent;
+        }
+        .gp-nav-list>.gp-nav-item>.gp-submenu::after{
+            content:'';
+            position:absolute;
+            top:-5px;
+            left:50%;
+            width:11px;
+            height:11px;
+            background:#fff;
+            border-left:1px solid #EEF2F7;
+            border-top:1px solid #EEF2F7;
+            transform:translateX(-50%) rotate(45deg);
+            z-index:-1;
+        }
+        .gp-submenu li{list-style:none;margin:0;padding:0}
+        .gp-nav-item:hover>.gp-submenu,
+        .gp-nav-item.is-open>.gp-submenu,
+        .gp-nav-item:focus-within>.gp-submenu{
+            opacity:1;
+            transform:translate(-50%, 0);
+            visibility:visible;
+            pointer-events:auto;
+        }
+        .gp-nav-item.is-open>.gp-nav-link-wrap>.gp-nav-link,
+        .gp-nav-item:hover>.gp-nav-link-wrap>.gp-nav-link,
+        .gp-nav-item:focus-within>.gp-nav-link-wrap>.gp-nav-link{
+            color:var(--gp-primary);
+            background:#f8fcfe;
+        }
+        .gp-submenu-link{
+            display:flex;
+            align-items:center;
+            gap:12px;
+            min-height:44px;
+            padding:10px 12px;
+            color:#0f172a;
+            text-decoration:none;
+            white-space:normal;
+            border-radius:10px;
+            font-weight:500;
+            font-size:14px;
+            line-height:1.4;
+            transition:background-color .25s ease,color .25s ease,transform .25s ease,box-shadow .25s ease;
+        }
+        .gp-submenu-icon{
+            width:28px;
+            height:28px;
+            border-radius:8px;
+            background:linear-gradient(135deg,#ecfeff,#eef6ff);
+            border:1px solid #dbeafe;
+            color:#0f766e;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            flex:0 0 26px;
+            font-size:12px;
+            font-weight:700;
+            letter-spacing:.02em;
+        }
+        .gp-submenu-text{
+            display:block;
+            font-weight:500;
+            line-height:1.45;
+        }
+        .gp-submenu-link:hover,
+        .gp-submenu-link:focus{
+            background:#F5FAFC;
+            color:var(--gp-primary);
+            transform:translateX(2px);
+            outline:none;
+        }
+        .gp-submenu-link:focus-visible{
+            box-shadow:0 0 0 2px rgba(15,118,110,.22);
+        }
+        .gp-nav-item .gp-submenu .gp-nav-item{position:relative}
+        .gp-nav-item .gp-submenu .gp-submenu{
+            top:0;
+            left:calc(100% + 10px);
+            min-width:260px;
+            max-width:360px;
+            transform:translate(0, 8px);
+        }
+        .gp-nav-item .gp-submenu .gp-submenu::before,
+        .gp-nav-item .gp-submenu .gp-submenu::after{display:none}
+        .gp-nav-item .gp-submenu .gp-nav-item:hover>.gp-submenu,
+        .gp-nav-item .gp-submenu .gp-nav-item.is-open>.gp-submenu,
+        .gp-nav-item .gp-submenu .gp-nav-item:focus-within>.gp-submenu{
+            transform:translate(0, 0);
+        }
+        .gp-nav-item.gp-nav-item--mega>.gp-submenu{
+            min-width:280px;
+            max-width:360px;
+        }
+        .gp-sidebar-sublink{display:block;padding:6px 12px 6px 34px;color:#4b5563;text-decoration:none;font-size:13px}
+        .gp-sidebar-sublink:hover{color:#111827}
+        @media (max-width:1024px){
+            .gp-submenu{min-width:180px;max-width:220px}
+            .gp-nav-item.gp-nav-item--mega>.gp-submenu{min-width:260px;max-width:320px}
+        }
+        @media (max-width:768px){
+            .gp-submenu,
+            .gp-nav-item .gp-submenu .gp-submenu{
+                position:static;
+                min-width:100%;
+                max-width:none;
+                width:100%;
+                margin-top:6px;
+                border-radius:10px;
+                box-shadow:0 6px 20px rgba(0,0,0,0.06);
+                opacity:1;
+                visibility:visible;
+                pointer-events:auto;
+                transform:none;
+                display:none;
+            }
+            .gp-nav-list>.gp-nav-item>.gp-submenu::before,
+            .gp-nav-list>.gp-nav-item>.gp-submenu::after{display:none}
+            .gp-nav-item.is-open>.gp-submenu{display:block}
+        }
+    </style>
     <?php if (!empty($_gp_header_slots['announcement'])) : ?>
     <div class="gp-header-announcement" role="region" aria-label="Store announcement">
         <?php foreach ($_gp_header_slots['announcement'] as $_gp_ann) :
@@ -101,12 +260,56 @@ $_gp_header_slots = function_exists('webshop_header_gather_display_slots')
         </a>
 
         <!-- Primary Nav: published CMS Pages only (page_name from admin) -->
-        <?php if (!empty($cms_nav)): ?>
+        <?php if (!empty($cms_nav_tree)): ?>
         <nav class="gp-nav" id="gp-nav" aria-label="Main navigation">
             <ul class="gp-nav-list">
-                <?php foreach ($cms_nav as $np): ?>
-                <li><a href="<?= htmlspecialchars(isset($np['href']) ? $np['href'] : '', ENT_QUOTES, 'UTF-8') ?>" class="gp-nav-link"><?= htmlspecialchars(isset($np['title']) ? $np['title'] : '', ENT_QUOTES, 'UTF-8') ?></a></li>
-                <?php endforeach; ?>
+                <?php
+                $submenu_uid = 0;
+                $render_nav_items = function ($items, $is_child = false) use (&$render_nav_items, &$submenu_uid) {
+                    foreach ($items as $item) {
+                        $href = isset($item['href']) ? (string) $item['href'] : '';
+                        $title = isset($item['title']) ? (string) $item['title'] : '';
+                        $children = (isset($item['children']) && is_array($item['children'])) ? $item['children'] : array();
+                        $hasChildren = !empty($children);
+                        $slug = strtolower(trim((string) $title));
+                        $isMega = in_array($slug, array('products', 'services'), true);
+                        $iconSeed = isset($item['icon']) && trim((string) $item['icon']) !== ''
+                            ? trim((string) $item['icon'])
+                            : strtoupper(substr($title, 0, 1));
+                        $itemClass = 'gp-nav-item' . ($isMega ? ' gp-nav-item--mega' : '');
+                        $submenuId = '';
+                        if ($hasChildren) {
+                            $submenu_uid++;
+                            $submenuId = 'gp-submenu-' . $submenu_uid;
+                        }
+                        echo '<li class="' . $itemClass . '">';
+                        echo '<span class="gp-nav-link-wrap">';
+                        if ($is_child) {
+                            echo '<a href="' . htmlspecialchars($href, ENT_QUOTES, 'UTF-8') . '" class="gp-submenu-link" role="menuitem"'
+                                . ($hasChildren ? ' aria-haspopup="true" aria-expanded="false" aria-controls="' . htmlspecialchars($submenuId, ENT_QUOTES, 'UTF-8') . '"' : '')
+                                . '><span class="gp-submenu-icon" aria-hidden="true">' . htmlspecialchars($iconSeed, ENT_QUOTES, 'UTF-8') . '</span><span class="gp-submenu-text">' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '</span></a>';
+                            if ($hasChildren) {
+                                echo '<span class="gp-nav-arrow" aria-hidden="true"></span>';
+                            }
+                        } else {
+                            echo '<a href="' . htmlspecialchars($href, ENT_QUOTES, 'UTF-8') . '" class="gp-nav-link"'
+                                . ($hasChildren ? ' aria-haspopup="true" aria-expanded="false" aria-controls="' . htmlspecialchars($submenuId, ENT_QUOTES, 'UTF-8') . '"' : '')
+                                . '>' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '</a>';
+                            if ($hasChildren) {
+                                echo '<span class="gp-nav-arrow" aria-hidden="true"></span>';
+                            }
+                        }
+                        echo '</span>';
+                        if ($hasChildren) {
+                            echo '<ul class="gp-submenu" id="' . htmlspecialchars($submenuId, ENT_QUOTES, 'UTF-8') . '" role="menu">';
+                            $render_nav_items($children, true);
+                            echo '</ul>';
+                        }
+                        echo '</li>';
+                    }
+                };
+                $render_nav_items($cms_nav_tree, false);
+                ?>
             </ul>
         </nav>
         <?php endif; ?>
@@ -236,14 +439,21 @@ $_gp_header_slots = function_exists('webshop_header_gather_display_slots')
     </div>
 
     <div class="gp-drawer-body">
-        <?php if (!empty($cms_nav)): ?>
+        <?php if (!empty($cms_nav_tree)): ?>
         <div class="gp-sidebar-section">
             <h3 class="gp-sidebar-section-title">Pages</h3>
-            <?php foreach ($cms_nav as $np): ?>
+            <?php foreach ($cms_nav_tree as $np): ?>
             <a class="gp-sidebar-link" href="<?= htmlspecialchars(isset($np['href']) ? $np['href'] : '', ENT_QUOTES, 'UTF-8') ?>">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
                 <?= htmlspecialchars(isset($np['title']) ? $np['title'] : '', ENT_QUOTES, 'UTF-8') ?>
             </a>
+            <?php if (isset($np['children']) && is_array($np['children']) && !empty($np['children'])): ?>
+                <?php foreach ($np['children'] as $ch): ?>
+                <a class="gp-sidebar-sublink" href="<?= htmlspecialchars(isset($ch['href']) ? $ch['href'] : '', ENT_QUOTES, 'UTF-8') ?>">
+                    <?= htmlspecialchars(isset($ch['title']) ? $ch['title'] : '', ENT_QUOTES, 'UTF-8') ?>
+                </a>
+                <?php endforeach; ?>
+            <?php endif; ?>
             <?php endforeach; ?>
         </div>
         <?php endif; ?>

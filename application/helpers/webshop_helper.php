@@ -4715,6 +4715,110 @@ if (!function_exists('webshop_header_gather_display_slots')) {
     }
 }
 
+if (!function_exists('webshop_sort_nav_items_recursive')) {
+    /**
+     * Sort navigation items recursively.
+     * - siblings with same parent: submenu_order ASC, then nav_order ASC, then title ASC
+     * - roots/default: nav_order ASC, then title ASC
+     *
+     * @param array<int,array<string,mixed>> $items
+     * @return array<int,array<string,mixed>>
+     */
+    function webshop_sort_nav_items_recursive(array $items) {
+        usort($items, function ($a, $b) {
+            $pa = isset($a['parent_page_id']) ? (int) $a['parent_page_id'] : 0;
+            $pb = isset($b['parent_page_id']) ? (int) $b['parent_page_id'] : 0;
+            if ($pa > 0 && $pb > 0 && $pa === $pb) {
+                $sa = isset($a['submenu_order']) ? (int) $a['submenu_order'] : 0;
+                $sb = isset($b['submenu_order']) ? (int) $b['submenu_order'] : 0;
+                if ($sa !== $sb) {
+                    return ($sa < $sb) ? -1 : 1;
+                }
+            }
+            $na = isset($a['nav_order']) ? (int) $a['nav_order'] : 0;
+            $nb = isset($b['nav_order']) ? (int) $b['nav_order'] : 0;
+            if ($na !== $nb) {
+                return ($na < $nb) ? -1 : 1;
+            }
+            $ta = isset($a['title']) ? (string) $a['title'] : '';
+            $tb = isset($b['title']) ? (string) $b['title'] : '';
+            return strcasecmp($ta, $tb);
+        });
+        foreach ($items as $k => $item) {
+            if (isset($item['children']) && is_array($item['children']) && !empty($item['children'])) {
+                $items[$k]['children'] = webshop_sort_nav_items_recursive($item['children']);
+            }
+        }
+        return $items;
+    }
+}
+
+if (!function_exists('webshop_build_cms_nav_tree')) {
+    /**
+     * Build parent->children tree from flat CMS nav rows.
+     * If rows already contain children payload, returns rows as-is.
+     *
+     * @param array<int,array<string,mixed>> $flat_rows
+     * @return array<int,array<string,mixed>>
+     */
+    function webshop_build_cms_nav_tree(array $flat_rows) {
+        $tree = array();
+        $rows_by_id = array();
+        $has_children_payload = false;
+        foreach ($flat_rows as $row) {
+            if (isset($row['children']) && is_array($row['children']) && !empty($row['children'])) {
+                $has_children_payload = true;
+                break;
+            }
+        }
+        if ($has_children_payload) {
+            return $flat_rows;
+        }
+        foreach ($flat_rows as $row) {
+            $id = isset($row['id']) ? (int) $row['id'] : 0;
+            $row['children'] = array();
+            if ($id > 0) {
+                $rows_by_id[$id] = $row;
+            } else {
+                $tree[] = $row;
+            }
+        }
+        foreach ($rows_by_id as $id => $row) {
+            $parent_id = isset($row['parent_page_id']) ? (int) $row['parent_page_id'] : 0;
+            if ($parent_id > 0 && isset($rows_by_id[$parent_id])) {
+                $rows_by_id[$parent_id]['children'][] = $id;
+            }
+        }
+        foreach ($rows_by_id as $id => $row) {
+            $parent_id = isset($row['parent_page_id']) ? (int) $row['parent_page_id'] : 0;
+            if ($parent_id > 0 && isset($rows_by_id[$parent_id])) {
+                continue;
+            }
+            $child_ids = isset($row['children']) && is_array($row['children']) ? $row['children'] : array();
+            $row['children'] = array();
+            foreach ($child_ids as $child_id) {
+                if (isset($rows_by_id[$child_id])) {
+                    $row['children'][] = $rows_by_id[$child_id];
+                }
+            }
+            $tree[] = $row;
+        }
+        return $tree;
+    }
+}
+
+if (!function_exists('webshop_build_sorted_cms_nav_tree')) {
+    /**
+     * Build + sort CMS nav tree for header/footer menus.
+     *
+     * @param array<int,array<string,mixed>> $flat_rows
+     * @return array<int,array<string,mixed>>
+     */
+    function webshop_build_sorted_cms_nav_tree(array $flat_rows) {
+        return webshop_sort_nav_items_recursive(webshop_build_cms_nav_tree($flat_rows));
+    }
+}
+
 if (!function_exists('webshop_ws_website_setting_bundles')) {
     /**
      * Rows from getsettings ($api_website_setting) plus controller view data when present.

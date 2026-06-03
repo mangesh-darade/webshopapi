@@ -29,7 +29,6 @@ $config['elintom_subdomain_skip_hosts'] = array('localhost', '127.0.0.1', '[::1]
 
 $config['elintom_catalog_source'] = 'api';
 $config['elintom_catalog_fallback_database'] = false;
-$config['elintom_cms_direct_db_on_api_not_found'] = false;
 $config['elintom_domain_theme_map'] = array();
 
 $config['elintom_http_cache_settings_seconds'] = 45;

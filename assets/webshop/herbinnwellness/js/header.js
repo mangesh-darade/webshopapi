@@ -17,6 +17,83 @@
         ham.setAttribute('aria-expanded', open);
     });
 
+    // Premium dropdown behavior: hover/focus on desktop, tap-toggle on touch.
+    var navItems = nav ? nav.querySelectorAll('.gp-nav-item') : [];
+    function usesTouchNav() {
+        return window.matchMedia('(hover: none), (pointer: coarse)').matches;
+    }
+    function setExpanded(item, expanded) {
+        var trigger = item ? item.querySelector('.gp-nav-link[aria-haspopup="true"], .gp-submenu-link[aria-haspopup="true"]') : null;
+        if (trigger) trigger.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    }
+    function closeAllNavDropdowns() {
+        Array.prototype.forEach.call(navItems, function (item) {
+            item.classList.remove('is-open');
+            setExpanded(item, false);
+        });
+    }
+    Array.prototype.forEach.call(navItems, function (item) {
+        var sub = null;
+        var link = item.querySelector('.gp-nav-link, .gp-submenu-link');
+        for (var ci = 0; ci < item.children.length; ci++) {
+            var child = item.children[ci];
+            if (!sub && child.classList && child.classList.contains('gp-submenu')) {
+                sub = child;
+            }
+        }
+        if (!sub || !link) return;
+        item.addEventListener('mouseenter', function () {
+            if (usesTouchNav()) return;
+            item.classList.add('is-open');
+            setExpanded(item, true);
+        });
+        item.addEventListener('mouseleave', function () {
+            if (usesTouchNav()) return;
+            item.classList.remove('is-open');
+            setExpanded(item, false);
+        });
+        link.addEventListener('click', function (e) {
+            // On touch devices: first tap opens dropdown, second tap follows link.
+            if (usesTouchNav() && !item.classList.contains('is-open')) {
+                e.preventDefault();
+                closeAllNavDropdowns();
+                item.classList.add('is-open');
+                setExpanded(item, true);
+            }
+        });
+        link.addEventListener('focus', function () {
+            if (usesTouchNav()) return;
+            item.classList.add('is-open');
+            setExpanded(item, true);
+        });
+        link.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                closeAllNavDropdowns();
+                link.blur();
+                return;
+            }
+            if (e.key === 'ArrowDown' && sub) {
+                e.preventDefault();
+                item.classList.add('is-open');
+                setExpanded(item, true);
+                var firstSub = sub.querySelector('.gp-submenu-link');
+                if (firstSub) firstSub.focus();
+            }
+        });
+        sub.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                closeAllNavDropdowns();
+                link.focus();
+            }
+        });
+    });
+    document.addEventListener('click', function (e) {
+        if (!nav) return;
+        if (!nav.contains(e.target)) {
+            closeAllNavDropdowns();
+        }
+    });
+
     if (!bar || !input || !box) return;
 
     var hdr = document.getElementById('gp-header');
