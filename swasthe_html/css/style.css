@@ -1,0 +1,77 @@
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+.text-swasthe-navy {
+  color: #0a1d37;
+}
+
+.bg-swasthe-navy {
+  background-color: #0a1d37;
+}
+
+.text-swasthe-orange {
+  color: #b9860b;
+}
+
+.bg-swasthe-orange {
+  background-color: #b9860b;
+}
+
+.border-swasthe-orange {
+  border-color: #b9860b;
+}
+
+.bg-swasthe-cream {
+  background-color: #fdfaf5;
+}
+
+.container-wide {
+  max-width: 1280px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+.step-arrow::after {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .step-arrow::after {
+    display: block;
+    content: '→';
+    position: absolute;
+    right: -20px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #b9860b;
+    font-size: 1.5rem;
+    font-weight: bold;
+  }
+}
+
+.methodology-step::after {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .methodology-step::after {
+    display: block;
+    content: '';
+    position: absolute;
+    right: -40%;
+    top: 24px;
+    width: 80%;
+    height: 12px;
+    background-image:
+      url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%23b9860b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpath d='M4 2 L10 6 L4 10'/%3e%3c/svg%3e"),
+      linear-gradient(#b9860b, #b9860b);
+    background-size: 12px 12px, calc(100% - 2px) 1.5px;
+    background-position: right center, left center;
+    background-repeat: no-repeat;
+    transform: translateY(-50%);
+    z-index: 0;
+  }
+}

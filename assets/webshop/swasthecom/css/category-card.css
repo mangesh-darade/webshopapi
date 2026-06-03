@@ -1,0 +1,119 @@
+/* Shared category card shell — carousel + grid (reference layout) */
+.gp-cat-card{
+    display:flex;
+    flex-direction:column;
+    height:100%;
+    background:#fff;
+    border:1px solid #e8edf2;
+    border-radius:18px;
+    overflow:hidden;
+    text-decoration:none;
+    color:inherit;
+    box-shadow:0 4px 18px rgba(15,23,42,.06);
+    transition:transform .28s ease,box-shadow .28s ease,border-color .28s ease;
+}
+.gp-cat-card:hover{
+    transform:translateY(-4px);
+    box-shadow:0 16px 36px rgba(33,69,72,.12);
+    border-color:rgba(33,69,72,.22);
+}
+.gp-cat-card__media{
+    margin:12px 12px 0;
+    border-radius:12px;
+    overflow:hidden;
+    background:#f4f6f8;
+    aspect-ratio:16/10;
+    flex-shrink:0;
+}
+.gp-cat-card__media-link{
+    display:block;
+    margin:12px 12px 0;
+    border-radius:12px;
+    overflow:hidden;
+    text-decoration:none;
+    color:inherit;
+    flex-shrink:0;
+}
+.gp-cat-card__media-link .gp-cat-card__media{
+    margin:0;
+}
+.gp-cat-card__media img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    object-position:center;
+    display:block;
+    transition:transform .35s ease;
+}
+.gp-cat-card__media img.gp-cat-card__img--placeholder,
+.gp-cat-card__media img[src*="no_image.png"]{
+    object-fit:scale-down;
+    padding:18px;
+    opacity:.78;
+    filter:grayscale(.1);
+}
+.gp-cat-card:hover .gp-cat-card__media img{transform:scale(1.04)}
+.gp-cat-card__body{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    text-align:left;
+    padding:14px 16px 18px;
+    min-height:0;
+    gap:0;
+}
+.gp-cat-card__title{
+    margin:0 0 8px;
+    width:100%;
+    font-size:15px;
+    font-weight:800;
+    line-height:1.3;
+    color:#111827;
+    display:-webkit-box;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:2;
+    line-clamp:2;
+    overflow:hidden;
+    word-break:normal;
+    overflow-wrap:break-word;
+}
+.gp-cat-card__title-link{
+    display:block;
+    width:100%;
+    text-decoration:none;
+    color:inherit;
+}
+.gp-cat-card__title-link:hover .gp-cat-card__title{color:#214548}
+.gp-cat-card__desc{
+    margin:0 0 10px;
+    width:100%;
+    max-width:100%;
+    font-size:13px;
+    line-height:1.45;
+    color:#64748b;
+    font-weight:400;
+    overflow:hidden;
+    display:-webkit-box;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:2;
+    line-clamp:2;
+    max-height:2.9em;
+    word-break:normal;
+    overflow-wrap:break-word;
+    text-overflow:ellipsis;
+    flex:0 0 auto;
+}
+.gp-cat-card__cta{
+    margin-top:auto;
+    padding-top:4px;
+    font-size:13px;
+    font-weight:700;
+    color:#214548;
+    letter-spacing:.01em;
+    flex-shrink:0;
+    display:inline-block;
+    text-decoration:none;
+}
+.gp-cat-card:hover .gp-cat-card__cta,
+.gp-cat-card__cta:hover{text-decoration:underline}

@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Swasthe helps global manufacturers enter and scale in the U.S. market through marketplace access, D2C, logistics, compliance, and growth support.">
+    <title>Swasthe - U.S. Market Entry Partner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'swasthe-navy': '#0a1d37',
+                        'swasthe-orange': '#b9860b',
+                        'swasthe-cream': '#fdfaf5',
+                    }
+                }
+            }
+        };
+    </script>
+    <link href="css/fonts.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+</head>
+<body class="bg-white text-slate-800 overflow-x-hidden">
+    <!-- BEGIN: MainHeader -->
+    <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-100">
+        <nav class="container-wide py-4 flex items-center justify-between">
+            <div class="flex items-center gap-2 z-50 relative">
+                <a href="swasthe.html"
+                    class="text-[32px] font-bold tracking-tighter text-[#111] hover:opacity-90 transition-opacity"
+                    style="font-family: 'Montserrat', sans-serif; line-height: 1;">
+                    swasth<span class="relative">e<span
+                            class="absolute flex gap-[3px] -top-[1px] left-[50%] -translate-x-[50%]"><span
+                                class="w-[5px] h-[5px] rounded-full bg-[#e32a1e]"></span><span
+                                class="w-[5px] h-[5px] rounded-full bg-[#e32a1e]"></span></span></span>
+                </a>
+            </div>
+
+            <button id="mobile-menu-toggle" type="button"
+                class="md:hidden z-50 relative p-2 text-swasthe-navy hover:text-swasthe-orange focus:outline-none"
+                aria-label="Toggle menu" aria-expanded="false" aria-controls="mobile-menu">
+                <svg id="menu-icon-open" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                </svg>
+                <svg id="menu-icon-close" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+
+            <div class="hidden md:block">
+                <a class="bg-swasthe-orange hover:bg-[#db1901] text-white px-6 py-2.5 rounded-md font-semibold transition-all flex items-center gap-2 whitespace-nowrap"
+                    href="#final-cta">
+                    Get a Free U.S. Market Entry Audit <span class="text-xl" aria-hidden="true">›</span>
+                </a>
+            </div>
+        </nav>
+
+        <div id="mobile-menu"
+            class="hidden md:hidden absolute top-0 left-0 w-full bg-white h-screen pt-24 px-6 shadow-xl border-t border-gray-100 flex flex-col gap-6 overflow-y-auto z-40">
+            <a class="text-xl font-medium text-swasthe-navy border-b border-gray-100 pb-4" href="swasthe.html">Home</a>
+            <a class="text-xl font-medium text-swasthe-navy border-b border-gray-100 pb-4 hover:text-swasthe-orange"
+                href="solutions.html">Solutions</a>
+            <a class="text-xl font-medium text-swasthe-navy border-b border-gray-100 pb-4" href="#">Services</a>
+            <a class="text-xl font-medium text-swasthe-navy border-b border-gray-100 pb-4"
+                href="resources.html">Resources</a>
+            <a class="text-xl font-medium text-swasthe-navy border-b border-gray-100 pb-4" href="about.html">About Us</a>
+            <a class="bg-swasthe-orange text-white px-6 py-4 rounded-md font-semibold text-center mt-4 mb-10"
+                href="#final-cta">Get a Free Audit</a>
+        </div>
+    </header>
+    <!-- END: MainHeader -->
+
+    <main>
+        <!-- BEGIN: HeroSection -->
+        <section class="bg-white overflow-hidden py-12 md:py-20">
+            <div class="container-wide grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+                <div class="lg:col-span-4 relative z-10">
+                    <h1 class="text-3xl lg:text-4xl font-extrabold text-swasthe-navy mb-6 leading-[1.4]">
+                        Enter and Scale in the U.S. Market
+                        <span class="inline-block bg-[#fff7ec] text-swasthe-orange px-2 rounded-lg py-0.5 my-1">Without</span>
+                        Setting Up Local Operations
+                    </h1>
+                    <p class="text-sm text-slate-600 mb-10 max-w-xl leading-relaxed">
+                        Swasthe is your U.S. market entry partner. We help global manufacturers launch and grow in the
+                        U.S. through marketplace access, D2C, logistics, compliance, and growth support—without the
+                        complexity and cost of local operations.
+                    </p>
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <a class="bg-swasthe-orange text-white px-6 py-4 md:px-8 rounded-md font-bold shadow-lg hover:bg-[#db1901] transition-colors flex items-center justify-center gap-2 whitespace-normal sm:whitespace-nowrap text-center"
+                            href="#final-cta">
+                            Get a Free U.S. Market Entry Audit <span aria-hidden="true">›</span>
+                        </a>
+                        <a class="bg-white border border-swasthe-orange text-swasthe-orange px-6 py-4 md:px-8 rounded-md font-bold hover:border-[#db1901] hover:text-[#db1901] transition-colors flex items-center justify-center gap-2 whitespace-normal sm:whitespace-nowrap text-center"
+                            href="#">
+                            Download the U.S. Expansion Guide
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                                    stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+                <div class="lg:col-span-8 relative flex items-center justify-center lg:-ml-16 z-0">
+                    <img alt="U.S. Market Entry Visualization" class="w-full h-auto object-contain"
+                        src="{{api_base_url}}assets/mdata/{{customer_assets_folder}}/uploads/webshop/uploads/images/hero_image.png" width="960" height="540" loading="eager">
+                </div>
+            </div>
+        </section>
+        <!-- END: HeroSection -->
+
+        <!-- BEGIN: TrustBar -->
+        <section class="border-y border-gray-100 py-10 bg-[#fffaf7]">
+            <div class="container-wide">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                    <div class="flex items-start gap-4">
+                        <div class="p-3 bg-white rounded-lg shadow-sm">
+                            <svg class="w-6 h-6 text-swasthe-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                                    stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-swasthe-navy">Compliance-Ready</h4>
+                            <p class="text-xs text-slate-500">Built for U.S. regulations and marketplace policies</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-4">
+                        <div class="p-3 bg-white rounded-lg shadow-sm">
+                            <svg class="w-6 h-6 text-swasthe-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+                                    stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-swasthe-navy">Marketplace Expertise</h4>
+                            <p class="text-xs text-slate-500">Proven success on Amazon, Walmart, and beyond</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-4">
+                        <div class="p-3 bg-white rounded-lg shadow-sm">
+                            <svg class="w-6 h-6 text-swasthe-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                <path d="M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path>
+                                <path d="M12 7a5 5 0 1 0 5 5"></path>
+                                <path d="M13 3.055a9 9 0 1 0 7.941 7.945"></path>
+                                <path d="M15 6v3h3l3 -3h-3v-3z"></path>
+                                <path d="M15 9l-3 3"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-swasthe-navy">Performance-Aligned Model</h4>
+                            <p class="text-xs text-slate-500">We grow when you grow. Aligned with your outcomes.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-4">
+                        <div class="p-3 bg-white rounded-lg shadow-sm">
+                            <svg class="w-6 h-6 text-swasthe-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                                    stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-swasthe-navy">U.S. Growth Systems</h4>
+                            <p class="text-xs text-slate-500">End-to-end systems to launch, scale, and sustain growth</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- END: TrustBar -->
+
+        <!-- BEGIN: WhoWeHelp -->
+        <section class="py-12 md:py-20 bg-white">
+            <div class="container-wide text-center">
+                <h2 class="text-4xl font-bold text-swasthe-navy mb-12">Who We Help</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                    <div class="p-10 border border-gray-100 rounded-2xl shadow-sm hover:shadow-md transition-shadow flex flex-col items-center text-center">
+                        <div class="mb-6 w-20 h-20 bg-swasthe-cream rounded-full flex items-center justify-center text-swasthe-orange">
+                            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
+                                    stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-2xl font-bold text-swasthe-navy mb-3">New Market Entrants</h3>
+                        <p class="text-slate-600">Global manufacturers entering the U.S. for the first time without local presence.</p>
+                    </div>
+                    <div class="p-10 border border-gray-100 rounded-2xl shadow-sm hover:shadow-md transition-shadow flex flex-col items-center text-center">
+                        <div class="mb-6 w-20 h-20 bg-swasthe-cream rounded-full flex items-center justify-center text-swasthe-orange">
+                            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-2xl font-bold text-swasthe-navy mb-3">Scaling Brands</h3>
+                        <p class="text-slate-600">Brands already selling in the U.S. looking to accelerate growth and profitability.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- END: WhoWeHelp -->
+
+        <!-- BEGIN: WhySwasthe -->
+        <section class="py-12 md:py-20 bg-swasthe-cream">
+            <div class="container-wide">
+                <h2 class="text-4xl font-bold text-swasthe-navy text-center mb-16">Why Swasthe</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div class="bg-white p-10 rounded-2xl shadow-sm text-center flex flex-col items-center">
+                        <div class="mb-6 w-16 h-16 bg-swasthe-cream rounded-full flex items-center justify-center text-swasthe-orange">
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                <path d="M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path>
+                                <path d="M12 7a5 5 0 1 0 5 5"></path>
+                                <path d="M13 3.055a9 9 0 1 0 7.941 7.945"></path>
+                                <path d="M15 6v3h3l3 -3h-3v-3z"></path>
+                                <path d="M15 9l-3 3"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-bold text-swasthe-navy mb-4">Outcome-Focused</h3>
+                        <p class="text-slate-600 text-sm leading-relaxed">
+                            We focus on results that matter—revenue, profitability, and sustainable growth.
+                        </p>
+                    </div>
+                    <div class="bg-white p-10 rounded-2xl shadow-sm text-center flex flex-col items-center">
+                        <div class="mb-6 w-16 h-16 bg-swasthe-cream rounded-full flex items-center justify-center text-swasthe-orange">
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                                    stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-bold text-swasthe-navy mb-4">Trust &amp; Expertise</h3>
+                        <p class="text-slate-600 text-sm leading-relaxed">
+                            Deep expertise in U.S. marketplaces, compliance, logistics, and growth strategies you can trust.
+                        </p>
+                    </div>
+                    <div class="bg-white p-10 rounded-2xl shadow-sm text-center flex flex-col items-center">
+                        <div class="mb-6 w-16 h-16 bg-swasthe-cream rounded-full flex items-center justify-center text-swasthe-orange">
+                            <svg class="w-8 h-8" fill="currentColor" stroke="none" viewBox="0 0 640 512" aria-hidden="true">
+                                <path d="M519.2 127.9l-47.6-47.6A56.252 56.252 0 0 0 432 64H205.2c-14.8 0-29.1 5.9-39.6 16.3L118 127.9H0v255.7h64c17.6 0 31.8-14.2 31.9-31.7h9.1l84.6 76.4c30.9 25.1 73.8 25.7 105.6 3.8 12.5 10.8 26 15.9 41.1 15.9 18.2 0 35.3-7.4 48.8-24 22.1 8.7 48.2 2.6 64-16.8l26.2-32.3c5.6-6.9 9.1-14.8 10.9-23h57.9c.1 17.5 14.4 31.7 31.9 31.7h64V127.9H519.2zM48 351.6c-8.8 0-16-7.2-16-16s7.2-16 16-16 16 7.2 16 16c0 8.9-7.2 16-16 16zm390-6.9l-26.1 32.2c-2.8 3.4-7.8 4-11.3 1.2l-23.9-19.4-30 36.5c-6 7.3-15 4.8-18 2.4l-36.8-31.5-15.6 19.2c-13.9 17.1-39.2 19.7-55.3 6.6l-97.3-88H96V175.8h41.9l61.7-61.6c2-.8 3.7-1.5 5.7-2.3H262l-38.7 35.5c-29.4 26.9-31.1 72.3-4.4 101.3 14.8 16.2 61.2 41.2 101.5 4.4l8.2-7.5 108.2 87.8c3.4 2.8 3.9 7.9 1.2 11.3zm106-40.8h-69.2c-2.3-2.8-4.9-5.4-7.7-7.7l-102.7-83.4 12.5-11.4c6.5-6 7-16.1 1-22.6L367 167.1c-6-6.5-16.1-6.9-22.6-1l-55.2 50.6c-9.5 8.7-25.7 9.4-34.6 0-9.3-9.9-8.5-25.1 1.2-33.9l65.6-60.1c7.4-6.8 17-10.5 27-10.5l83.7-.2c2.1 0 4.1.8 5.5 2.3l61.7 61.6H544v128zm48 47.7c-8.8 0-16-7.2-16-16s7.2-16 16-16 16 7.2 16 16c0 8.9-7.2 16-16 16z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-bold text-swasthe-navy mb-4">Partnership Model</h3>
+                        <p class="text-slate-600 text-sm leading-relaxed">
+                            Not an agency. Not a distributor.<br>
+                            <span class="text-swasthe-orange font-semibold">A performance-based marketplace partner.</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- END: WhySwasthe -->
+
+        <!-- BEGIN: HowItWorks -->
+        <section class="py-12 md:py-20 bg-white">
+            <div class="container-wide">
+                <h2 class="text-4xl font-bold text-swasthe-navy text-center mb-16">How It Works</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-y-12 md:gap-y-4 gap-x-4">
+                    <div class="relative text-center step-arrow">
+                        <div class="w-12 h-12 mx-auto mb-4 text-slate-400">
+                            <svg fill="none" stroke="#b9860b" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                            </svg>
+                        </div>
+                        <h4 class="font-bold text-swasthe-navy mb-2">1. Assess</h4>
+                        <p class="text-[11px] text-slate-500">We assess your product, category, and U.S. market opportunity.</p>
+                    </div>
+                    <div class="relative text-center step-arrow">
+                        <div class="w-12 h-12 mx-auto mb-4 text-slate-400">
+                            <svg fill="none" stroke="#b9860b" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+                                    stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                            </svg>
+                        </div>
+                        <h4 class="font-bold text-swasthe-navy mb-2">2. Prepare</h4>
+                        <p class="text-[11px] text-slate-500">We build your market entry plan, compliance, and operational readiness.</p>
+                    </div>
+                    <div class="relative text-center step-arrow">
+                        <div class="w-12 h-12 mx-auto mb-4 text-slate-400">
+                            <svg fill="none" stroke="#b9860b" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"></path>
+                            </svg>
+                        </div>
+                        <h4 class="font-bold text-swasthe-navy mb-2">3. Launch</h4>
+                        <p class="text-[11px] text-slate-500">We set up your storefronts, listings, and logistics to go live.</p>
+                    </div>
+                    <div class="relative text-center step-arrow">
+                        <div class="w-12 h-12 mx-auto mb-4 text-slate-400">
+                            <svg fill="none" stroke="#b9860b" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+                                    stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                            </svg>
+                        </div>
+                        <h4 class="font-bold text-swasthe-navy mb-2">4. Sell</h4>
+                        <p class="text-[11px] text-slate-500">We drive initial sales and visibility across the right channels.</p>
+                    </div>
+                    <div class="relative text-center step-arrow">
+                        <div class="w-12 h-12 mx-auto mb-4 text-slate-400">
+                            <svg fill="none" stroke="#b9860b" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M2 16l6.5-6.5 5 5L22 6M16 6h6v6M6 20v-3M12 20v-5M18 20v-7"
+                                    stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                            </svg>
+                        </div>
+                        <h4 class="font-bold text-swasthe-navy mb-2">5. Grow</h4>
+                        <p class="text-[11px] text-slate-500">We scale what works with data-driven marketing and optimization.</p>
+                    </div>
+                    <div class="relative text-center">
+                        <div class="w-12 h-12 mx-auto mb-4 text-slate-400">
+                            <svg fill="none" stroke="#b9860b" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                                    stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                                <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                            </svg>
+                        </div>
+                        <h4 class="font-bold text-swasthe-navy mb-2">6. Optimize</h4>
+                        <p class="text-[11px] text-slate-500">We continuously optimize for higher ROI and long-term growth.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- END: HowItWorks -->
+
+        <!-- BEGIN: Services -->
+        <section class="py-12 md:py-20 bg-[#fffaf7]">
+            <div class="container-wide">
+                <h2 class="text-4xl font-bold text-swasthe-navy text-center mb-16">Services</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+                    <div class="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow text-center">
+                        <div class="w-12 h-12 mx-auto mb-4 text-swasthe-orange">
+                            <svg class="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M21.21 15.89A10 10 0 1 1 8 2.83" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                                <path d="M22 12A10 10 0 0 0 12 2v10z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                            </svg>
+                        </div>
+                        <h5 class="font-bold text-sm mb-2">U.S. Market Entry Strategy</h5>
+                        <p class="text-[10px] text-slate-500">Market research, positioning, pricing, and go-to-market strategy.</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow text-center">
+                        <div class="w-12 h-12 mx-auto mb-4 text-swasthe-orange">
+                            <svg class="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="m7.5 4.27 9 5.15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                                <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                                <path d="m3.3 7 8.7 5 8.7-5" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                                <path d="M12 22V12" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                            </svg>
+                        </div>
+                        <h5 class="font-bold text-sm mb-2">Amazon Launch</h5>
+                        <p class="text-[10px] text-slate-500">Account setup, listing optimization, PPC, and brand growth.</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow text-center">
+                        <div class="w-12 h-12 mx-auto mb-4 text-swasthe-orange">
+                            <svg class="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                                <path d="M3 6h18" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                                <path d="M16 10a4 4 0 0 1-8 0" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                            </svg>
+                        </div>
+                        <h5 class="font-bold text-sm mb-2">Shopify / D2C</h5>
+                        <p class="text-[10px] text-slate-500">Store setup, conversion optimization, and D2C growth.</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow text-center">
+                        <div class="w-12 h-12 mx-auto mb-4 text-swasthe-orange">
+                            <svg class="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M10 17h4V5H2v12h3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                                <path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                                <path d="M14 17h1" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                                <circle cx="7.5" cy="17.5" r="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></circle>
+                                <circle cx="17.5" cy="17.5" r="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></circle>
+                            </svg>
+                        </div>
+                        <h5 class="font-bold text-sm mb-2">Logistics &amp; Fulfilment</h5>
+                        <p class="text-[10px] text-slate-500">FBA prep, warehousing, 3PL coordination, and delivery solutions.</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow text-center">
+                        <div class="w-12 h-12 mx-auto mb-4 text-swasthe-orange">
+                            <svg class="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                                <path d="m9 12 2 2 4-4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                            </svg>
+                        </div>
+                        <h5 class="font-bold text-sm mb-2">Compliance &amp; Market Readiness</h5>
+                        <p class="text-[10px] text-slate-500">Product compliance, label review, documentation, and policy alignment.</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow text-center">
+                        <div class="w-12 h-12 mx-auto mb-4 text-swasthe-orange">
+                            <svg class="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="m3 11 18-5v12L3 14v-3z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                                <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                            </svg>
+                        </div>
+                        <h5 class="font-bold text-sm mb-2">Marketing &amp; Growth</h5>
+                        <p class="text-[10px] text-slate-500">Brand building, ads, influencer, and full-funnel growth strategies.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- END: Services -->
+
+        <!-- BEGIN: Resources -->
+        <section class="py-12 md:py-20 bg-white">
+            <div class="container-wide">
+                <h2 class="text-4xl font-bold text-swasthe-navy text-center mb-16">Resources</h2>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <a href="#" class="bg-white border border-orange-100/80 p-4 rounded-2xl shadow-sm hover:shadow-md transition-all flex items-center gap-5 group no-underline">
+                        <div class="w-24 h-24 flex-shrink-0">
+                            <img alt="U.S. Expansion Guide cover" class="w-full h-full object-cover rounded-lg shadow-sm"
+                                src="{{api_base_url}}assets/mdata/{{customer_assets_folder}}/uploads/webshop/uploads/images/image_3.png" width="96" height="96" loading="lazy">
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="font-bold text-swasthe-navy mb-1 text-lg group-hover:text-swasthe-orange transition-colors">U.S. Expansion Guide</h4>
+                            <p class="text-xs text-slate-500 leading-relaxed">A step-by-step guide to entering and scaling in the U.S. market.</p>
+                        </div>
+                        <div class="text-swasthe-navy text-2xl font-light pr-2">
+                            <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+                        </div>
+                    </a>
+                    <a href="#" class="bg-white border border-orange-100/80 p-4 rounded-2xl shadow-sm hover:shadow-md transition-all flex items-center gap-5 group no-underline">
+                        <div class="w-24 h-24 flex-shrink-0">
+                            <img alt="Market Insights cover" class="w-full h-full object-cover rounded-lg shadow-sm"
+                                src="{{api_base_url}}assets/mdata/{{customer_assets_folder}}/uploads/webshop/uploads/images/image_4.png" width="96" height="96" loading="lazy">
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="font-bold text-swasthe-navy mb-1 text-lg group-hover:text-swasthe-orange transition-colors">Market Insights</h4>
+                            <p class="text-xs text-slate-500 leading-relaxed">Data-driven insights on categories, trends, and opportunities in the U.S.</p>
+                        </div>
+                        <div class="text-swasthe-navy text-2xl font-light pr-2">
+                            <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+                        </div>
+                    </a>
+                    <a href="#" class="bg-white border border-orange-100/80 p-4 rounded-2xl shadow-sm hover:shadow-md transition-all flex items-center gap-5 group no-underline">
+                        <div class="w-24 h-24 flex-shrink-0">
+                            <img alt="Compliance Guides cover" class="w-full h-full object-cover rounded-lg shadow-sm"
+                                src="{{api_base_url}}assets/mdata/{{customer_assets_folder}}/uploads/webshop/uploads/images/image_5.png" width="96" height="96" loading="lazy">
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="font-bold text-swasthe-navy mb-1 text-lg group-hover:text-swasthe-orange transition-colors">Compliance Guides</h4>
+                            <p class="text-xs text-slate-500 leading-relaxed">Stay compliant with U.S. regulations, standards, and marketplace policies.</p>
+                        </div>
+                        <div class="text-swasthe-navy text-2xl font-light pr-2">
+                            <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </section>
+        <!-- END: Resources -->
+
+        <!-- BEGIN: FinalCTA -->
+        <section id="final-cta" class="py-12 px-6">
+            <div class="container-wide rounded-3xl p-12 flex flex-col md:flex-row items-center justify-between gap-8 border border-orange-100 bg-[#fff7ec]">
+                <div class="flex items-center gap-8">
+                    <div class="w-16 h-16 bg-white rounded-xl shadow-sm flex items-center justify-center text-swasthe-orange flex-shrink-0">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5M12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-2.25h.008v.008H16.5V15zm0 2.25h.008v.008H16.5v-.008z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-2xl md:text-3xl font-bold text-swasthe-navy mb-2">Ready to enter and scale in the U.S.?</h2>
+                        <p class="text-slate-600 text-sm md:text-base">Book your free U.S. Market Entry Audit and get a customized roadmap for your brand.</p>
+                    </div>
+                </div>
+                <a class="bg-swasthe-orange hover:bg-[#db1901] text-white px-6 py-4 md:px-10 md:py-5 rounded-md font-bold transition-all flex items-center justify-center gap-2 text-base md:text-lg shadow-xl whitespace-normal sm:whitespace-nowrap text-center flex-shrink-0"
+                    href="#">
+                    Get a Free U.S. Market Entry Audit <span class="text-2xl" aria-hidden="true">›</span>
+                </a>
+            </div>
+        </section>
+        <!-- END: FinalCTA -->
+    </main>
+
+    <!-- BEGIN: Footer -->
+    <footer class="bg-white pt-12 md:pt-20 pb-10 border-t border-gray-100">
+        <div class="container-wide">
+            <div class="grid grid-cols-1 md:grid-cols-6 gap-8 md:gap-12 mb-10 md:mb-20">
+                <div class="col-span-1 md:col-span-2">
+                    <a href="swasthe.html"
+                        class="inline-block text-[28px] font-bold tracking-tighter text-[#111] mb-6 hover:opacity-90 transition-opacity"
+                        style="font-family: 'Montserrat', sans-serif; line-height: 1;">
+                        swasth<span class="relative">e<span
+                                class="absolute flex gap-[2px] -top-[1px] left-[50%] -translate-x-[50%]"><span
+                                    class="w-[4px] h-[4px] rounded-full bg-[#e32a1e]"></span><span
+                                    class="w-[4px] h-[4px] rounded-full bg-[#e32a1e]"></span></span></span>
+                    </a>
+                    <p class="text-xs text-slate-500 mb-6 leading-relaxed">
+                        Your U.S. Market Entry Partner<br>for Global Manufacturers.
+                    </p>
+                    <div class="flex gap-4">
+                        <a class="text-slate-400 hover:text-swasthe-orange" href="#" aria-label="LinkedIn">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"></path>
+                            </svg>
+                        </a>
+                        <a class="text-slate-400 hover:text-swasthe-orange" href="#" aria-label="YouTube">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"></path>
+                            </svg>
+                        </a>
+                        <a class="text-slate-400 hover:text-swasthe-orange" href="#" aria-label="Twitter">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.134l4.713 6.231zm-1.161 17.52h1.833L7.045 4.126H5.078z"></path>
+                            </svg>
+                        </a>
+                        <a class="text-slate-400 hover:text-swasthe-orange" href="#" aria-label="Email">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                                    stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                            </svg>
+                        </a>
+                    </div>
+                    <div class="w-full max-w-[280px] mt-10">
+                        <h5 class="font-bold text-swasthe-navy mb-2">Stay Updated</h5>
+                        <p class="text-[10px] text-slate-500 mb-4 leading-relaxed">Get the latest insights on U.S. market entry, growth strategies, and trends.</p>
+                        <form class="flex" action="#" method="post">
+                            <label for="newsletter-email" class="sr-only">Email address</label>
+                            <input id="newsletter-email" name="email"
+                                class="flex-1 w-full border border-gray-200 rounded-l-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-swasthe-orange"
+                                placeholder="Enter your email" type="email" autocomplete="email" required>
+                            <button type="submit"
+                                class="bg-swasthe-orange text-white px-3 py-2 rounded-r-md hover:bg-[#db1901] transition-colors flex items-center justify-center"
+                                aria-label="Subscribe">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M14 5l7 7m0 0l-7 7m7-7H3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                                </svg>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                <div class="md:col-start-3 md:col-span-1">
+                    <h5 class="font-bold text-swasthe-navy mb-6">Solutions</h5>
+                    <ul class="text-xs space-y-4 text-slate-500">
+                        <li><a class="hover:text-swasthe-orange" href="solutions.html">New Market Entrants</a></li>
+                        <li><a class="hover:text-swasthe-orange" href="solutions.html">Omnichannel Growth</a></li>
+                        <li><a class="hover:text-swasthe-orange" href="solutions.html">Health &amp; Wellness</a></li>
+                        <li><a class="hover:text-swasthe-orange" href="solutions.html">Consumer Goods</a></li>
+                        <li><a class="hover:text-swasthe-orange" href="solutions.html">Our Approach</a></li>
+                    </ul>
+                </div>
+                <div class="md:col-span-1">
+                    <h5 class="font-bold text-swasthe-navy mb-6">Services</h5>
+                    <ul class="text-xs space-y-4 text-slate-500">
+                        <li><a class="hover:text-swasthe-orange" href="#">All Services</a></li>
+                        <li><a class="hover:text-swasthe-orange" href="#">Amazon Launch</a></li>
+                        <li><a class="hover:text-swasthe-orange" href="#">Shopify / D2C</a></li>
+                        <li><a class="hover:text-swasthe-orange" href="#">Logistics &amp; Fulfilment</a></li>
+                        <li><a class="hover:text-swasthe-orange" href="#">Compliance &amp; Readiness</a></li>
+                        <li><a class="hover:text-swasthe-orange" href="#">Marketing &amp; Growth</a></li>
+                    </ul>
+                </div>
+                <div class="md:col-span-1">
+                    <h5 class="font-bold text-swasthe-navy mb-6">Resources</h5>
+                    <ul class="text-xs space-y-4 text-slate-500">
+                        <li><a class="hover:text-swasthe-orange" href="#">U.S. Expansion Guide</a></li>
+                        <li><a class="hover:text-swasthe-orange" href="#">Market Insights</a></li>
+                        <li><a class="hover:text-swasthe-orange" href="#">Compliance Guides</a></li>
+                        <li><a class="hover:text-swasthe-orange" href="#">Blog</a></li>
+                        <li><a class="hover:text-swasthe-orange" href="#">Webinars</a></li>
+                    </ul>
+                </div>
+                <div class="md:col-span-1">
+                    <h5 class="font-bold text-swasthe-navy mb-6">Company</h5>
+                    <ul class="text-xs space-y-4 text-slate-500">
+                        <li><a class="hover:text-swasthe-orange" href="about.html">About Us</a></li>
+                        <li><a class="hover:text-swasthe-orange" href="#">Our Team</a></li>
+                        <li><a class="hover:text-swasthe-orange" href="#">Careers</a></li>
+                        <li><a class="hover:text-swasthe-orange" href="#">Partners</a></li>
+                        <li><a class="hover:text-swasthe-orange" href="#">Contact Us</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="flex flex-col md:flex-row justify-between items-center pt-8 border-t border-gray-100 text-[10px] text-slate-400">
+                <p>&copy; <span id="current-year">2026</span> Swasthe. All rights reserved.</p>
+                <div class="flex gap-6">
+                    <a class="hover:text-swasthe-orange" href="#">Privacy Policy</a>
+                    <a class="hover:text-swasthe-orange" href="#">Terms of Service</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+    <!-- END: Footer -->
+
+    <script src="js/script.js"></script>
+</body>
+</html>

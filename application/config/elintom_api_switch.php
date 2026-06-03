@@ -41,9 +41,9 @@ $elintom_switch_profiles = array(
         'theme_assets_directory'          => 'herbinnwellness',
     ),
     
-    'localhost_elintom' => array(
+    'localhost_swasthecom' => array(
         'api_base_url'                    => 'http://localhost/ElintOm/',
-        'api_private_key'                 => '3e8676ed23c627117437c7e6a1bbd6e9',
+        'api_private_key'                 => '9e60956e4e0ac49d3b50d9968840b5b6',
         'http_cache_settings_seconds'     => 0,
         'ssl_verify'                      => false,
         'ssl_ca_bundle'                   => '',
@@ -52,14 +52,14 @@ $elintom_switch_profiles = array(
         'mdata_include_http_host_segment' => false,
         'media_use_http_host'             => false,
         'webshop_theme'                   => 'gulfpharmacy',
-        'theme_view_folder'               => 'herbinnwellness',
-        'theme_assets_directory'          => 'herbinnwellness',
+        'theme_view_folder'               => 'swasthecom',
+        'theme_assets_directory'          => 'swasthecom',
     ),
    
 );
 
 $host_to_profile = array(
-    'localhost'                         => 'localhost_elintom',
+    'localhost'                         => 'localhost_swasthecom',
     'webshop.elintpos.in'               => 'herbinnwellness_production',
     'herbinnwebshop.elintpos.in'        => 'herbinnwellness_production',
 );

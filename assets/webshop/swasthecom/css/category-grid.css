@@ -1,0 +1,72 @@
+/* Category grid layout — cards use category-card.css */
+.category-grid-section{padding:8px 0 28px}
+.section-title--ruled,
+.category-grid-section > .section-title--ruled,
+.category-grid-section > .section-title,
+.home-cms-section--category_grid .section-title--ruled,
+.home-cms-section--category_grid .section-title,
+.home-cms-section--category_carousel .section-title--ruled,
+.home-cms-section--category_carousel .section-title{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:clamp(12px,3vw,28px);
+  width:100%;
+  max-width:100%;
+  margin:0 0 24px;
+  font-size:clamp(1.35rem,2.5vw,1.75rem);
+  font-weight:800;
+  color:#214548;
+  text-align:center;
+  box-sizing:border-box;
+}
+.section-title--ruled::before,.section-title--ruled::after,
+.category-grid-section > .section-title::before,
+.category-grid-section > .section-title::after,
+.home-cms-section--category_grid .section-title::before,
+.home-cms-section--category_grid .section-title::after,
+.home-cms-section--category_carousel .section-title::before,
+.home-cms-section--category_carousel .section-title::after{
+  content:"";
+  flex:1 1 0;
+  min-width:24px;
+  height:2px;
+  background:#214548;
+  max-width:220px;
+}
+.gp-cg-grid{
+  display:grid;
+  gap:16px;
+  margin-top:0;
+  grid-template-columns:repeat(auto-fill,minmax(252px,1fr));
+  justify-content:start;
+  align-items:stretch;
+}
+.gp-cg-grid-2col{grid-template-columns:repeat(2,minmax(252px,1fr))}
+.gp-cg-grid-3col{grid-template-columns:repeat(3,minmax(252px,1fr))}
+.gp-cg-grid-4col{grid-template-columns:repeat(4,minmax(252px,1fr))}
+.gp-cg-grid-5col{grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
+.gp-cg-grid-6col{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+.gp-cg-grid--sparse{
+  grid-template-columns:repeat(auto-fill,252px);
+  gap:16px;
+  justify-content:start;
+}
+.gp-cg-card{
+  display:flex;
+  flex-direction:column;
+  height:100%;
+  width:100%;
+  max-width:252px;
+}
+.gp-cg-grid--sparse .gp-cg-card{max-width:252px;width:252px}
+@media(max-width:900px){
+  .gp-cg-grid,.gp-cg-grid-3col,.gp-cg-grid-4col,.gp-cg-grid-5col,.gp-cg-grid-6col{
+    grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+  }
+}
+@media(max-width:640px){
+  .gp-cg-grid,.gp-cg-grid-2col,.gp-cg-grid-3col,.gp-cg-grid-4col,.gp-cg-grid-5col,.gp-cg-grid-6col{
+    grid-template-columns:1fr;
+  }
+}

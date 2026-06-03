@@ -1,0 +1,47 @@
+/* Product reviews page (.pr-*) — tokens from common.css :root */
+.pr-main{max-width:960px;margin:32px auto;padding:0 16px;font-family:'Inter', system-ui, sans-serif}
+.pr-card{background:var(--gp-bg);border:1px solid var(--gp-border);border-radius:12px;padding:24px;margin-bottom:24px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.pr-title{margin:0 0 16px;font-size:24px;color:var(--gp-primary);line-height:1.3}
+.pr-reviews-title{margin-top:0;font-size:20px}
+.pr-no-reviews{color:var(--gp-muted);margin:20px 0 0}
+.pr-required{color:#dc2626}
+
+.pr-form label{display:block;margin-bottom:8px;font-weight:600;color:#374151}
+.pr-form input[type="text"],.pr-form textarea{width:100%;padding:12px;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;margin-bottom:6px;font-size:15px;transition:border-color .15s,box-shadow .15s,background-color .15s}
+.pr-form input[type="text"]:focus,.pr-form textarea:focus{outline:0;border-color:var(--gp-primary);box-shadow:0 0 0 3px rgba(15,118,110,.15)}
+.pr-form .pr-help{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--gp-muted);margin:0 0 14px}
+.pr-form .pr-help .pr-count{font-variant-numeric:tabular-nums}
+.pr-form .pr-help.is-ok{color:#16a34a}
+.pr-form .pr-help.is-bad{color:#b91c1c}
+.pr-input-error{border-color:#dc2626 !important;background:#fef2f2}
+.pr-input-error:focus{box-shadow:0 0 0 3px rgba(220,38,38,.15) !important}
+.pr-form button[type="submit"]{background:var(--gp-primary);color:#fff;border:0;border-radius:8px;padding:12px 24px;cursor:pointer;font-weight:700;transition:background .2s,opacity .2s;min-height:44px;font-size:15px}
+.pr-form button[type="submit"]:hover:not(:disabled){background:var(--gp-primary-light)}
+.pr-form button[type="submit"]:disabled{opacity:.6;cursor:not-allowed}
+
+.star-rating{display:flex;flex-direction:row-reverse;justify-content:flex-end;gap:6px;margin:0 0 6px;padding:8px 4px;border-radius:8px}
+.star-rating.pr-input-error{background:#fef2f2}
+.star-rating input{position:absolute;opacity:0;pointer-events:none}
+.star-rating label{font-size:40px;color:#d1d5db;cursor:pointer;transition:color .15s,transform .15s;margin-bottom:0;padding:0 2px;line-height:1}
+.star-rating :checked ~ label{color:#fbbf24}
+.star-rating label:hover,.star-rating label:hover ~ label{color:#fbbf24}
+.star-rating input:focus-visible + label{outline:2px solid var(--gp-primary);outline-offset:2px;border-radius:4px}
+
+.pr-item{padding:20px 0;border-bottom:1px solid #f3f4f6}
+.pr-item:last-child{border-bottom:0}
+.pr-stars{color:#fbbf24;font-size:18px;margin-bottom:8px;letter-spacing:1px}
+.pr-rtitle{font-size:17px;font-weight:700;margin-bottom:6px;color:var(--gp-text)}
+.pr-rtext{color:#4b5563;line-height:1.6;margin-bottom:10px;white-space:pre-wrap;word-break:break-word}
+.pr-meta{font-size:13px;color:var(--gp-muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pr-avatar{width:24px;height:24px;background:var(--gp-border);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#4b5563}
+.pr-alert{padding:12px 14px;border-radius:8px;margin-bottom:20px;font-size:14px;display:flex;gap:10px;align-items:flex-start;line-height:1.4}
+.pr-alert svg{flex:0 0 18px;margin-top:1px}
+.pr-ok{background:#ecfdf3;border:1px solid #bbf7d0;color:#166534}
+.pr-err{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+
+@media (max-width:480px){
+    .pr-main{margin:16px auto;padding:0 12px}
+    .pr-card{padding:16px;border-radius:10px}
+    .pr-title{font-size:20px}
+    .star-rating label{font-size:34px}
+}
